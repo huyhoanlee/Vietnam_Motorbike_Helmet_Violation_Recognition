@@ -22,7 +22,7 @@ class Model:
         self.config = config
         self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
         self.plate_detector = YOLO(config.PALATE_WEIGHT_PATH, verbose=False)
-        self.ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=use_gpu)
+        self.ocr_model = PaddleOCR(lang='en', show_log=True, use_angle_cls=True, use_gpu=use_gpu)
         self.object_tracker = DeepSort(max_age=20,
                                 n_init=2,
                                 nms_max_overlap=1.0,
