@@ -70,6 +70,27 @@ class PlateRecognizer:
 
         return None, None
 
+    def ocr_detect(
+            self,
+            frame: np.ndarray,
+            plates: np.ndarray
+    ) -> Union[None, tuple[str, float]]:
+        
+        x1, y1, x2, y2 = plates
+        plate_frame = frame[int(y1):int(y2), int(x1):int(x2)]
+
+        result = self.ocr_model.ocr(plate_frame, cls=True)
+        if result and result[0]:
+            plate_number = ""
+            confidence = []
+            for line in result:
+                for word in line:
+                    plate_number += word[1][0]  
+                    confidence.append(word[1][1])
+            product = np.prod(confidence) 
+            return plate_number, product
+        return None, None
+
     def annotate(
             self,
             frame: np.ndarray,

@@ -17,6 +17,8 @@ from supervision.draw.color import ColorPalette
 from typing import List, Tuple, Dict, Any
 from app.controllers.annotation import NoteAnnotator, TraceAnnotator
 from app.controllers.plate_recognition import PlateRecognizer
+from app.utils.utils import detect_no_helmet_violations, extract_violation_data, create_mask_bbox_violen
+
 
 db_session = SessionLocal()
 
@@ -29,17 +31,16 @@ class AIController:
         self.vehicle_detector = self.model.detect_model
         self.plate_detector = self.model.plate_detector
         self.object_tracker = self.model.object_tracker
-        
+        self.num_frame_save = 1
         self.source_video_path = self.config.source_video_path
         
         
-        self.y_min = 750.0
+        self.y_min = 0
         
         
         self.CLASS_DICT = {}
-        self.CLASS_ID = [2, 3, 5, 7]
-        for id in self.CLASS_ID:
-            self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
+        self.CLASS_ID = [0]
+        self.CLASS_DICT = self.vehicle_detector.model.names
         self.data_tracker: Dict[int, List[Any]] = {}
         
         # Create instance of NoteAnnotator and NoteAnnotator
@@ -73,7 +74,8 @@ class AIController:
         self.note_annotator.annotate(frame)
         
         # Vehicle detection
-        results = self.vehicle_detector(frame, conf=0.6, verbose = False)
+        results = self.vehicle_detector(frame, conf=0.25, verbose = False)
+        no_helmet_violations = detect_no_helmet_violations(results)
         if results[0]:
             dets = []
             for x1, y1, x2, y2, conf, id in results[0].boxes.data.cpu().numpy():
@@ -87,28 +89,50 @@ class AIController:
                             for track in tracks]
                 track_dets, track_confs, track_classes, track_ids = zip(*track_info)
                 mask = np.array([conf is not None for conf in track_confs])
-
+                detections = None
                 if len(track_dets) > 0:
+                    bounding_boxes, confidences, class_ids, tracker_ids = extract_violation_data(no_helmet_violations)
+                    
+                    # Prepare detection data
+                    xyxy = np.array(track_dets)
+                    confidence = np.array(track_confs)
+                    class_id = np.array(track_classes).astype(int)
+                    tracker_id = np.array(track_ids).astype(object)
+                    
+                    # Append violation data if present
+                    if bounding_boxes.size > 0:
+                        xyxy = np.append(xyxy, bounding_boxes, axis=0)
+                        confidence = np.append(confidence, confidences, axis=0)
+                        class_id = np.append(class_id, class_ids, axis=0)
+                        tracker_id = np.append(tracker_id, tracker_ids, axis=0)
+                    
+                    # Create violation mask
+                    violen_mask_bbox = create_mask_bbox_violen(track_dets, no_helmet_violations, len(xyxy))
+                    
+                    # Create and configure detections
                     detections = Detections(
-                        xyxy=np.array(track_dets),
-                        confidence=np.array(track_confs),
-                        class_id=np.array(track_classes).astype(int),
-                        tracker_id=np.array(track_ids).astype(int)
+                        xyxy=xyxy,
+                        confidence=confidence,
+                        class_id=class_id,
+                        tracker_id=tracker_id
                     )
-                    detections.filter(mask=mask, inplace=True)
-
-                    # Process detections and update tracking
+                    detections.child = violen_mask_bbox
+                    
+                    # Apply filtering based on presence of violations
+                    filter_mask = mask if not bounding_boxes.size > 0 else np.append(mask, [True]*len(bounding_boxes))
+                    detections.filter(mask=filter_mask, inplace=True)
                     frame, labels = self._process_detections(frame, detections, frame_count)
                     self.line_counter.update(detections=detections)
 
             # Check for violations periodically
-            if frame_count % 10 == 0:
+            if frame_count % self.num_frame_save == 0:
                 self._check_and_record_violations(frame_count)
 
             # Annotate frame with bounding boxes and labels
             return self.box_annotator.annotate(frame=frame, detections=detections, labels=labels)
         else:
             return frame
+        
     def process_video(self, output_path: str, start_frame: int = 0) -> None:
         """
         Process video file starting from a specific frame and save output.
@@ -187,10 +211,15 @@ class AIController:
     def _process_detections(self, frame: np.ndarray, detections: Detections, frame_count: int) -> Tuple[np.ndarray, List[str]]:
         """Process detections and update tracking information"""
         labels = []
-        for xyxy, confidence, class_id, tracker_id in detections:
+        for i, detect in enumerate(detections):
+            xyxy, confidence, class_id, tracker_id = detect
+            if tracker_id is None:
+                continue
             if tracker_id not in self.data_tracker:
                 self.data_tracker[tracker_id] = [[False,False], 0, frame_count, deque(maxlen=64), None, 0]
-
+                # [ ??, number_tracking, frame_count, deque, bbox_frame, ocr_conf]
+            child = detections.child[i]
+            
             x1, y1, x2, y2 = [int(i) for i in xyxy]
             center_point = (int((x2 + x1) / 2), int((y1 + y2) / 2))
             self.data_tracker[tracker_id][3].appendleft(center_point)
@@ -198,14 +227,15 @@ class AIController:
             tracker_state = self.data_tracker[tracker_id]
             
             if xyxy[1] > self.y_min:
-                if class_id == 2:
+                if class_id == 0:
                     tracker_state[0][0] = True
-                    
+                if child:
+                    license_plate = child.get("license_plate")[0].get("bbox")
+                    plate, ocr_conf = self.plate_recognizer.ocr_detect(frame, license_plate)
+                    if plate is not None and ocr_conf > tracker_state[-1]:
+                        tracker_state[-2], tracker_state[-1] = plate, ocr_conf
                 tracker_state[1] += 1
                 tracker_state[2] = frame_count
-                plate, ocr_conf = self.plate_recognizer.detect(frame, xyxy)
-                if plate is not None and ocr_conf > tracker_state[-1]:
-                    tracker_state[-2], tracker_state[-1] = plate, ocr_conf
 
                 if tracker_state[-2] is not None:
                     text = f"[{tracker_state[-2]}] Conf: {tracker_state[-1]:0.2f}"
