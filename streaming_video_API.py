@@ -4,7 +4,7 @@ import threading
 import time
 from starlette.responses import StreamingResponse
 
-from controllers.ai_service import AIController
+from src.controllers.ai_service import AI_Service
 
 
 app = FastAPI()
@@ -13,7 +13,7 @@ app = FastAPI()
 video_source = 'MVI_0334.MOV'  # Change this to your video file
 cap = cv2.VideoCapture(video_source)
 
-ai_controllers = AIController()
+ai_controllers = AI_Service()
 
 latest_frame = None  # Store the latest frame for external API access
 

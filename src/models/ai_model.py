@@ -1,16 +1,14 @@
-from pathlib import Path
-from typing import List, Union
-
 import numpy as np
 import torch
-from deep_sort_realtime.deepsort_tracker import DeepSort
+from config import ModelConfig
 from ultralytics import YOLO
+from deep_sort_realtime.deepsort_tracker import DeepSort
 from paddleocr import PaddleOCR
-from src.config import Config
 from loguru import logger
+
 # Load a model
 class Model:
-    def __init__(self, config: Config = Config):
+    def __init__(self, config: ModelConfig = ModelConfig):
         # Check if CUDA is available
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -37,11 +35,11 @@ class Model:
                                 embedder_wts=None,
                                 polygon=False,
                                 today=None)
-        # self.init()
+        self.warmup()
         
-    def init(self):
+    def warmup(self):
         logger.info("model initiation....")
         img = np.zeros((640, 480, 3), dtype=np.uint8)
         self.detect_model(img, verbose=False, half=True)
         self.ocr_model.ocr(img, cls=True)
-        logger.info("model init successful")
+        logger.info("model warmup successful")
