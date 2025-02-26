@@ -4,7 +4,7 @@ import threading
 import time
 from starlette.responses import StreamingResponse
 
-from src.controllers.ai_service import AI_Service
+from src.modules.ai_service import AI_Service
 
 
 app = FastAPI()

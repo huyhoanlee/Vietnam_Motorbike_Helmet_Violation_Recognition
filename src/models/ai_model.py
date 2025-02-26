@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from config import ModelConfig
+from src.config import ModelConfig
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from paddleocr import PaddleOCR

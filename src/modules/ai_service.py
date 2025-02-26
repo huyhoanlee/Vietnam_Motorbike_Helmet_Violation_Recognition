@@ -1,5 +1,3 @@
-from config import ModelConfig
-from models.ai_model import Model
 from loguru import logger
 from tqdm import tqdm
 import numpy as np
@@ -12,8 +10,10 @@ from supervision.video.source import get_video_frames_generator
 from supervision.geometry.dataclasses import Point
 from supervision.draw.color import ColorPalette
 from typing import List, Tuple, Dict, Any
-from modules.annotation import NoteAnnotator, TraceAnnotator
-from modules.plate_recognition import PlateRecognizer
+from src.modules.annotation import NoteAnnotator, TraceAnnotator
+from src.modules.plate_recognition import PlateRecognizer
+from src.config import ModelConfig
+from src.models.ai_model import Model
 
 class AI_Service:
     def __init__(self, config: ModelConfig = ModelConfig):
@@ -32,7 +32,7 @@ class AI_Service:
         
         
         self.CLASS_DICT = {}
-        self.CLASS_ID = [0, 1, 2, 3]
+        self.CLASS_ID = [0, 2]
         for id in self.CLASS_ID:
             self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
         self.data_tracker: Dict[int, List[Any]] = {}
@@ -47,7 +47,8 @@ class AI_Service:
         self.box_annotator = BoxAnnotator(color=ColorPalette(), thickness=4, text_thickness=4, text_scale=1)
         # self.line_annotator = LineCounterAnnotator(thickness=4, text_thickness=4, text_scale=2)
         
-        self.plate_recognizer = PlateRecognizer(license_plate_detector=self.plate_detector, ocr_model=self.ocr_model)
+        # self.plate_recognizer = PlateRecognizer(license_plate_detector=self.plate_detector, ocr_model=self.ocr_model)
+        self.plate_recognizer = PlateRecognizer(ocr_model=self.ocr_model)
         
         # Initialize video processing components
         # self._initialize_video_components()
@@ -178,7 +179,7 @@ class AI_Service:
                     
                 tracker_state[1] += 1
                 tracker_state[2] = frame_count
-                plate, ocr_conf = self.plate_recognizer.detect(frame, xyxy)
+                plate, ocr_conf = self.plate_recognizer.recognize(frame)
                 if plate is not None and ocr_conf > tracker_state[-1]:
                     tracker_state[-2], tracker_state[-1] = plate, ocr_conf
 
