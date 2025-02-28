@@ -38,39 +38,6 @@ class PlateRecognizer:
         self.text_scale = text_scale
         self.text_thickness = text_thickness
         self.text_padding = text_padding
-
-    def detect(
-            self,
-            frame: np.ndarray,
-            xyxy: np.ndarray
-    ) -> Union[None, tuple[str, float]]:
-        """
-        Detect a license plate in a given frame.
-
-        Args:
-            frame(np.ndarray): The input image frame to detect.
-            xyxy (np.ndarray): A NumPy array containing the coordinates [x1, y1, x2, y2] of the region of interest (ROI)
-                where the car and license plate are located.
-
-        Returns:
-            Union[None, tuple[str, float]]: A tuple containing the recognized plate text and confidence score,
-            or None if no plate is detected.
-        """
-        x1, y1, x2, y2 = [int(i) for i in xyxy]
-        car_frame = frame[int(y1):int(y2), int(x1):int(x2)]
-        plates = self.license_plate_detector(car_frame, conf=self.plate_conf, verbose=False)
-
-        if plates[0]:
-            x1, y1, x2, y2 = plates[0].boxes.xyxy.cpu().numpy()[0]
-            plate_frame = car_frame[int(y1):int(y2), int(x1):int(x2)]
-
-            result = self.ocr_model.ocr(plate_frame, cls=True)
-            if result and result[0]:
-                info = result[0][0][-1]
-                return info[0], info[1]
-            print(result)
-
-        return None, None
     
     def recognize(
             self,
@@ -91,8 +58,8 @@ class PlateRecognizer:
         # print(result[0]) [[[[7.0, 5.0], [46.0, 5.0], [46.0, 22.0], [7.0, 22.0]], ('77-L1', 0.8120859861373901)], [[[5.0, 20.0], [47.0, 20.0], [47.0, 38.0], [5.0, 38.0]], ('387.77', 0.9097450375556946)]]
         if result and result[0]:
             plate_text = ""
-            for info in result[0]: #info: [bbox, (text, confidence)]
-                text, conf = info[-1]
+            for line in result[0]: #line: [bbox, (text, confidence)]
+                text, conf = line[-1]
                 plate_text += text + " "
             return plate_text, conf
     
@@ -157,6 +124,6 @@ class PlateRecognizer:
 if __name__ == "__main__":
     ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=True)
     plate_recognizer = PlateRecognizer(ocr_model=ocr_model)
-    image = cv2.imread("tr1 (382)_plate.png")
+    image = cv2.imread("CAM026_20250224_1930_Mua_12 copy 2.jpg")
     ocr_result = plate_recognizer.recognize(image)
     print("OCR: ", ocr_result)

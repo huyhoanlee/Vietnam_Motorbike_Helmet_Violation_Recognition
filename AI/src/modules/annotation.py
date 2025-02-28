@@ -77,8 +77,10 @@ class NoteAnnotator:
             if i != 0:
                 y1_box += (padding + box_size)
                 y2_box += (padding + box_size)
-
+            
+            print(key)
             color = self.color.by_idx(key)
+            print(color)
             cv2.rectangle(frame, (x1_box, y1_box), (x2_box, y2_box), color.as_bgr(), cv2.FILLED)
 
             y_text = y2_box - padding
@@ -149,3 +151,49 @@ class TraceAnnotator:
             # Draw trails
             cv2.line(frame, data_deque[i - 1], data_deque[i], color.as_bgr(), thickness)
 
+def visualize_detections(frame, detections):
+    """
+    Draws bounding boxes on the frame based on detected objects.
+
+    Args:
+        frame (np.ndarray): Image frame.
+        detections (list): List of dictionaries containing vehicle data.
+
+    Returns:
+        np.ndarray: Annotated frame.
+    """
+    # Define colors for each class
+    colors = {0: (0, 255, 0),  # Green - Vehicle
+              1: (255, 0, 0),  # Blue - Helmet
+              2: (0, 0, 255),  # Red - No Helmet
+              3: (0, 255, 255)}  # Yellow - License Plate
+
+    for vehicle in detections:
+        # Draw vehicle bounding box
+        vehicle_bbox = vehicle["vehicle_bbox"]
+        x_min, y_min, x_max, y_max = map(int, vehicle_bbox)
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), colors[0], 1)
+        cv2.putText(frame, f"Moto {vehicle['vehicle_id']}", 
+                    (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[0], 2)
+
+        # Draw each associated object
+        for obj in vehicle["objects"]:
+            obj_class = obj["class"]
+            obj_bbox = obj["bbox"]
+            x1, y1, x2, y2 = map(int, obj_bbox)
+            conf = obj["confidence"]
+
+            # Draw object bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), colors[obj_class], 1)
+            if obj_class == 2:
+                label = f"No Helmet ({conf:.2f})"
+            else:
+                label = f"Class {obj_class} ({conf:.2f})"
+
+            # If license plate, display plate number
+            if obj_class == 3 and "plate_number" in obj:
+                label = f"Plate: {obj['plate_number']} ({obj['plate_conf']:.2f})"
+            
+            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
+
+    return frame
