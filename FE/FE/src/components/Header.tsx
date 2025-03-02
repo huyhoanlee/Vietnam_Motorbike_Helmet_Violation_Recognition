@@ -1,0 +1,142 @@
+import React, { useState, useEffect } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Box,
+  Badge,
+  Menu,
+  MenuItem,
+  IconButton,
+  Divider,
+  CircularProgress,
+  ListItemText,
+} from "@mui/material";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+interface Notification {
+  id: number;
+  licensePlate: string;
+  violation: string;
+  dateTime: string;
+  cameraId: string;
+}
+
+const Header: React.FC = () => {
+  const navigate = useNavigate();
+  const username = localStorage.getItem("username") || "User";
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch notifications từ API
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get("https://hanaxuan-ai-service.hf.space/result");
+        const formattedData: Notification[] = response.data.device_list.flatMap(
+          (device: any) =>
+            device.detected_result.map((detection: any) => ({
+              id: detection.vehicle_id,
+              licensePlate: detection.plate_numbers,
+              violation: detection.violation,
+              dateTime: detection.timestamp,
+              cameraId: device.camera_id,
+            }))
+        );
+        setNotifications(formattedData.slice(0, 5)); // Giới hạn hiển thị 5 thông báo gần nhất
+      } catch (err) {
+        setError("Failed to fetch notifications.");
+      }
+      setLoading(false);
+    };
+
+    fetchNotifications();
+  }, []);
+
+  const handleOpenNotifications = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseNotifications = () => {
+    setAnchorEl(null);
+  };
+
+  const handleNotificationClick = (id: number) => {
+    navigate(`/detection-detail/${id}`);
+    handleCloseNotifications();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("username");
+    navigate("/login");
+  };
+
+  return (
+    <AppBar position="static" style={{ backgroundColor: "#3f51b5" }}>
+      <Toolbar>
+        <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Welcome, {username}!
+          </Typography>
+        </Box>
+
+        <IconButton color="inherit" onClick={handleOpenNotifications}>
+          <Badge badgeContent={notifications.length} color="error">
+            <NotificationsIcon />
+          </Badge>
+        </IconButton>
+
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleCloseNotifications}
+          PaperProps={{
+            style: { width: "300px" },
+          }}
+        >
+          <Typography sx={{ p: 2, fontWeight: "bold" }}>Notifications</Typography>
+          <Divider />
+          {loading ? (
+            <MenuItem>
+              <CircularProgress size={24} />
+            </MenuItem>
+          ) : error ? (
+            <MenuItem>{error}</MenuItem>
+          ) : notifications.length === 0 ? (
+            <MenuItem>No new notifications</MenuItem>
+          ) : (
+            notifications.map((notification) => (
+              <MenuItem key={notification.id} onClick={() => handleNotificationClick(notification.id)}>
+                <ListItemText
+                  primary={`🚨 Violation: ${notification.violation}`}
+                  secondary={`${notification.licensePlate} | ${notification.dateTime}`}
+                />
+              </MenuItem>
+            ))
+          )}
+        </Menu>
+
+        {/* Nút hồ sơ */}
+        <Button color="inherit" startIcon={<AccountCircleIcon />}>
+          Profile
+        </Button>
+
+        {/* Nút đăng xuất */}
+        <Button color="inherit" onClick={handleLogout}>
+          Logout
+        </Button>
+      </Toolbar>
+    </AppBar>
+  );
+};
+
+export default Header;
