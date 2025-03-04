@@ -45,6 +45,11 @@ class ObjectTracker:
         self.TRACKING_CLASS = [0]
     
     def track(self, detection_results, origin_frame):
+        track_dets = tuple()
+        track_confs = tuple()
+        track_classes = tuple()
+        track_ids = tuple()
+        mask = np.array([])
         if detection_results[0]:
             dets = []
             for x1, y1, x2, y2, conf, id in detection_results[0].boxes.data.cpu().numpy():
@@ -60,20 +65,20 @@ class ObjectTracker:
                 mask = np.array([conf is not None for conf in track_confs])
         return track_dets, track_confs, track_classes, track_ids, mask
     
-# Usage
-if __name__ == "__main__":
-    tracker = ObjectTracker()
-    model = VehicleDetector()
+# # Usage
+# if __name__ == "__main__":
+#     tracker = ObjectTracker()
+#     model = VehicleDetector()
 
-    origin_frame = cv2.imread("CAM013_20250214_1108_Mua_14.jpg")
-    detection_results = model.detect(origin_frame)
+#     origin_frame = cv2.imread("CAM013_20250214_1108_Mua_14.jpg")
+#     detection_results = model.detect(origin_frame)
     
     
-    track_dets, track_confs, track_classes, track_ids, mask = tracker.track(detection_results, origin_frame)
+#     track_dets, track_confs, track_classes, track_ids, mask = tracker.track(detection_results, origin_frame)
     
-    for i, (bbox, conf, class_id, track_id) in enumerate(zip(track_dets, track_confs, track_classes, track_ids)):
-        if mask[i]:
-            cv2.rectangle(origin_frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
-            cv2.putText(origin_frame, f"[{class_id, track_id}]", (int(bbox[0]), int(bbox[1]) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    cv2.imshow('sdfas', origin_frame)
-    cv2.waitKey(0)
+#     for i, (bbox, conf, class_id, track_id) in enumerate(zip(track_dets, track_confs, track_classes, track_ids)):
+#         if mask[i]:
+#             cv2.rectangle(origin_frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+#             cv2.putText(origin_frame, f"[{class_id, track_id}]", (int(bbox[0]), int(bbox[1]) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+#     cv2.imshow('sdfas', origin_frame)
+#     cv2.waitKey(0)
