@@ -1,13 +1,14 @@
 import requests
 import json
 from datetime import datetime
+from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Violation
 from vehicles.models import Vehicle
 from cameras.models import Camera
-from .serializers import ViolationSerializer
+from .serializers import ViolationSerializer, ViolationCreateUpdateSerializer
 
 class AIViolationDetectionView(APIView):
     def get(self, request):
@@ -67,3 +68,38 @@ class AIViolationDetectionView(APIView):
 
         except requests.exceptions.RequestException as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# GET: get all violations 
+# POST: create new
+class ViolationListCreateView(generics.ListCreateAPIView):
+    queryset = Violation.objects.all()
+    serializer_class = ViolationCreateUpdateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permission() for permission in self.permission_classes]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = ViolationSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+# GET: get 1 violationviolation
+# PUT/PATCH: update
+# DELETE: delete
+class ViolationRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Violation.objects.all()
+    serializer_class = ViolationCreateUpdateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permission() for permission in self.permission_classes]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = ViolationSerializer(instance)
+        return Response(serializer.data)

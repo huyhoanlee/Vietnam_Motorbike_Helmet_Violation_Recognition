@@ -2,11 +2,11 @@ import requests
 import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions, generics
 from .models import Notification
 from violations.models import Violation
 from vehicles.models import Vehicle
-from .serializers import NotificationSerializer  # Đảm bảo import serializer
+from .serializers import NotificationSerializer, NotificationCreateUpdateSerializer
 
 class GenerateNotificationsView(APIView):
     def get(self, request):
@@ -49,3 +49,28 @@ class GenerateNotificationsView(APIView):
             return Response({"error": "Failed to fetch violations"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except requests.exceptions.RequestException as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# GET: get all violations 
+# POST: create new
+class NotificationListCreateView(generics.ListCreateAPIView):
+    queryset = Violation.objects.all()
+    serializer_class = NotificationCreateUpdateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permission() for permission in self.permission_classes]
+
+# GET: get 1 violationviolation
+# PUT/PATCH: update
+# DELETE: delete
+class NotificationRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Violation.objects.all()
+    serializer_class = NotificationCreateUpdateSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permission() for permission in self.permission_classes]

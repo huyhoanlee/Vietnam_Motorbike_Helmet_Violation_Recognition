@@ -8,3 +8,8 @@ class ViolationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Violation
         fields = ["id", "plate_num", "camera_id", "status", "image_url", "location", "detected_at"]
+
+class ViolationCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Violation
+        fields = ["plate_num", "camera_id", "status", "image_url", "location", "detected_at"]
