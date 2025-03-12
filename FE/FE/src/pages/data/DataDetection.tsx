@@ -38,7 +38,7 @@ const DataDetection = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>Data Detection</Typography>
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>Streaming Data</Typography>
       
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField

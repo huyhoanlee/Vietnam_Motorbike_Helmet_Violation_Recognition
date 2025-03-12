@@ -35,7 +35,6 @@ const Header: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch notifications từ API
   useEffect(() => {
     const fetchNotifications = async () => {
       setLoading(true);
@@ -51,7 +50,7 @@ const Header: React.FC = () => {
               cameraId: device.camera_id,
             }))
         );
-        setNotifications(formattedData.slice(0, 5)); // Giới hạn hiển thị 5 thông báo gần nhất
+        setNotifications(formattedData.slice(0, 5));
       } catch (err) {
         setError("Failed to fetch notifications.");
       }
@@ -74,9 +73,17 @@ const Header: React.FC = () => {
     handleCloseNotifications();
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("username");
+  const handleLogout = async () => {
+    try {
+      await axios.post("https://hanaxuan-backend.hf.space/api/account/logout");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+
+    // Đặt token về trạng thái hết hạn thay vì xóa hoàn toàn
+    localStorage.setItem("access_token", "expired");
+    localStorage.setItem("refresh_token", "expired");
+
     navigate("/login");
   };
 
@@ -125,15 +132,9 @@ const Header: React.FC = () => {
           )}
         </Menu>
 
-        {/* Nút hồ sơ */}
-        <Button color="inherit" startIcon={<AccountCircleIcon />}>
-          Profile
-        </Button>
+        <Button color="inherit" startIcon={<AccountCircleIcon />}>Profile</Button>
 
-        {/* Nút đăng xuất */}
-        <Button color="inherit" onClick={handleLogout}>
-          Logout
-        </Button>
+        <Button color="inherit" onClick={handleLogout}>Logout</Button>
       </Toolbar>
     </AppBar>
   );

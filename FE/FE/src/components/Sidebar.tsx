@@ -15,10 +15,12 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import WarningIcon from "@mui/icons-material/Warning";
 import DevicesIcon from "@mui/icons-material/Devices";
 import DescriptionIcon from "@mui/icons-material/Description";
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
-  { text: "Data Detection", icon: <AssessmentIcon />, path: "/data-detection" },
+  { text: "Account", icon: <AccountCircleIcon />, path: "/account" },
+  { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
   { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
   { text: "Devices", icon: <DevicesIcon />, path: "/devices" },
   { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },

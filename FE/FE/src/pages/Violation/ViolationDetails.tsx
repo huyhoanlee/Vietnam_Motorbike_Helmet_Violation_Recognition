@@ -19,12 +19,12 @@ const userRole = "admin"; // Đổi thành "supervisor" để test
 interface ViolationDetailProps {
   violation: {
     id: number;
-    address: string;
-    plate: string;
+    location: string;
+    camera_id: string
+    plate_number: string;
     status: string;
-    date: string;
-    description: string;
-    image: string;
+    detected_at: string;
+    image_url: string;
   };
 }
 
@@ -56,7 +56,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
       <CardMedia
         component="img"
         sx={{ width: 150, height: 150, borderRadius: 2, border: "1px solid #ddd" }}
-        image={editedData.image}
+        image={editedData.image_url}
         alt="Violation Image"
       />
 
@@ -72,11 +72,11 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
                 fullWidth
                 size="small"
                 variant="outlined"
-                value={editedData.address}
-                onChange={(e) => handleChange("address", e.target.value)}
+                value={editedData.location}
+                onChange={(e) => handleChange("location", e.target.value)}
               />
             ) : (
-              <Typography>{editedData.address}</Typography>
+              <Typography>{editedData.location}</Typography>
             )}
           </Grid>
 
@@ -89,11 +89,11 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
                 fullWidth
                 size="small"
                 variant="outlined"
-                value={editedData.plate}
-                onChange={(e) => handleChange("plate", e.target.value)}
+                value={editedData.plate_number}
+                onChange={(e) => handleChange("plate_number", e.target.value)}
               />
             ) : (
-              <Typography>{editedData.plate}</Typography>
+              <Typography>{editedData.plate_number}</Typography>
             )}
           </Grid>
 
@@ -118,24 +118,24 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
 
           <Grid item xs={6}>
             <Typography variant="subtitle1" fontWeight="bold">
-              Date:
+              Detected_at:
             </Typography>
             {isEditing ? (
               <TextField
                 fullWidth
                 size="small"
                 variant="outlined"
-                value={editedData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
+                value={editedData.detected_at}
+                onChange={(e) => handleChange("detected_at", e.target.value)}
               />
             ) : (
-              <Typography>{editedData.date}</Typography>
+              <Typography>{editedData.detected_at}</Typography>
             )}
           </Grid>
 
           <Grid item xs={12}>
             <Typography variant="subtitle1" fontWeight="bold">
-              Description:
+              Camera:
             </Typography>
             {isEditing ? (
               <TextField
@@ -143,11 +143,11 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
                 size="small"
                 variant="outlined"
                 multiline
-                value={editedData.description}
+                value={editedData.camera_id}
                 onChange={(e) => handleChange("description", e.target.value)}
               />
             ) : (
-              <Typography>{editedData.description}</Typography>
+              <Typography>{editedData.camera_id}</Typography>
             )}
           </Grid>
         </Grid>

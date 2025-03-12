@@ -1,122 +1,186 @@
-import React, { useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, IconButton, Collapse, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from "@mui/material";
-import { ExpandMore, ExpandLess, Edit, Add } from "@mui/icons-material";
+import React, { useEffect, useState } from "react";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Switch, Snackbar, Alert, IconButton, CircularProgress
+} from "@mui/material";
+import { Edit, Delete, Add } from "@mui/icons-material";
+import { useForm } from "react-hook-form";
+import axios from "axios";
 
 interface Device {
-  id: string;
-  name: string;
+  camera_id: string;
+  device_name: string;
   location: string;
-  status: string;
-  lastActive: string;
-  note: string;
+  status: boolean;
 }
 
-const devicesData: Device[] = [
-  { id: "C01", name: "Camera site A", location: "FPT University", status: "Active", lastActive: "Now", note: "Stable" },
-  { id: "C02", name: "Camera site B", location: "FPT School", status: "Disconnected", lastActive: "17/01/2025", note: "Maintenance" },
-];
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/cameras";
 
-const DeviceList: React.FC = () => {
-  const [devices, setDevices] = useState(devicesData);
-  const [openPopup, setOpenPopup] = useState(false);
+const axiosInstance = axios.create();
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+const DeviceManagement: React.FC = () => {
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
-  const handleEdit = (device: Device) => {
-    setEditingDevice(device);
-    setOpenPopup(true);
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<Device>({
+    mode: "onChange",
+  });
+
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const res = await axiosInstance.get(API_BASE_URL);
+        setDevices(res.data);
+      } catch (err) {
+        setSnackbarMessage("Failed to fetch devices.");
+        setOpenSnackbar(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDevices();
+  }, []);
+
+  const handleOpenDialog = (device?: Device) => {
+    setEditingDevice(device || null);
+    reset(device || { camera_id: "", device_name: "", location: "", status: true });
+    setOpenDialog(true);
   };
 
-  const handleAddNew = () => {
-    setEditingDevice(null);
-    setOpenPopup(true);
+  const handleCloseDialog = () => setOpenDialog(false);
+
+  const onSubmit = async (data: Device) => {
+    try {
+      if (editingDevice) {
+        await axiosInstance.put(`${API_BASE_URL}`, { ...data, user_id: editingDevice.camera_id });
+        setDevices((prev) => prev.map((d) => (d.camera_id === editingDevice.camera_id ? { ...d, ...data } : d)));
+        setSnackbarMessage("Device updated successfully!");
+      } else {
+        const res = await axiosInstance.post(API_BASE_URL, data);
+        setDevices((prev) => [...prev, res.data]);
+        setSnackbarMessage("Device added successfully!");
+      }
+      setOpenSnackbar(true);
+      handleCloseDialog();
+    } catch (err) {
+      setSnackbarMessage("Error processing request.");
+      setOpenSnackbar(true);
+    }
   };
 
-  const handleClose = () => {
-    setOpenPopup(false);
-  };
-
-  const handleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+  const handleDelete = async (id: string) => {
+    try {
+      await axiosInstance.delete(`${API_BASE_URL}`, { data: { camera_id: id } });
+      setDevices((prev) => prev.filter((d) => d.camera_id !== id));
+      setSnackbarMessage("Device deleted successfully!");
+      setOpenSnackbar(true);
+    } catch (err) {
+      setSnackbarMessage("Failed to delete device.");
+      setOpenSnackbar(true);
+    }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>List of Devices</h2>
-      <Button variant="contained" color="primary" startIcon={<Add />} onClick={handleAddNew}>
-        Add a Device
+    <Paper sx={{ padding: 3, margin: 2 }}>
+      <Button variant="contained" color="primary" startIcon={<Add />} onClick={() => handleOpenDialog()}>
+        Add Device
       </Button>
-      <TableContainer component={Paper} style={{ marginTop: 20 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Device ID</TableCell>
-              <TableCell>Device Name</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Last Active</TableCell>
-              <TableCell>Note</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {devices.map((device) => (
-              <React.Fragment key={device.id}>
-                <TableRow>
-                  <TableCell>{device.id}</TableCell>
-                  <TableCell>{device.name}</TableCell>
+      {loading ? (
+        <CircularProgress />
+      ) : (
+        <TableContainer component={Paper} sx={{ marginTop: 2 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Camera ID</TableCell>
+                <TableCell>Device Name</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {devices.map((device) => (
+                <TableRow key={device.camera_id}>
+                  <TableCell>{device.camera_id}</TableCell>
+                  <TableCell>{device.device_name}</TableCell>
                   <TableCell>{device.location}</TableCell>
-                  <TableCell>{device.status}</TableCell>
-                  <TableCell>{device.lastActive}</TableCell>
-                  <TableCell>{device.note}</TableCell>
                   <TableCell>
-                    <IconButton onClick={() => handleExpand(device.id)}>
-                      {expandedId === device.id ? <ExpandLess /> : <ExpandMore />}
-                    </IconButton>
-                    <IconButton onClick={() => handleEdit(device)}>
+                    <Switch
+                      checked={device.status}
+                      onChange={() =>
+                        handleSubmit({ ...device, status: !device.status })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton color="primary" onClick={() => handleOpenDialog(device)}>
                       <Edit />
                     </IconButton>
+                    <IconButton color="error" onClick={() => handleDelete(device.camera_id)}>
+                      <Delete />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
-                <TableRow>
-                  <TableCell colSpan={7} style={{ padding: 0 }}>
-                    <Collapse in={expandedId === device.id} timeout="auto" unmountOnExit>
-                      <Paper style={{ padding: 20, margin: 10, background: "#f5f5f5" }}>
-                        <strong>Device Details</strong>
-                        <p>Device ID: {device.id}</p>
-                        <p>Device Name: {device.name}</p>
-                        <p>Location: {device.location}</p>
-                        <p>Status: {device.status}</p>
-                        <Button variant="contained" onClick={() => handleEdit(device)}>
-                          Edit Device
-                        </Button>
-                      </Paper>
-                    </Collapse>
-                  </TableCell>
-                </TableRow>
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
-      {/* Edit/Add Popup */}
-      <Dialog open={openPopup} onClose={handleClose} fullWidth>
-        <DialogTitle>{editingDevice ? "Edit Device" : "Add New Device"}</DialogTitle>
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>{editingDevice ? "Edit Device" : "Add Device"}</DialogTitle>
         <DialogContent>
-          <TextField label="Device Name" fullWidth margin="dense" defaultValue={editingDevice?.name} />
-          <TextField label="Location" fullWidth margin="dense" defaultValue={editingDevice?.location} />
-          <TextField label="Status" fullWidth margin="dense" defaultValue={editingDevice?.status} />
-          <TextField label="Last Active" fullWidth margin="dense" defaultValue={editingDevice?.lastActive} />
-          <TextField label="Note" fullWidth margin="dense" defaultValue={editingDevice?.note} />
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <TextField
+              {...register("camera_id", { required: "Camera ID is required" })}
+              label="Camera ID (URL format)"
+              fullWidth
+              margin="normal"
+              error={!!errors.camera_id}
+              helperText={errors.camera_id?.message}
+            />
+            <TextField
+              {...register("device_name", { required: "Device Name is required" })}
+              label="Device Name"
+              fullWidth
+              margin="normal"
+              error={!!errors.device_name}
+              helperText={errors.device_name?.message}
+            />
+            <TextField
+              {...register("location", { required: "Location is required" })}
+              label="Location"
+              fullWidth
+              margin="normal"
+              error={!!errors.location}
+              helperText={errors.location?.message}
+            />
+            <DialogActions>
+              <Button onClick={handleCloseDialog}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary">
+                Save
+              </Button>
+            </DialogActions>
+          </form>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" color="primary">Save</Button>
-        </DialogActions>
       </Dialog>
-    </div>
+
+      <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)}>
+        <Alert severity="success">{snackbarMessage}</Alert>
+      </Snackbar>
+    </Paper>
   );
 };
 
-export default DeviceList;
+export default DeviceManagement;

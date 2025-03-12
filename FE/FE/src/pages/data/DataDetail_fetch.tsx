@@ -50,7 +50,7 @@ const DetectionDetail: React.FC = () => {
               licensePlate: detection.plate_numbers,
               violation: detection.violation,
               cameraId: device.camera_id.split("/").pop(), // Lấy ID camera
-              imageUrl: `data:image/jpeg;base64,${device.post_frame}`, // Hiển thị ảnh frame AI nhận diện
+              imageUrl: `data:image/jpeg;base64,${device.post_frame}`, 
             }))
           );
         setDetections(formattedData);
