@@ -7,15 +7,15 @@ import {
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-
+import { format } from 'date-fns';
 // Interface dữ liệu user
 interface User {
   user_id: number;
   username: string;
   email: string;
   password: string;
-  role_id: number;
-  create_at: string;
+  role: number;
+  created_at: Date;
 }
 
 const roles = [
@@ -23,7 +23,7 @@ const roles = [
   { id: 2, name: "Moderator" },
 ];
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts";
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts/";
 
 // Tạo instance axios với token
 const axiosInstance = axios.create();
@@ -57,7 +57,8 @@ const UserManagement: React.FC = () => {
     const fetchUsers = async () => {
       try {
         const res = await axiosInstance.get(API_BASE_URL);
-        setUsers(res.data);
+        console.log("Fetched users:", res.data);
+        setUsers(res.data.map((user: { id: number; }) => ({ ...user, user_id: user.id })));
       } catch (err) {
         setError("Failed to fetch users.");
       } finally {
@@ -69,8 +70,9 @@ const UserManagement: React.FC = () => {
 
   // Xử lý mở popup thêm/sửa user
   const handleOpenDialog = (user?: User) => {
+    console.log("Opening dialog with user:", user);
     setEditingUser(user || null);
-    reset(user || { username: "", email: "", password: "", role_id: 2 });
+    reset(user || { username: "", email: "", password: "", role: 1 });
     setOpenDialog(true);
   };
 
@@ -83,13 +85,13 @@ const UserManagement: React.FC = () => {
 const onSubmit = async (data: User) => {
   try {
     if (editingUser) {
-      await axiosInstance.patch(`${API_BASE_URL}`, { ...data, user_id: editingUser.user_id });
+      await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, data);
       setUsers((prev) =>
         prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...data } : u))
       );
       setSnackbarMessage("User updated successfully!");
     } else {
-      const res = await axiosInstance.post(`${API_BASE_URL}/register`, data);
+      const res = await axiosInstance.post(`${API_BASE_URL}register/`, data);
       setUsers((prev) => [...prev, res.data]);
       setSnackbarMessage("User added successfully!");
     }
@@ -103,8 +105,9 @@ const onSubmit = async (data: User) => {
 
 // Xử lý xóa user
 const handleDelete = async (id: number) => {
+  console.log("Deleting user with id:", id);
   try {
-    await axiosInstance.delete(`${API_BASE_URL}`, { data: { user_id: id } });
+    await axiosInstance.delete(`${API_BASE_URL}users/${id}/`);
     setUsers((prev) => prev.filter((u) => u.user_id !== id));
     setSnackbarMessage("User deleted successfully!");
     setOpenSnackbar(true);
@@ -132,6 +135,7 @@ const handleDelete = async (id: number) => {
                 <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell>Actions</TableCell>
+                <TableCell>Created at</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -139,15 +143,18 @@ const handleDelete = async (id: number) => {
                 <TableRow key={user.user_id}>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{roles.find((r) => r.id === user.role_id)?.name}</TableCell>
+                  <TableCell>{user.role}</TableCell>
                   <TableCell>
                     <IconButton color="primary" onClick={() => handleOpenDialog(user)}>
                       <Edit />
                     </IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(user.user_id)}>
+                    <IconButton color="error" onClick={() => {
+                      console.log("User data:", user);
+                      handleDelete(user.user_id)}}>
                       <Delete />
                     </IconButton>
                   </TableCell>
+                  <TableCell>{format(user.created_at, "dd/MM/yyyy")}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -186,7 +193,7 @@ const handleDelete = async (id: number) => {
               helperText={errors.password?.message}
             />
             <TextField
-              {...register("role_id", { required: "Role is required" })}
+              {...register("role", { required: "Role is required" })}
               select
               label="Role"
               fullWidth
