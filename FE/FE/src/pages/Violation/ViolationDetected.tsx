@@ -20,6 +20,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import axios from "axios";
 import ViolationDetail from "./ViolationDetails";
+import { format } from "date-fns";
 
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations";
 
@@ -136,7 +137,7 @@ const ViolationDetected: React.FC = () => {
                       >
                         {violation.status}
                       </TableCell>
-                      <TableCell>{violation.detected_at}</TableCell>
+                      <TableCell>{format(violation.detected_at, "dd/MM/yyyy")}</TableCell>
                       <TableCell align="center">
                         <IconButton onClick={() => toggleRow(violation.id)}>
                           <ExpandMoreIcon

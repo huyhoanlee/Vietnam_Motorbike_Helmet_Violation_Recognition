@@ -3,19 +3,19 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Switch, Snackbar, Alert, IconButton, CircularProgress,
-  MenuItem
+  MenuItem, Tooltip, Typography, Slide, Fade
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { useParams } from "react-router-dom";
+
 interface Device {
   id: string;
   device_name: string;
   location: string;
   status: "active" | "deactive";
   note: string;
-  last_active: Date
+  last_active: Date;
 }
 
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/cameras/";
@@ -34,7 +34,6 @@ const DeviceManagement: React.FC = () => {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const { id } = useParams<{ id: string }>();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Device>({
     mode: "onChange",
   });
@@ -43,7 +42,6 @@ const DeviceManagement: React.FC = () => {
     const fetchDevices = async () => {
       try {
         const res = await axiosInstance.get(API_BASE_URL);
-        console.log("Fetched devices:", res.data);
         setDevices(res.data);
       } catch (err) {
         setSnackbarMessage("Failed to fetch devices.");
@@ -57,107 +55,119 @@ const DeviceManagement: React.FC = () => {
 
   const handleOpenDialog = (device?: Device) => {
     setEditingDevice(device || null);
-    reset(device || { id: "", device_name: "", location: "", status: "active", note:"" });
+    reset(device || { id: "", device_name: "", location: "", status: "active", note: "" });
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => setOpenDialog(false);
 
-const onSubmit = async (data: Device) => {
-  try {
-    if (editingDevice) {
-      await axiosInstance.patch(`${API_BASE_URL}${editingDevice.id}/`, {
-        ...data,
-        last_active: new Date().toISOString(),  // Đảm bảo `last_active` luôn được gửi
+  const onSubmit = async (data: Device) => {
+    try {
+      if (editingDevice) {
+        await axiosInstance.patch(`${API_BASE_URL}${editingDevice.id}/`, {
+          ...data,
+          last_active: new Date().toISOString(),
+        });
+        setDevices((prev) =>
+          prev.map((d) => (d.id === editingDevice.id ? { ...d, ...data } : d))
+        );
+        setSnackbarMessage("Device updated successfully!");
+      } else {
+        const res = await axiosInstance.post(API_BASE_URL, data);
+        setDevices((prev) => [...prev, res.data]);
+        setSnackbarMessage("Device added successfully!");
+      }
+      setOpenSnackbar(true);
+      handleCloseDialog();
+    } catch (err) {
+      setSnackbarMessage("Error processing request.");
+      setOpenSnackbar(true);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await axiosInstance.delete(`${API_BASE_URL}${id}/`);
+      setDevices((prev) => prev.filter((d) => d.id !== id));
+      setSnackbarMessage("Device deleted successfully!");
+      setOpenSnackbar(true);
+    } catch (err) {
+      setSnackbarMessage("Failed to delete device.");
+      setOpenSnackbar(true);
+    }
+  };
+
+  const handleStatusChange = async (device: Device) => {
+    const updatedStatus = device.status === "active" ? "deactive" : "active";
+    try {
+      await axiosInstance.patch(`${API_BASE_URL}${device.id}/`, {
+        ...device,
+        status: updatedStatus,
+        last_active: new Date().toISOString(),
       });
       setDevices((prev) =>
-        prev.map((d) => (d.id === editingDevice.id ? { ...d, ...data } : d))
+        prev.map((d) => (d.id === device.id ? { ...d, status: updatedStatus } : d))
       );
-      setSnackbarMessage("Device updated successfully!");
-    } else {
-      const res = await axiosInstance.post(API_BASE_URL, data);
-      setDevices((prev) => [...prev, res.data]);
-      setSnackbarMessage("Device added successfully!");
+      setSnackbarMessage("Device status updated successfully!");
+      setOpenSnackbar(true);
+    } catch (err) {
+      setSnackbarMessage("Failed to update device status.");
+      setOpenSnackbar(true);
     }
-    setOpenSnackbar(true);
-    handleCloseDialog();
-  } catch (err) {
-    setSnackbarMessage("Error processing request.");
-    setOpenSnackbar(true);
-  }
-};
+  };
 
-const handleDelete = async (id: string) => {
-  console.log("Deleting device with id:", id);
-  try {
-    await axiosInstance.delete(`${API_BASE_URL}${id}/`);
-    setDevices((prev) => prev.filter((d) => d.id !== id));
-    setSnackbarMessage("Device deleted successfully!");
-    setOpenSnackbar(true);
-  } catch (err) {
-    setSnackbarMessage("Failed to delete device.");
-    setOpenSnackbar(true);
-  }
-};
-const handleStatusChange = async (device: Device) => {
-  const updatedStatus = device.status === "active" ? "deactive" : "active";
-
-  try {
-    await axiosInstance.patch(`${API_BASE_URL}${device.id}/`, {
-      ...device,
-      status: updatedStatus,
-      last_active: new Date().toISOString() 
-    });
-
-    setDevices((prev) =>
-      prev.map((d) => (d.id === device.id ? { ...d, status: updatedStatus } : d))
-    );
-
-    setSnackbarMessage("Device status updated successfully!");
-    setOpenSnackbar(true);
-  } catch (err) {
-    setSnackbarMessage("Failed to update device status.");
-    setOpenSnackbar(true);
-  }
-};
   return (
-    <Paper sx={{ padding: 3, margin: 2 }}>
-      <Button variant="contained" color="primary" startIcon={<Add />} onClick={() => handleOpenDialog()}>
+    <Paper sx={{ padding: 4, margin: 3, borderRadius: 3, boxShadow: 4 }}>
+      <Typography variant="h5" fontWeight="bold" gutterBottom>
+        Device Management
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        startIcon={<Add />}
+        onClick={() => handleOpenDialog()}
+        sx={{ borderRadius: 2, fontWeight: "bold", textTransform: "none" }}
+      >
         Add Device
       </Button>
+
       {loading ? (
-        <CircularProgress />
+        <CircularProgress sx={{ display: "block", margin: "20px auto" }} />
       ) : (
-        <TableContainer component={Paper} sx={{ marginTop: 2 }}>
+        <TableContainer component={Paper} sx={{ marginTop: 3, borderRadius: 3 }}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Device ID</TableCell>
-                <TableCell>Device Name</TableCell>
-                <TableCell>Location</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
+              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableCell><b>Device ID</b></TableCell>
+                <TableCell><b>Device Name</b></TableCell>
+                <TableCell><b>Location</b></TableCell>
+                <TableCell><b>Status</b></TableCell>
+                <TableCell><b>Actions</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {devices.map((device) => (
-                <TableRow key={device.id}>
+                <TableRow key={device.id} hover>
                   <TableCell>{device.id}</TableCell>
                   <TableCell>{device.device_name}</TableCell>
                   <TableCell>{device.location}</TableCell>
                   <TableCell>
                     <Switch
-                       checked={device.status === "active"}
-                       onChange={() => handleStatusChange(device)}
+                      checked={device.status === "active"}
+                      onChange={() => handleStatusChange(device)}
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton color="primary" onClick={() => handleOpenDialog(device)}>
-                      <Edit />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(device.id)}>
-                      <Delete />
-                    </IconButton>
+                    <Tooltip title="Edit">
+                      <IconButton color="primary" onClick={() => handleOpenDialog(device)}>
+                        <Edit />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton color="error" onClick={() => handleDelete(device.id)}>
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -166,7 +176,7 @@ const handleStatusChange = async (device: Device) => {
         </TableContainer>
       )}
 
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
+      <Dialog open={openDialog} onClose={handleCloseDialog} TransitionComponent={Fade}>
         <DialogTitle>{editingDevice ? "Edit Device" : "Add Device"}</DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -200,8 +210,6 @@ const handleStatusChange = async (device: Device) => {
               select
               fullWidth
               margin="normal"
-              error={!!errors.status}
-              helperText={errors.status?.message}
             >
               <MenuItem value="active">Active</MenuItem>
               <MenuItem value="deactive">Deactive</MenuItem>

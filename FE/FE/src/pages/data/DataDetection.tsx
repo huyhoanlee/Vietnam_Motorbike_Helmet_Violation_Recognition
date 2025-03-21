@@ -1,25 +1,41 @@
 import React, { useEffect, useState } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, TextField, Button, Select, MenuItem, FormControl, InputLabel, Typography, Box
+  Paper, TextField, Button, Select, MenuItem, FormControl, InputLabel, Typography, Box, Dialog, DialogTitle, DialogContent
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const DataDetection = () => {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All");
-  const [data, setData] = useState([]);
-  const navigate = useNavigate();
+interface CameraData {
+  id: string;
+  device_name: string;
+  location: string;
+  status: string;
+  last_active: string;
+  url: string;
+}
 
-  // Fetch danh sách camera từ API
+const DataDetection = () => {
+  const [search, setSearch] = useState<string>("");
+  const [filter, setFilter] = useState<string>("All");
+  const [data, setData] = useState<CameraData[]>([]);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [selectedStream, setSelectedStream] = useState<string | null>(null);
+
+  // Fetch dữ liệu từ API
   useEffect(() => {
-    axios.get("https://binhdinh.ttgt.vn/api/cameras")
-      .then(response => {
-        setData(response.data); // Giả sử response.data là danh sách camera
-      })
-      .catch(error => console.error("Error fetching cameras:", error));
+    const fetchData = async () => {
+      try {
+        const response = await axios.get<CameraData[]>(
+          "https://hanaxuan-backend.hf.space/api/cameras/"
+        );
+        setData(response.data);
+      } catch (error) {
+        console.error("Error fetching cameras:", error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,16 +46,29 @@ const DataDetection = () => {
     setFilter(event.target.value);
   };
 
-  // Lọc dữ liệu dựa trên tìm kiếm và bộ lọc
-  const filteredData = data.filter((item: any) =>
-    (filter === "All" || item.name.includes(filter)) &&
-    item.name.toLowerCase().includes(search.toLowerCase())
+  const filteredData = data.filter((item) =>
+    (filter === "All" || item.device_name.includes(filter)) &&
+    item.device_name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleOpenDialog = (url: string) => {
+    console.log("URL hình ảnh AI detect:", url); 
+    setSelectedStream(url);
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedStream(null);
+  };
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>Streaming Data</Typography>
-      
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>
+        Camera Data Detection
+      </Typography>
+
+      {/* Thanh tìm kiếm và bộ lọc */}
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
           variant="outlined"
@@ -53,13 +82,16 @@ const DataDetection = () => {
           <InputLabel>Filter</InputLabel>
           <Select value={filter} onChange={handleFilterChange}>
             <MenuItem value="All">All</MenuItem>
-            {data.map((camera: any) => (
-              <MenuItem key={camera._id} value={camera.name}>{camera.name}</MenuItem>
+            {data.map((camera) => (
+              <MenuItem key={camera.id} value={camera.device_name}>
+                {camera.device_name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
       </Box>
 
+      {/* Bảng dữ liệu */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -71,30 +103,46 @@ const DataDetection = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredData.map((row: any) => (
-              <TableRow key={row._id}>
+            {filteredData.map((row) => (
+              <TableRow key={row.id}>
                 <TableCell>{row.id}</TableCell>
-                <TableCell>
-                  <span 
-                    style={{ 
-                      color: "#007bff", 
-                      textDecoration: "underline", 
-                      cursor: "pointer" 
-                    }} 
-                    onClick={() => navigate(`/device/${row._id}`)}
-                  >
-                    {row.name}
-                  </span>
-                </TableCell>
-                <TableCell>{row.road || "N/A"}</TableCell>
+                <TableCell>{row.device_name}</TableCell>
+                <TableCell>{row.location}</TableCell>
                 <TableCell align="center">
-                  <Button variant="contained" color="error">Report</Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleOpenDialog(row.url)}
+                  >
+                    View Stream
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ sx: { width: "66%", height: "auto" } }}  
+      >
+        <DialogTitle>Live Stream</DialogTitle>
+        <DialogContent>
+          {selectedStream ? (
+            <img
+              src={selectedStream}
+              alt="Live Stream"
+              style={{ width: "100%", height: "auto" }}
+            />
+          ) : (
+            <Typography>Stream not available</Typography>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, CircularProgress, IconButton, Snackbar, Alert
+  TextField, MenuItem, CircularProgress, IconButton, Snackbar, Alert,
+  InputAdornment
 } from "@mui/material";
-import { Edit, Delete, Add } from "@mui/icons-material";
+import { Edit, Delete, Add, Visibility, VisibilityOff  } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { format } from 'date-fns';
@@ -14,13 +15,13 @@ interface User {
   username: string;
   email: string;
   password: string;
-  role: number;
+  role: string | undefined;
   created_at: Date;
 }
 
 const roles = [
-  { id: 1, name: "Admin" },
-  { id: 2, name: "Moderator" },
+  { id: "admin", name: "Admin" },
+  { id: "supervisor", name: "Supervisor" },
 ];
 
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts/";
@@ -47,11 +48,11 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-
+  const [showPassword, setShowPassword] = useState(false);
+  
   const { register, handleSubmit, reset, formState: { errors } } = useForm<User>({
     mode: "onChange",
   });
-
   // Fetch danh sách users
   useEffect(() => {
     const fetchUsers = async () => {
@@ -68,11 +69,13 @@ const UserManagement: React.FC = () => {
     fetchUsers();
   }, []);
 
+
+  
   // Xử lý mở popup thêm/sửa user
   const handleOpenDialog = (user?: User) => {
     console.log("Opening dialog with user:", user);
     setEditingUser(user || null);
-    reset(user || { username: "", email: "", password: "", role: 1 });
+    reset(user || { username: "", email: "", password: "", role: "" });
     setOpenDialog(true);
   };
 
@@ -84,20 +87,65 @@ const UserManagement: React.FC = () => {
  // Xử lý Submit Form (Thêm hoặc Sửa user)
 const onSubmit = async (data: User) => {
   try {
+    const existingUser = users.find(
+      (user) =>
+        user.username === data.username ||
+        user.email === data.email
+    );
+
+    if (existingUser && !editingUser) {
+      setSnackbarMessage("User with this username or email already exists.");
+      setOpenSnackbar(true);
+      return;
+    }
+
+    // So sánh dữ liệu cũ với dữ liệu mới để xác định thay đổi
+    const changes: Partial<User> = {};
     if (editingUser) {
-      await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, data);
+      if (data.username && data.username !== editingUser.username) {
+        changes.username = data.username;
+      }
+      if (data.email && data.email !== editingUser.email) {
+        changes.email = data.email;
+      }
+      if (data.role && data.role !== editingUser.role) {
+        changes.role = roles.find((role) => role.id === data.role)?.id;
+      }
+      if (data.password) {
+        changes.password = data.password;
+      }
+
+      // Kiểm tra nếu không có thay đổi
+      if (Object.keys(changes).length === 0) {
+        setSnackbarMessage("No changes detected. No update performed.");
+        setOpenSnackbar(true);
+        return;
+      }
+
+      // Thực hiện cập nhật nếu có thay đổi
+      await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, changes);
       setUsers((prev) =>
-        prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...data } : u))
+        prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...changes } : u))
       );
       setSnackbarMessage("User updated successfully!");
     } else {
-      const res = await axiosInstance.post(`${API_BASE_URL}register/`, data);
-      setUsers((prev) => [...prev, res.data]);
+      // Thêm mới user
+      const submitData = {
+        ...data,
+        role: roles.find((role) => role.id === data.role)?.id,
+      };
+
+      await axiosInstance.post(`${API_BASE_URL}register/`, submitData);
+      const res = await axiosInstance.get(API_BASE_URL);
+      setUsers(res.data.map((user: { id: number }) => ({ ...user, user_id: user.id })));
+
       setSnackbarMessage("User added successfully!");
     }
+
     setOpenSnackbar(true);
     handleCloseDialog();
   } catch (err) {
+    console.error("Error adding/updating user:", err);
     setSnackbarMessage("Error processing request.");
     setOpenSnackbar(true);
   }
@@ -143,7 +191,7 @@ const handleDelete = async (id: number) => {
                 <TableRow key={user.user_id}>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{roles.find((role) => role.id === user.role)?.name || user.role}</TableCell>
                   <TableCell>
                     <IconButton color="primary" onClick={() => handleOpenDialog(user)}>
                       <Edit />
@@ -172,11 +220,12 @@ const handleDelete = async (id: number) => {
               label="Username"
               fullWidth
               margin="normal"
+              disabled={!!editingUser}
               error={!!errors.username}
               helperText={errors.username?.message}
             />
             <TextField
-              {...register("email", { required: "Email is required", pattern: /^\S+@\S+\.\S+$/ })}
+              {...register("email", { required: "Email is required", pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, })}
               label="Email"
               fullWidth
               margin="normal"
@@ -184,13 +233,33 @@ const handleDelete = async (id: number) => {
               helperText={errors.email?.message}
             />
             <TextField
-              {...register("password", { required: "Password is required", minLength: 6 })}
+              {...register("password", { 
+                required: !editingUser && "Password is required", 
+                minLength: { value: 6, message: "Password must be at least 6 characters long." },
+                pattern: {
+                value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/,
+                message: "Password must include uppercase, lowercase, and a number."
+                }
+               })}  
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               fullWidth
               margin="normal"
               error={!!errors.password}
-              helperText={errors.password?.message}
+                  helperText={
+                    editingUser 
+                      ? "Leave blank to keep current password" 
+                      : errors.password?.message
+                  }
+              InputProps={{
+                endAdornment: ( 
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               {...register("role", { required: "Role is required" })}
@@ -198,6 +267,8 @@ const handleDelete = async (id: number) => {
               label="Role"
               fullWidth
               margin="normal"
+              error={!!errors.role}
+              helperText={errors.role?.message}
             >
               {roles.map((role) => (
                 <MenuItem key={role.id} value={role.id}>
