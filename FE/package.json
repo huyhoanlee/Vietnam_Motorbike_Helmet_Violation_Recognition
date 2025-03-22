@@ -5,6 +5,8 @@
     "@mui/material": "^6.4.7",
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "react-hook-form": "^7.54.2",
     "yup": "^1.6.1"
   }
