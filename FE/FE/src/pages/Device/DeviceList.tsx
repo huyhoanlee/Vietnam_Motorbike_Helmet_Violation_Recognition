@@ -3,7 +3,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Switch, Snackbar, Alert, IconButton, CircularProgress,
-  MenuItem, Tooltip, Typography, Slide, Fade
+  MenuItem, Tooltip, Typography, Fade
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
@@ -63,8 +63,39 @@ const DeviceManagement: React.FC = () => {
 
   const onSubmit = async (data: Device) => {
     try {
-      if (editingDevice) {
-        await axiosInstance.patch(`${API_BASE_URL}${editingDevice.id}/`, {
+       const existingDevice = devices.find(
+        (device) => 
+          device.id === data.id ||
+          device.device_name == data.device_name
+       );
+
+       if (existingDevice && !editingDevice){
+        setSnackbarMessage("Device already exists.");
+        setOpenSnackbar(true);
+        return;
+       }
+
+       const changes: Partial<Device> = {};
+       if (editingDevice) {
+          if(data.device_name && data.device_name !== editingDevice.device_name) {
+            changes.device_name = data.device_name;
+          }
+          if(data.id && data.id !== editingDevice.id) {
+            changes.id = data.id;
+          }
+          if(data.location && data.location !== editingDevice.location) {
+            changes.location = data.location;
+          }
+
+          // Nếu dữ liệu không thay đổi
+          if (Object.keys(changes).length == 0) {
+            setSnackbarMessage("No changes made. No update performed.");
+            setOpenSnackbar(true);
+            return;
+          }
+
+          // Thực hiện cập nhật dữ liệu nếu có thay đổi
+          await axiosInstance.patch(`${API_BASE_URL}${editingDevice.id}/`, {
           ...data,
           last_active: new Date().toISOString(),
         });
@@ -72,17 +103,18 @@ const DeviceManagement: React.FC = () => {
           prev.map((d) => (d.id === editingDevice.id ? { ...d, ...data } : d))
         );
         setSnackbarMessage("Device updated successfully!");
-      } else {
+       }else{
         const res = await axiosInstance.post(API_BASE_URL, data);
         setDevices((prev) => [...prev, res.data]);
         setSnackbarMessage("Device added successfully!");
+       }
+        setOpenSnackbar(true);
+        handleCloseDialog();
+      } catch (err) {
+        console.error("Error adding/updating device: ", err);
+        setSnackbarMessage("Error processing request.");
+        setOpenSnackbar(true);
       }
-      setOpenSnackbar(true);
-      handleCloseDialog();
-    } catch (err) {
-      setSnackbarMessage("Error processing request.");
-      setOpenSnackbar(true);
-    }
   };
 
   const handleDelete = async (id: string) => {
