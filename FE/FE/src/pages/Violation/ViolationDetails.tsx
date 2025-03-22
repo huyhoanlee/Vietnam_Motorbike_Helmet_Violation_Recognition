@@ -9,7 +9,7 @@ import {
   CardContent,
   Grid,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 
@@ -177,11 +177,11 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
             ) : (
               <Button
                 variant="contained"
-                startIcon={<EditIcon />}
+                startIcon={<NotificationsActiveIcon />}
                 sx={{ backgroundColor: "#673ab7", "&:hover": { backgroundColor: "#512da8" } }}
                 onClick={handleEditClick}
               >
-                Edit
+                Alert
               </Button>
             )}
           </Box>

@@ -11,6 +11,7 @@ import DataDetail from "./pages/data/DataDetail_fetch";
 import UserManagement from "./pages/Account/UserManagement";
 import AnalyticsPage from "./pages/Analytics/AnalyticsPage ";
 import PrivateRoute from "./stores/privateroute";
+import Report from "./pages/Report/Report";
 
 const App = () => {
   return (
@@ -24,6 +25,7 @@ const App = () => {
         <Route path="/data-detection" element={<MainLayout><DataDetection /></MainLayout>} />
         <Route path="/device/:deviceId" element={<MainLayout><DataDetail /></MainLayout>} />
         <Route path="/account" element={<PrivateRoute element={<MainLayout><UserManagement /></MainLayout>} />} />
+        <Route path="/reports" element={<PrivateRoute element={<MainLayout><Report /></MainLayout>} />} />
         <Route path="/analytics" element={<MainLayout><AnalyticsPage /></MainLayout>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
