@@ -1,6 +1,10 @@
 from typing import List, Tuple, Dict, Any
 import numpy  as np
 import cv2
+import imageio.v3 as iio
+import base64
+import io
+
 
 def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
 
@@ -57,7 +61,7 @@ def process_to_output_json(grouped_json, frame, post_frame):
     Returns:
         dict: JSON output with detected vehicles and violations.
     """
-    output_json = {"camera_id": None, "post_frame": post_frame,  "detected_result": []}
+    output_json = {"camera_id": None, "post_frame": encode_image(post_frame),  "detected_result": []}
 
     for group in grouped_json:
         vehicle_id = int(group["vehicle_id"])  # Convert to int if needed
@@ -80,12 +84,37 @@ def process_to_output_json(grouped_json, frame, post_frame):
                     violation = "no_helmet"
                 elif obj["class"] == 3 and "plate_number" in obj:
                     plate_number = obj["plate_number"]
-
+                    
             output_json["detected_result"].append({
                 "vehicle_id": vehicle_id,
-                "image": vehicle_img,
+                "image": encode_image(vehicle_img),
                 "violation": violation,
                 "plate_numbers": plate_number
             })
-
     return output_json
+
+def encode_image(image_array: np.ndarray) -> str:
+    if image_array.dtype != np.uint8:
+        image_array = image_array.astype(np.uint8)
+    buffer = io.BytesIO()
+    iio.imwrite(buffer, image_array, format='PNG')
+    image_bytes = buffer.getvalue()
+    base64_string = base64.b64encode(image_bytes).decode('utf-8')
+    buffer.close()
+    return base64_string
+
+def get_frames(urls: List[str]) -> List[Dict[str, Any]]:
+    """Capture frames from multiple video streams using PIL."""
+    data = []
+    for url in urls:
+        try:
+            reader = iio.imiter(url)
+            frame = next(reader)  # Get the first frame as numpy array
+            data.append({
+                "url": url,
+                "frame": frame,
+                "frame_count": 0
+            })
+        except Exception as e:
+            return data
+    return data

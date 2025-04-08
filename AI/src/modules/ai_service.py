@@ -48,7 +48,7 @@ class AI_Service:
         # Initialize video processing components
         # self._initialize_video_components()
         
-    def process_frame(self, frame: np.ndarray, frame_count: int) -> np.ndarray:
+    def process_frame(self, frame: np.ndarray, frame_count: int) -> dict:
         """Process a single frame and return annotated frame"""
         # self.note_annotator.annotate(frame)
         
@@ -82,7 +82,8 @@ class AI_Service:
             # return self.box_annotator.annotate(frame=frame, detections=detections, labels=labels)
             return output_json
         else:
-            return frame
+            return process_to_output_json(grouped_json, frame, frame)
+
         
     def process_video(self, output_path: str, start_frame: int = 0) -> None:
         """
