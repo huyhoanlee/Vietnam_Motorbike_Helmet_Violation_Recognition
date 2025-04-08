@@ -83,6 +83,7 @@ class AI_Service:
             return output_json
         else:
             return process_to_output_json(grouped_json, frame, frame)
+
         
     def process_video(self, output_path: str, start_frame: int = 0) -> None:
         """

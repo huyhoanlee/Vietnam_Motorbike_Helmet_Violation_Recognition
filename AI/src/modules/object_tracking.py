@@ -50,6 +50,7 @@ class ObjectTracker:
         track_classes = tuple()
         track_ids = tuple()
         mask = np.array([])
+
         if detection_results[0]:
             dets = []
             for x1, y1, x2, y2, conf, id in detection_results[0].boxes.data.cpu().numpy():

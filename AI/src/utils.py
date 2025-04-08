@@ -5,6 +5,7 @@ import imageio.v3 as iio
 import base64
 import io
 
+
 def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
 
     """
@@ -90,7 +91,6 @@ def process_to_output_json(grouped_json, frame, post_frame):
                 "violation": violation,
                 "plate_numbers": plate_number
             })
-
     return output_json
 
 def encode_image(image_array: np.ndarray) -> str:
