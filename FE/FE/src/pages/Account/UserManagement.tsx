@@ -1,0 +1,296 @@
+import React, { useEffect, useState } from "react";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, MenuItem, CircularProgress, IconButton, Snackbar, Alert,
+  InputAdornment
+} from "@mui/material";
+import { Edit, Delete, Add, Visibility, VisibilityOff  } from "@mui/icons-material";
+import { useForm } from "react-hook-form";
+import axios from "axios";
+import { format } from 'date-fns';
+// Interface dữ liệu user
+interface User {
+  user_id: number;
+  username: string;
+  email: string;
+  password: string;
+  role: string | undefined;
+  created_at: Date;
+}
+
+const roles = [
+  { id: "admin", name: "Admin" },
+  { id: "supervisor", name: "Supervisor" },
+];
+
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts/";
+
+// Tạo instance axios với token
+const axiosInstance = axios.create();
+
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+const UserManagement: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<User>({
+    mode: "onChange",
+  });
+  // Fetch danh sách users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await axiosInstance.get(API_BASE_URL);
+        console.log("Fetched users:", res.data);
+        setUsers(res.data.map((user: { id: number; }) => ({ ...user, user_id: user.id })));
+      } catch (err) {
+        setError("Failed to fetch users.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+
+  
+  // Xử lý mở popup thêm/sửa user
+  const handleOpenDialog = (user?: User) => {
+    console.log("Opening dialog with user:", user);
+    setEditingUser(user || null);
+    reset(user || { username: "", email: "", password: "", role: "" });
+    setOpenDialog(true);
+  };
+
+  // Xử lý đóng popup
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+  };
+
+ // Xử lý Submit Form (Thêm hoặc Sửa user)
+const onSubmit = async (data: User) => {
+  try {
+    const existingUser = users.find(
+      (user) =>
+        user.username === data.username ||
+        user.email === data.email
+    );
+
+    if (existingUser && !editingUser) {
+      setSnackbarMessage("User with this username or email already exists.");
+      setOpenSnackbar(true);
+      return;
+    }
+
+    // So sánh dữ liệu cũ với dữ liệu mới để xác định thay đổi
+    const changes: Partial<User> = {};
+    if (editingUser) {
+      if (data.username && data.username !== editingUser.username) {
+        changes.username = data.username;
+      }
+      if (data.email && data.email !== editingUser.email) {
+        changes.email = data.email;
+      }
+      if (data.role && data.role !== editingUser.role) {
+        changes.role = roles.find((role) => role.id === data.role)?.id;
+      }
+      if (data.password) {
+        changes.password = data.password;
+      }
+
+      // Kiểm tra nếu không có thay đổi
+      if (Object.keys(changes).length === 0) {
+        setSnackbarMessage("No changes detected. No update performed.");
+        setOpenSnackbar(true);
+        return;
+      }
+
+      // Thực hiện cập nhật nếu có thay đổi
+      await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, changes);
+      setUsers((prev) =>
+        prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...changes } : u))
+      );
+      setSnackbarMessage("User updated successfully!");
+    } else {
+      // Thêm mới user
+      const submitData = {
+        ...data,
+        role: roles.find((role) => role.id === data.role)?.id,
+      };
+
+      await axiosInstance.post(`${API_BASE_URL}register/`, submitData);
+      const res = await axiosInstance.get(API_BASE_URL);
+      setUsers(res.data.map((user: { id: number }) => ({ ...user, user_id: user.id })));
+
+      setSnackbarMessage("User added successfully!");
+    }
+
+    setOpenSnackbar(true);
+    handleCloseDialog();
+  } catch (err) {
+    console.error("Error adding/updating user:", err);
+    setSnackbarMessage("Error processing request.");
+    setOpenSnackbar(true);
+  }
+};
+
+// Xử lý xóa user
+const handleDelete = async (id: number) => {
+  console.log("Deleting user with id:", id);
+  try {
+    await axiosInstance.delete(`${API_BASE_URL}users/${id}/`);
+    setUsers((prev) => prev.filter((u) => u.user_id !== id));
+    setSnackbarMessage("User deleted successfully!");
+    setOpenSnackbar(true);
+  } catch (err) {
+    setSnackbarMessage("Failed to delete user.");
+    setOpenSnackbar(true);
+  }
+};
+
+  return (
+    <Paper sx={{ padding: 3, margin: 2 }}>
+      <Button variant="contained" color="primary" startIcon={<Add />} onClick={() => handleOpenDialog()}>
+        Add User
+      </Button>
+      {loading ? (
+        <CircularProgress />
+      ) : error ? (
+        <p>{error}</p>
+      ) : (
+        <TableContainer component={Paper} sx={{ marginTop: 2 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Username</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Actions</TableCell>
+                <TableCell>Created at</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.user_id}>
+                  <TableCell>{user.username}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{roles.find((role) => role.id === user.role)?.name || user.role}</TableCell>
+                  <TableCell>
+                    <IconButton color="primary" onClick={() => handleOpenDialog(user)}>
+                      <Edit />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => {
+                      console.log("User data:", user);
+                      handleDelete(user.user_id)}}>
+                      <Delete />
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>{format(user.created_at, "dd/MM/yyyy")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Popup Form */}
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>{editingUser ? "Edit User" : "Add User"}</DialogTitle>
+        <DialogContent>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <TextField
+              {...register("username", { required: "Username is required" })}
+              label="Username"
+              fullWidth
+              margin="normal"
+              disabled={!!editingUser}
+              error={!!errors.username}
+              helperText={errors.username?.message}
+            />
+            <TextField
+              {...register("email", { required: "Email is required", pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, })}
+              label="Email"
+              fullWidth
+              margin="normal"
+              error={!!errors.email}
+              helperText={errors.email?.message}
+            />
+            <TextField
+              {...register("password", { 
+                required: !editingUser && "Password is required", 
+                minLength: { value: 6, message: "Password must be at least 6 characters long." },
+                pattern: {
+                value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/,
+                message: "Password must include uppercase, lowercase, and a number."
+                }
+               })}  
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              fullWidth
+              margin="normal"
+              error={!!errors.password}
+                  helperText={
+                    editingUser 
+                      ? "Leave blank to keep current password" 
+                      : errors.password?.message
+                  }
+              InputProps={{
+                endAdornment: ( 
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              {...register("role", { required: "Role is required" })}
+              select
+              label="Role"
+              fullWidth
+              margin="normal"
+              error={!!errors.role}
+              helperText={errors.role?.message}
+            >
+              {roles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <DialogActions>
+              <Button onClick={handleCloseDialog}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary">
+                Save
+              </Button>
+            </DialogActions>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)}>
+        <Alert severity="success">{snackbarMessage}</Alert>
+      </Snackbar>
+    </Paper>
+  );
+};
+
+export default UserManagement;
