@@ -1,1 +1,0 @@
-# Vietnam_Motorbike_Helmet_Violation_Recognition
