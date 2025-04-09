@@ -7,3 +7,8 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ["id", "plate_num", "status", "image_url", "location"]
+
+class NotificationCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["plate_num", "status", "image_url", "location"]
