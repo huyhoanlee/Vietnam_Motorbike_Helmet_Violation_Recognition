@@ -16,11 +16,6 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import axios from "axios";
@@ -28,7 +23,6 @@ import ViolationDetail from "./ViolationDetails";
 import { format } from "date-fns";
 
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations";
-const NOTIFICATION_API_URL = "https://hanaxuan-backend.hf.space/api/notifications";
 
 const axiosInstance = axios.create();
 axiosInstance.interceptors.request.use((config) => {
@@ -41,17 +35,11 @@ axiosInstance.interceptors.request.use((config) => {
 interface Violation {
   id: number;
   location: string;
-  camera_id: string;
+  camera_id: string
   plate_number: string;
   status: string;
   detected_at: string;
   image_url: string;
-  notified?: boolean;
-}
-
-interface Citizen {
-  plate_number: string;
-  email?: string;
 }
 
 const ViolationDetected: React.FC = () => {
@@ -60,111 +48,32 @@ const ViolationDetected: React.FC = () => {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [selectedViolations, setSelectedViolations] = useState<number[]>([]);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<"notifyAll" | "notifySelected">("notifyAll");
-  const [citizens, setCitizens] = useState<Citizen[]>([]);
 
+  // Fetch dữ liệu từ API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchViolations = async () => {
       try {
         const response = await axiosInstance.get(API_BASE_URL);
         setViolations(response.data);
-        const citizenResponse = await axiosInstance.get(
-          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all"
-        );
-        setCitizens(citizenResponse.data);
       } catch (err) {
-        setError("Failed to fetch data, please try again later.");
+        setError("Failed to fetch violation data."); 
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchViolations();
   }, []);
 
+  // Mở rộng/Thu gọn chi tiết
   const toggleRow = (id: number) => {
     setExpandedRow(expandedRow === id ? null : id);
-  };
-
-  const handleSelectViolation = (id: number) => {
-    setSelectedViolations((prevSelected) =>
-      prevSelected.includes(id)
-        ? prevSelected.filter((violationId) => violationId !== id)
-        : [...prevSelected, id]
-    );
-  };
-
-  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      const allViolationIds = violations.map((v) => v.id);
-      setSelectedViolations(allViolationIds);
-    } else {
-      setSelectedViolations([]);
-    }
-  };
-
-  const handleNotifyAll = () => {
-    setActionType("notifyAll");
-    setConfirmDialogOpen(true);
-  };
-
-  const handleNotifySelected = () => {
-    setActionType("notifySelected");
-    setConfirmDialogOpen(true);
-  };
-
-  const handleConfirmAction = async () => {
-    setConfirmDialogOpen(false);
-    try {
-      let violationsToNotify: Violation[] = [];
-
-      if (actionType === "notifyAll") {
-        violationsToNotify = violations;
-      } else if (actionType === "notifySelected") {
-        violationsToNotify = violations.filter((violation) =>
-          selectedViolations.includes(violation.id)
-        );
-      }
-
-      for (let violation of violationsToNotify) {
-        const citizen = citizens.find(
-          (citizen) => citizen.plate_number === violation.plate_number
-        );
-
-        if (!citizen || !citizen.email) {
-          setError(`No email registered for citizen with plate number ${violation.plate_number}`);
-          setOpenSnackbar(true);
-          continue;
-        }
-
-        await axiosInstance.post(NOTIFICATION_API_URL, {
-          violation_id: violation.id,
-          email: citizen.email,
-          status: "notified", // Gửi thông báo và cập nhật trạng thái
-        });
-
-        // Cập nhật trạng thái notified của vi phạm
-        setViolations((prevViolations) =>
-          prevViolations.map((v) =>
-            v.id === violation.id ? { ...v, notified: true } : v
-          )
-        );
-        console.log(`Notification sent for violation ID: ${violation.id}`);
-      }
-
-      setOpenSnackbar(true);
-    } catch (err) {
-      setError("Failed to send notifications.");
-      setOpenSnackbar(true);
-    }
   };
 
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" sx={{ fontWeight: "bold", mb: 2 }}>
-        Violation Management
+        Violation 
       </Typography>
 
       {loading ? (
@@ -179,7 +88,6 @@ const ViolationDetected: React.FC = () => {
 
           <Button
             variant="outlined"
-            onClick={handleNotifyAll}
             sx={{
               borderRadius: "20px",
               float: "right",
@@ -196,17 +104,7 @@ const ViolationDetected: React.FC = () => {
               <TableHead sx={{ backgroundColor: "#f0e6ff" }}>
                 <TableRow>
                   <TableCell padding="checkbox">
-                    <Checkbox
-                      indeterminate={
-                        selectedViolations.length > 0 &&
-                        selectedViolations.length < violations.length
-                      }
-                      checked={
-                        violations.length > 0 &&
-                        selectedViolations.length === violations.length
-                      }
-                      onChange={handleSelectAll}
-                    />
+                    <Checkbox />
                   </TableCell>
                   <TableCell>ID</TableCell>
                   <TableCell>Detection Address</TableCell>
@@ -219,18 +117,15 @@ const ViolationDetected: React.FC = () => {
               <TableBody>
                 {violations.map((violation) => (
                   <React.Fragment key={violation.id}>
+                    {/* Hàng chính */}
                     <TableRow
                       sx={{
-                        backgroundColor: violation.notified ? "#d1ffd6" : "transparent", // Highlight row if notified
                         "&:hover": { backgroundColor: "#f9f9f9" },
                         transition: "0.3s",
                       }}
                     >
                       <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={selectedViolations.includes(violation.id)}
-                          onChange={() => handleSelectViolation(violation.id)}
-                        />
+                        <Checkbox />
                       </TableCell>
                       <TableCell>{violation.id}</TableCell>
                       <TableCell>{violation.location}</TableCell>
@@ -258,7 +153,7 @@ const ViolationDetected: React.FC = () => {
                       </TableCell>
                     </TableRow>
 
-                    {/* Row Detail */}
+                    {/* Hàng mở rộng hiển thị ViolationDetail */}
                     <TableRow>
                       <TableCell colSpan={7} sx={{ paddingBottom: 0, paddingTop: 0 }}>
                         <Collapse in={expandedRow === violation.id} timeout="auto" unmountOnExit>
@@ -272,17 +167,6 @@ const ViolationDetected: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {selectedViolations.length > 0 && (
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mt: 2, borderRadius: "20px" }}
-              onClick={handleNotifySelected}
-            >
-              Notify Selected Violations
-            </Button>
-          )}
-
           <Snackbar
             open={openSnackbar}
             autoHideDuration={3000}
@@ -292,24 +176,6 @@ const ViolationDetected: React.FC = () => {
           </Snackbar>
         </>
       )}
-
-      {/* Confirm Dialog */}
-      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-        <DialogTitle>Confirm Action</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {actionType === "notifyAll"
-              ? "Are you sure you want to send notifications to all citizens?"
-              : `Are you sure you want to notify ${selectedViolations.length} selected violation(s)?`}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmAction} color="primary">
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

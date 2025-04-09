@@ -1,40 +1,26 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 import {
   Box,
   Typography,
   Button,
+  TextField,
   Card,
   CardMedia,
   CardContent,
   Grid,
-  MenuItem,
-  Select,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
 } from "@mui/material";
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import SaveIcon from "@mui/icons-material/Save";
+import CancelIcon from "@mui/icons-material/Cancel";
 
-
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
+// Giả lập quyền user
+const userRole = "admin"; // Đổi thành "supervisor" để test
 
 interface ViolationDetailProps {
   violation: {
     id: number;
     location: string;
-    camera_id: string;
+    camera_id: string
     plate_number: string;
     status: string;
     detected_at: string;
@@ -43,174 +29,164 @@ interface ViolationDetailProps {
 }
 
 const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
-  const [statusOptions, setStatusOptions] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string>(violation.status);
-  const [editing, setEditing] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
-  // const userRole = localStorage.getItem("role");
-   const userRole = "supervisor";
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState({ ...violation });
 
-  useEffect(() => {
-    if (userRole === "supervisor") {
-      axiosInstance.get("https://hanaxuan-backend.hf.space/api//violation_status/get-all")
-        .then(res => {
-          setStatusOptions(res.data);
-        })
-        .catch(() => {
-          setSnackbar({ open: true, message: "Lỗi khi tải danh sách status", severity: "error" });
-        });
-    }
-  }, []);
-
-  const handleChangeStatus = () => {
-    if (selectedStatus !== violation.status) {
-      setConfirmOpen(true);
-    }
+  const handleEditClick = () => {
+    setIsEditing(true);
   };
 
-  const handleConfirmUpdate = () => {
-    setLoading(true);
-    axiosInstance.post(`https://hanaxuan-backend.hf.space/api//violations/change-status/${violation.id}`, { status: selectedStatus })
-      .then(() => {
-        setSnackbar({ open: true, message: "Cập nhật trạng thái thành công", severity: "success" });
-        setConfirmOpen(false);
-        setEditing(false);
-      })
-      .catch((err) => {
-        const message = err.response?.data?.message || "Đã xảy ra lỗi khi cập nhật trạng thái.";
-        setSnackbar({ open: true, message, severity: "error" });
-      })
-      .finally(() => setLoading(false));
+  const handleSaveClick = () => {
+    console.log("Saving data:", editedData);
+    setIsEditing(false);
   };
 
-  const handleCancel = () => {
-    setSelectedStatus(violation.status);
-    setEditing(false);
+  const handleCancelClick = () => {
+    setEditedData({ ...violation }); // Reset về giá trị cũ
+    setIsEditing(false);
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setEditedData({ ...editedData, [field]: value });
   };
 
   return (
     <Card sx={{ display: "flex", p: 2, boxShadow: 3, backgroundColor: "#fafafa", borderRadius: 3 }}>
+      {/* Hình ảnh lỗi vi phạm */}
       <CardMedia
         component="img"
         sx={{ width: 150, height: 150, borderRadius: 2, border: "1px solid #ddd" }}
-        image={violation.image_url}
+        image={editedData.image_url}
         alt="Violation Image"
       />
 
+      {/* Thông tin lỗi */}
       <CardContent sx={{ flex: 1, ml: 2 }}>
         <Grid container spacing={2}>
           <Grid item xs={6}>
-            <Typography variant="subtitle1" fontWeight="bold">Address:</Typography>
-            <Typography>{violation.location}</Typography>
-          </Grid>
-
-          <Grid item xs={6}>
-            <Typography variant="subtitle1" fontWeight="bold">License Plate:</Typography>
-            <Typography>{violation.plate_number}</Typography>
-          </Grid>
-
-          <Grid item xs={6}>
-            <Typography variant="subtitle1" fontWeight="bold">Status:</Typography>
-            {userRole === "supervisor" && editing ? (
-              <Select
+            <Typography variant="subtitle1" fontWeight="bold">
+              Address:
+            </Typography>
+            {isEditing ? (
+              <TextField
                 fullWidth
                 size="small"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                {statusOptions.map((status) => (
-                  <MenuItem key={status} value={status}>{status}</MenuItem>
-                ))}
-              </Select>
+                variant="outlined"
+                value={editedData.location}
+                onChange={(e) => handleChange("location", e.target.value)}
+              />
             ) : (
-              <Typography sx={{ color: violation.status === "Critical" ? "red" : "orange" }}>
-                {selectedStatus}
+              <Typography>{editedData.location}</Typography>
+            )}
+          </Grid>
+
+          <Grid item xs={6}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              License Plate:
+            </Typography>
+            {isEditing ? (
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                value={editedData.plate_number}
+                onChange={(e) => handleChange("plate_number", e.target.value)}
+              />
+            ) : (
+              <Typography>{editedData.plate_number}</Typography>
+            )}
+          </Grid>
+
+          <Grid item xs={6}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              Status:
+            </Typography>
+            {isEditing ? (
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                value={editedData.status}
+                onChange={(e) => handleChange("status", e.target.value)}
+              />
+            ) : (
+              <Typography sx={{ color: editedData.status === "Critical" ? "red" : "orange" }}>
+                {editedData.status}
               </Typography>
             )}
           </Grid>
 
           <Grid item xs={6}>
-            <Typography variant="subtitle1" fontWeight="bold">Detected At:</Typography>
-            <Typography>{violation.detected_at}</Typography>
+            <Typography variant="subtitle1" fontWeight="bold">
+              Detected_at:
+            </Typography>
+            {isEditing ? (
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                value={editedData.detected_at}
+                onChange={(e) => handleChange("detected_at", e.target.value)}
+              />
+            ) : (
+              <Typography>{editedData.detected_at}</Typography>
+            )}
           </Grid>
 
           <Grid item xs={12}>
-            <Typography variant="subtitle1" fontWeight="bold">Camera:</Typography>
-            <Typography>{violation.camera_id}</Typography>
+            <Typography variant="subtitle1" fontWeight="bold">
+              Camera:
+            </Typography>
+            {isEditing ? (
+              <TextField
+                fullWidth
+                size="small"
+                variant="outlined"
+                multiline
+                value={editedData.camera_id}
+                onChange={(e) => handleChange("description", e.target.value)}
+              />
+            ) : (
+              <Typography>{editedData.camera_id}</Typography>
+            )}
           </Grid>
         </Grid>
 
-        {/* Action Buttons */}
-        {userRole === "supervisor" && (
+        {/* Nút chỉnh sửa chỉ hiển thị với admin */}
+        {userRole === "admin" && (
           <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
-            {!editing ? (
-              <Button
-                variant="contained"
-                startIcon={<NotificationsActiveIcon />}
-                sx={{ backgroundColor: "#673ab7", "&:hover": { backgroundColor: "#512da8" } }}
-                onClick={() => setEditing(true)}
-              >
-                Change Status
-              </Button>
-            ) : (
+            {isEditing ? (
               <>
                 <Button
                   variant="contained"
-                  onClick={handleChangeStatus}
-                  disabled={selectedStatus === violation.status}
-                  sx={{
-                    backgroundColor: "#4caf50",
-                    "&:hover": { backgroundColor: "#388e3c" },
-                  }}
+                  startIcon={<SaveIcon />}
+                  sx={{ backgroundColor: "#4caf50", "&:hover": { backgroundColor: "#388e3c" } }}
+                  onClick={handleSaveClick}
                 >
-                  Confirm
+                  Save
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={handleCancel}
-                  sx={{ color: "#d32f2f", borderColor: "#d32f2f" }}
+                  startIcon={<CancelIcon />}
+                  sx={{ color: "#d32f2f", borderColor: "#d32f2f", "&:hover": { backgroundColor: "#fddede" } }}
+                  onClick={handleCancelClick}
                 >
                   Cancel
                 </Button>
               </>
+            ) : (
+              <Button
+                variant="contained"
+                startIcon={<NotificationsActiveIcon />}
+                sx={{ backgroundColor: "#673ab7", "&:hover": { backgroundColor: "#512da8" } }}
+                onClick={handleEditClick}
+              >
+                Alert
+              </Button>
             )}
           </Box>
         )}
       </CardContent>
-
-      {/* Confirm Dialog */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <DialogTitle>Xác nhận cập nhật trạng thái</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Bạn có chắc chắn muốn cập nhật trạng thái vi phạm từ <strong>{violation.status}</strong> sang <strong>{selectedStatus}</strong>?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Hủy</Button>
-          <Button
-            onClick={handleConfirmUpdate}
-            variant="contained"
-            disabled={loading}
-            startIcon={loading && <CircularProgress color="inherit" size={20} />}
-          >
-            {loading ? "Đang cập nhật..." : "Xác nhận"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar Notification */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Card>
   );
 };

@@ -78,7 +78,6 @@ var taskQueue = [],
   isPerformingWork = !1,
   isHostCallbackScheduled = !1,
   isHostTimeoutScheduled = !1,
-  needsPaint = !1,
   localSetTimeout = "function" === typeof setTimeout ? setTimeout : null,
   localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null,
   localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null;
@@ -169,13 +168,10 @@ var isMessageLoopRunning = !1,
   taskTimeoutID = -1,
   startTime = -1;
 function shouldYieldToHost() {
-  return needsPaint ? !0 : 5 > getCurrentTime() - startTime ? !1 : !0;
+  return 5 > getCurrentTime() - startTime ? !1 : !0;
 }
-function requestPaint() {
-  needsPaint = !0;
-}
+function requestPaint() {}
 function performWorkUntilDeadline() {
-  needsPaint = !1;
   if (isMessageLoopRunning) {
     var currentTime = getCurrentTime();
     startTime = currentTime;
@@ -319,10 +315,13 @@ exports.unstable_NormalPriority = unstable_NormalPriority;
 exports.unstable_Profiling = null;
 exports.unstable_UserBlockingPriority = unstable_UserBlockingPriority;
 exports.unstable_cancelCallback = unstable_cancelCallback;
+exports.unstable_continueExecution = throwNotImplemented;
 exports.unstable_forceFrameRate = throwNotImplemented;
 exports.unstable_getCurrentPriorityLevel = unstable_getCurrentPriorityLevel;
+exports.unstable_getFirstCallbackNode = throwNotImplemented;
 exports.unstable_next = throwNotImplemented;
 exports.unstable_now = unstable_now;
+exports.unstable_pauseExecution = throwNotImplemented;
 exports.unstable_requestPaint = unstable_requestPaint;
 exports.unstable_runWithPriority = throwNotImplemented;
 exports.unstable_scheduleCallback = unstable_scheduleCallback;

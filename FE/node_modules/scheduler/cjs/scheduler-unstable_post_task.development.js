@@ -58,9 +58,13 @@
     exports.unstable_cancelCallback = function (node) {
       node._controller.abort();
     };
+    exports.unstable_continueExecution = function () {};
     exports.unstable_forceFrameRate = function () {};
     exports.unstable_getCurrentPriorityLevel = function () {
       return currentPriorityLevel_DEPRECATED;
+    };
+    exports.unstable_getFirstCallbackNode = function () {
+      return null;
     };
     exports.unstable_next = function (callback) {
       switch (currentPriorityLevel_DEPRECATED) {
@@ -81,6 +85,7 @@
       }
     };
     exports.unstable_now = getCurrentTime;
+    exports.unstable_pauseExecution = function () {};
     exports.unstable_requestPaint = function () {};
     exports.unstable_runWithPriority = function (priorityLevel, callback) {
       var previousPriorityLevel = currentPriorityLevel_DEPRECATED;
