@@ -3,20 +3,22 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, CircularProgress, IconButton, Snackbar, Alert,
-  InputAdornment
+  InputAdornment, Switch
 } from "@mui/material";
-import { Edit, Delete, Add, Visibility, VisibilityOff  } from "@mui/icons-material";
+import { Add, Visibility, VisibilityOff  } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { format } from 'date-fns';
+// import { format } from 'date-fns';
 // Interface dữ liệu user
 interface User {
   user_id: number;
   username: string;
   email: string;
   password: string;
+  confirm_password: string;
   role: string | undefined;
-  created_at: Date;
+  status: boolean;
+  // created_at: Date;
 }
 
 const roles = [
@@ -45,12 +47,11 @@ const UserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<User>({
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<User>({
     mode: "onChange",
   });
   // Fetch danh sách users
@@ -70,12 +71,23 @@ const UserManagement: React.FC = () => {
   }, []);
 
 
-  
+    const handleToggleActive = async (user_id: number, status: boolean) => {
+    try {
+      await axiosInstance.patch(`${API_BASE_URL}users/${user_id}/`, { status: !status });
+      setUsers((prev) =>
+        prev.map((user) => (user.user_id === user_id ? { ...user, status: !status } : user))
+      );
+      setSnackbarMessage(`User ${!status ? "Activated" : "Deactivated"} successfully.`);
+      setOpenSnackbar(true);
+    } catch {
+      setSnackbarMessage("Failed to update user status.");
+      setOpenSnackbar(true);
+    }
+  };
   // Xử lý mở popup thêm/sửa user
   const handleOpenDialog = (user?: User) => {
     console.log("Opening dialog with user:", user);
-    setEditingUser(user || null);
-    reset(user || { username: "", email: "", password: "", role: "" });
+    reset(user || { username: "", email: "", password: "", confirm_password: "", role: "" });
     setOpenDialog(true);
   };
 
@@ -93,42 +105,43 @@ const onSubmit = async (data: User) => {
         user.email === data.email
     );
 
-    if (existingUser && !editingUser) {
+    if (existingUser) {
       setSnackbarMessage("User with this username or email already exists.");
       setOpenSnackbar(true);
       return;
     }
 
     // So sánh dữ liệu cũ với dữ liệu mới để xác định thay đổi
-    const changes: Partial<User> = {};
-    if (editingUser) {
-      if (data.username && data.username !== editingUser.username) {
-        changes.username = data.username;
-      }
-      if (data.email && data.email !== editingUser.email) {
-        changes.email = data.email;
-      }
-      if (data.role && data.role !== editingUser.role) {
-        changes.role = roles.find((role) => role.id === data.role)?.id;
-      }
-      if (data.password) {
-        changes.password = data.password;
-      }
+    // const changes: Partial<User> = {};
+    // if (editingUser) {
+    //   if (data.username && data.username !== editingUser.username) {
+    //     changes.username = data.username;
+    //   }
+    //   if (data.email && data.email !== editingUser.email) {
+    //     changes.email = data.email;
+    //   }
+    //   if (data.role && data.role !== editingUser.role) {
+    //     changes.role = roles.find((role) => role.id === data.role)?.name || data.role;
+    //   }
+    //   if (data.password) {
+    //     changes.password = data.password;
+    //   }
 
-      // Kiểm tra nếu không có thay đổi
-      if (Object.keys(changes).length === 0) {
-        setSnackbarMessage("No changes detected. No update performed.");
-        setOpenSnackbar(true);
-        return;
-      }
+    //   // Kiểm tra nếu không có thay đổi
+    //   if (Object.keys(changes).length === 0) {
+    //     setSnackbarMessage("No changes detected. No update performed.");
+    //     setOpenSnackbar(true);
+    //     return;
+    //   }
 
-      // Thực hiện cập nhật nếu có thay đổi
-      await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, changes);
-      setUsers((prev) =>
-        prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...changes } : u))
-      );
-      setSnackbarMessage("User updated successfully!");
-    } else {
+    //   // Thực hiện cập nhật nếu có thay đổi
+    //    console.log("Updating user with:", changes);
+    //   await axiosInstance.patch(`${API_BASE_URL}users/${editingUser.user_id}/`, changes);
+    //   setUsers((prev) =>
+    //     prev.map((u) => (u.user_id === editingUser.user_id ? { ...u, ...changes } : u))
+    //   );
+    //   setSnackbarMessage("User updated successfully!");
+    // } else {
       // Thêm mới user
       const submitData = {
         ...data,
@@ -140,30 +153,17 @@ const onSubmit = async (data: User) => {
       setUsers(res.data.map((user: { id: number }) => ({ ...user, user_id: user.id })));
 
       setSnackbarMessage("User added successfully!");
-    }
+    // }
 
     setOpenSnackbar(true);
     handleCloseDialog();
   } catch (err) {
-    console.error("Error adding/updating user:", err);
+    console.error("Error adding user:", err);
     setSnackbarMessage("Error processing request.");
     setOpenSnackbar(true);
   }
 };
 
-// Xử lý xóa user
-const handleDelete = async (id: number) => {
-  console.log("Deleting user with id:", id);
-  try {
-    await axiosInstance.delete(`${API_BASE_URL}users/${id}/`);
-    setUsers((prev) => prev.filter((u) => u.user_id !== id));
-    setSnackbarMessage("User deleted successfully!");
-    setOpenSnackbar(true);
-  } catch (err) {
-    setSnackbarMessage("Failed to delete user.");
-    setOpenSnackbar(true);
-  }
-};
 
   return (
     <Paper sx={{ padding: 3, margin: 2 }}>
@@ -179,30 +179,28 @@ const handleDelete = async (id: number) => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell>Account ID</TableCell>
                 <TableCell>Username</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
-                <TableCell>Actions</TableCell>
-                <TableCell>Created at</TableCell>
+                <TableCell>Actions</TableCell>   
               </TableRow>
             </TableHead>
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.user_id}>
+                  <TableCell>{user.user_id}</TableCell>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{roles.find((role) => role.id === user.role)?.name || user.role}</TableCell>
-                  <TableCell>
-                    <IconButton color="primary" onClick={() => handleOpenDialog(user)}>
-                      <Edit />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => {
-                      console.log("User data:", user);
-                      handleDelete(user.user_id)}}>
-                      <Delete />
-                    </IconButton>
+                    <TableCell>
+                    <Switch
+                      checked={user.status}
+                      onChange={() => handleToggleActive(user.user_id, user.status)}
+                      color="primary"
+                    />
                   </TableCell>
-                  <TableCell>{format(user.created_at, "dd/MM/yyyy")}</TableCell>
+                  
                 </TableRow>
               ))}
             </TableBody>
@@ -212,7 +210,7 @@ const handleDelete = async (id: number) => {
 
       {/* Popup Form */}
       <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>{editingUser ? "Edit User" : "Add User"}</DialogTitle>
+        <DialogTitle>{"Add User"}</DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
             <TextField
@@ -220,12 +218,14 @@ const handleDelete = async (id: number) => {
               label="Username"
               fullWidth
               margin="normal"
-              disabled={!!editingUser}
               error={!!errors.username}
               helperText={errors.username?.message}
             />
             <TextField
-              {...register("email", { required: "Email is required", pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, })}
+              {...register("email", { 
+                required: "Email is required", 
+                pattern: {value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, message: "Invalid email format"} 
+              })}
               label="Email"
               fullWidth
               margin="normal"
@@ -234,7 +234,7 @@ const handleDelete = async (id: number) => {
             />
             <TextField
               {...register("password", { 
-                required: !editingUser && "Password is required", 
+                required: "Password is required", 
                 minLength: { value: 6, message: "Password must be at least 6 characters long." },
                 pattern: {
                 value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/,
@@ -246,16 +246,33 @@ const handleDelete = async (id: number) => {
               fullWidth
               margin="normal"
               error={!!errors.password}
-                  helperText={
-                    editingUser 
-                      ? "Leave blank to keep current password" 
-                      : errors.password?.message
-                  }
+                  helperText={ errors.password?.message}
               InputProps={{
                 endAdornment: ( 
                   <InputAdornment position="end">
                     <IconButton onClick={() => setShowPassword(!showPassword)}>
                       {showPassword ? <Visibility /> : <VisibilityOff />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+              <TextField
+              {...register("confirm_password", { 
+                required:"Confirm password is required", 
+                validate: (value) => value === watch("password") || "Passwords do not match"
+               })}  
+              label="Confirm password"
+              type={showConfirmPassword ? "text" : "confirm_password"}
+              fullWidth
+              margin="normal"
+              error={!!errors.confirm_password}
+                  helperText={errors.confirm_password?.message}
+              InputProps={{
+                endAdornment: ( 
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <Visibility /> : <VisibilityOff />}
                     </IconButton>
                   </InputAdornment>
                 ),
