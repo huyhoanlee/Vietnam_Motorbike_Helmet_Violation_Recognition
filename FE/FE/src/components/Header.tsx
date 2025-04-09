@@ -81,10 +81,10 @@ const Header: React.FC = () => {
     }
 
     // Đặt token về trạng thái hết hạn thay vì xóa hoàn toàn
-    localStorage.setItem("access_token", "undefined");
-    localStorage.setItem("refresh_token", "undefined");
+    localStorage.setItem("access_token", "expired");
+    localStorage.setItem("refresh_token", "expired");
 
-    navigate("/");
+    navigate("/login");
   };
 
   return (
