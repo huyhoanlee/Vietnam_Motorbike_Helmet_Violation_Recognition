@@ -23,21 +23,8 @@ import {
   DialogTitle,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import axios from "axios";
-import ViolationDetail from "./ViolationDetails";
 import { format } from "date-fns";
-
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations";
-const NOTIFICATION_API_URL = "https://hanaxuan-backend.hf.space/api/notifications";
-
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// Interface cho dữ liệu vi phạm
+import ViolationDetail from "./ViolationDetails";
 interface Violation {
   id: number;
   location: string;
@@ -49,40 +36,50 @@ interface Violation {
   notified?: boolean;
 }
 
-interface Citizen {
-  plate_number: string;
-  email?: string;
-}
+// Mock Data
+const mockViolations = [
+  {
+    id: 1,
+    location: "Street 1",
+    camera_id: "Camera 1",
+    plate_number: "ABC123",
+    status: "Critical",
+    detected_at: "2025-04-07T12:30:00Z",
+    image_url: "https://via.placeholder.com/150",
+    notified: false,
+  },
+  {
+    id: 2,
+    location: "Street 2",
+    camera_id: "Camera 2",
+    plate_number: "XYZ456",
+    status: "Warning",
+    detected_at: "2025-04-06T15:45:00Z",
+    image_url: "https://via.placeholder.com/150",
+    notified: true,
+  },
+];
 
-const ViolationDetected: React.FC = () => {
-  const [violations, setViolations] = useState<Violation[]>([]);
-  const [loading, setLoading] = useState(true);
+const mockCitizens = [
+  {
+    plate_number: "ABC123",
+    email: "citizen1@example.com",
+  },
+  {
+    plate_number: "XYZ456",
+    email: "citizen2@example.com",
+  },
+];
+
+const Violation: React.FC = () => {
+  const [violations, setViolations] = useState(mockViolations);
+  const [loading, setLoading] = useState(false);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [selectedViolations, setSelectedViolations] = useState<number[]>([]);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<"notifyAll" | "notifySelected">("notifyAll");
-  const [citizens, setCitizens] = useState<Citizen[]>([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axiosInstance.get(API_BASE_URL);
-        setViolations(response.data);
-        const citizenResponse = await axiosInstance.get(
-          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all"
-        );
-        setCitizens(citizenResponse.data);
-      } catch (err) {
-        setError("Failed to fetch data, please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
 
   const toggleRow = (id: number) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -129,7 +126,7 @@ const ViolationDetected: React.FC = () => {
       }
 
       for (let violation of violationsToNotify) {
-        const citizen = citizens.find(
+        const citizen = mockCitizens.find(
           (citizen) => citizen.plate_number === violation.plate_number
         );
 
@@ -139,13 +136,7 @@ const ViolationDetected: React.FC = () => {
           continue;
         }
 
-        await axiosInstance.post(NOTIFICATION_API_URL, {
-          violation_id: violation.id,
-          email: citizen.email,
-          status: "notified", // Gửi thông báo và cập nhật trạng thái
-        });
-
-        // Cập nhật trạng thái notified của vi phạm
+        // Update violation as notified
         setViolations((prevViolations) =>
           prevViolations.map((v) =>
             v.id === violation.id ? { ...v, notified: true } : v
@@ -177,6 +168,17 @@ const ViolationDetected: React.FC = () => {
             {violations.length} Violations Detected By AI
           </Typography>
 
+            {selectedViolations.length > 0 && (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          sx={{ mt: 2, borderRadius: "20px" }}
+                          onClick={handleNotifySelected}
+                        >
+                          Notify Selected Violations
+                        </Button>
+                      )}
+            
           <Button
             variant="outlined"
             onClick={handleNotifyAll}
@@ -242,7 +244,7 @@ const ViolationDetected: React.FC = () => {
                       >
                         {violation.status}
                       </TableCell>
-                      <TableCell>{format(violation.detected_at, "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(new Date(violation.detected_at), "dd/MM/yyyy")}</TableCell>
                       <TableCell align="center">
                         <IconButton onClick={() => toggleRow(violation.id)}>
                           <ExpandMoreIcon
@@ -272,7 +274,7 @@ const ViolationDetected: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {selectedViolations.length > 0 && (
+          {/* {selectedViolations.length > 0 && (
             <Button
               variant="contained"
               color="secondary"
@@ -281,7 +283,7 @@ const ViolationDetected: React.FC = () => {
             >
               Notify Selected Violations
             </Button>
-          )}
+          )} */}
 
           <Snackbar
             open={openSnackbar}
@@ -314,4 +316,4 @@ const ViolationDetected: React.FC = () => {
   );
 };
 
-export default ViolationDetected;
+export default Violation;

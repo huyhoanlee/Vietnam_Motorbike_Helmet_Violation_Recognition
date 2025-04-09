@@ -11,7 +11,8 @@ import DataDetail from "./pages/data/DataDetail_fetch";
 import UserManagement from "./pages/Account/UserManagement";
 import AnalyticsPage from "./pages/Analytics/AnalyticsPage ";
 import PrivateRoute from "./stores/privateroute";
-import Report from "./pages/Report/Report";
+import CitizenManagement from "./pages/CitizenForm/CitizenManagement";
+import Violation from "./pages/Violation/ViolationModify";
 
 const App = () => {
   return (
@@ -22,11 +23,12 @@ const App = () => {
         <Route path="/devices" element={<PrivateRoute element={<MainLayout><DeviceList /></MainLayout>} />} />
         <Route path="/violation-detection" element={<PrivateRoute element={<MainLayout><ViolationDetected /></MainLayout>} />} />
         <Route path="/streaming" element={<StreamingImage />} />
-        <Route path="/data-detection" element={<MainLayout><DataDetection /></MainLayout>} />
+        <Route path="/citizen-management" element={<CitizenManagement />} />
+        <Route path="/data-detection" element={<MainLayout><DataDetection /></MainLayout>} />`
         <Route path="/device/:deviceId" element={<MainLayout><DataDetail /></MainLayout>} />
-        <Route path="/account" element={<PrivateRoute element={<MainLayout><UserManagement /></MainLayout>} />} />
-        <Route path="/reports" element={<PrivateRoute element={<MainLayout><Report /></MainLayout>} />} />
+        <Route path="/account" element={<PrivateRoute element={<MainLayout><UserManagement /></MainLayout>} requiredRole="Admin" />} />
         <Route path="/analytics" element={<MainLayout><AnalyticsPage /></MainLayout>} />
+        <Route path="/violation" element={<Violation />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
