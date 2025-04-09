@@ -26,7 +26,7 @@ const App = () => {
         <Route path="/citizen-management" element={<CitizenManagement />} />
         <Route path="/data-detection" element={<MainLayout><DataDetection /></MainLayout>} />`
         <Route path="/device/:deviceId" element={<MainLayout><DataDetail /></MainLayout>} />
-        <Route path="/account" element={<PrivateRoute element={<MainLayout><UserManagement /></MainLayout>} requiredRole="Admin" />} />
+        <Route path="/account" element={<PrivateRoute element={<MainLayout><UserManagement /></MainLayout>}  />} />
         <Route path="/analytics" element={<MainLayout><AnalyticsPage /></MainLayout>} />
         <Route path="/violation" element={<Violation />} />
         <Route path="*" element={<NotFound />} />
