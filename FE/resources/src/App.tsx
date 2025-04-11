@@ -32,13 +32,25 @@ const App = () => {
         <Route path="/violation-detection" element={<MainLayout><ViolationDetected /></MainLayout>} />
         <Route path="/violation" element={<Violation />} />
 
+        <Route path="/dashboard" element={ <MainLayout><Dashboard /></MainLayout>} />
+        <Route path="/devices" element={<MainLayout><DeviceList /></MainLayout>} />
+        <Route path="/violation-detection" element={<MainLayout><ViolationDetected /></MainLayout>} />
+        <Route path="/violation" element={<Violation />} />
+
         <Route path="/streaming" element={<StreamingImage />} />
+
 
         <Route path="/citizen-management" element={<CitizenManagement />} />
 
+
         <Route path="/data-detection" element={<MainLayout><DataDetection /></MainLayout>} />`
 
+
         <Route path="/device/:deviceId" element={<MainLayout><DataDetail /></MainLayout>} />
+
+        <Route path="/account" element={<MainLayout><UserManagement /></MainLayout>} />
+
+
 
         <Route path="/account" element={<MainLayout><UserManagement /></MainLayout>} />
 
