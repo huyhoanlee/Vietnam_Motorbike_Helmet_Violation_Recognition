@@ -23,6 +23,7 @@ const menuItems = [
   { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
   { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
   { text: "Devices", icon: <DevicesIcon />, path: "/devices" },
+  { text: "Modify", icon: <DevicesIcon />, path: "/modify" },
   { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },
 ];
 
