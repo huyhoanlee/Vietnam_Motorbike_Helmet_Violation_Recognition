@@ -21,6 +21,8 @@ import ReportPage from "./pages/Report/Report";
 import CitizenManager from "./pages/Citizens/page";
 import CitizenInfoForm from "./pages/Citizens/Informations/CitizenInfo-hard-code";
 import CitizenInfoFormHardCode from "./pages/Citizens/Informations/CitizenInfo-hard-code";
+import CitizenApplication from "./pages/Citizens/Aplications/CitizenApplication";
+import CarApplicationsHardCode from "./pages/Citizens/Aplications/CitizenApplication-hard-code";
 
 const App = () => {
   return (
@@ -68,6 +70,9 @@ const App = () => {
         <Route path="/citizen" element={<MainLayout><CitizenManager /></MainLayout>} />
         <Route path="/citizen-info" element={<MainLayout><CitizenInfoForm /></MainLayout>} />
         <Route path="/citizen-info-hard-code" element={<MainLayout><CitizenInfoFormHardCode /></MainLayout>} />
+        <Route path="/citizen-applications" element={<MainLayout><CitizenApplication /></MainLayout>} />
+        <Route path="/citizen-applications-hard-code" element={<MainLayout><CarApplicationsHardCode /></MainLayout>} />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

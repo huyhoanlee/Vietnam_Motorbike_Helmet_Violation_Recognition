@@ -41,7 +41,7 @@ const CitizenManager: React.FC = () => {
 
       <Grid container spacing={4}>
         {/* Box 1 - Citizen Info */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper
             sx={boxStyles}
             onClick={() => navigate("/citizen-info")}
@@ -58,15 +58,32 @@ const CitizenManager: React.FC = () => {
         </Grid>
 
         {/* Box 2 - Registration Requests */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper
             sx={boxStyles}
-            onClick={() => navigate("/citizen-requests")}
+            onClick={() => navigate("/citizen-applications")}
             elevation={4}
           >
             <AssignmentIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
             <Typography variant="h6" fontWeight={600}>
               Registration Requests
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Review and process citizen requests
+            </Typography>
+          </Paper>
+        </Grid>
+         
+         {/* Box 3 - Violation History */}
+          <Grid item xs={12} md={4}>
+          <Paper
+            sx={boxStyles}
+            onClick={() => navigate("/citizen-violation")}
+            elevation={4}
+          >
+            <AssignmentIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
+            <Typography variant="h6" fontWeight={600}>
+              Violation History
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Review and process citizen requests
