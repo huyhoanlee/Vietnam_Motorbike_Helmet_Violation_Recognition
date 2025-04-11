@@ -1,10 +1,13 @@
-from typing import List, Tuple, Dict, Any
-import numpy  as np
+from typing import List, Optional
 import cv2
-import imageio.v3 as iio
 import base64
-import io
-
+import requests
+import numpy as np
+from loguru import logger
+from src.config import Message
+from src.models.base_model import DeviceDetection, FrameData, DetectedResult, ViolationType
+from concurrent.futures import ThreadPoolExecutor
+from src.config.globalVariables import capture_dict
 
 def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
 
@@ -50,7 +53,7 @@ def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_re
 
     return grouped
 
-def process_to_output_json(grouped_json, frame, post_frame):
+def process_to_output_json(grouped_json, frame, post_frame) -> DeviceDetection:
     """
     Convert the grouped vehicle and object information into a format suitable for outputting.
 
@@ -61,18 +64,18 @@ def process_to_output_json(grouped_json, frame, post_frame):
     Returns:
         dict: JSON output with detected vehicles and violations.
     """
-    output_json = {"camera_id": None, "post_frame": encode_image(post_frame),  "detected_result": []}
+    output_json = DeviceDetection(
+        camera_id= '',
+        post_frame= encode_image_to_bytes(post_frame),
+        detected_result= []
+    )
 
     for group in grouped_json:
-        vehicle_id = int(group["vehicle_id"])  # Convert to int if needed
+        vehicle_id = int(group["vehicle_id"])
         x1, y1, x2, y2 = map(int, group["vehicle_bbox"])  # Convert to integers
 
         # Crop vehicle image from the frame
         vehicle_img = frame[y1:y2, x1:x2]
-
-        # # Convert image to Base64
-        # _, buffer = cv2.imencode(".jpg", vehicle_img)
-        # img_base64 = base64.b64encode(buffer).decode("utf-8")
 
         # Check for violation (class 2: no helmet)
         if any(obj["class"] == 2 for obj in group["objects"]):
@@ -81,40 +84,49 @@ def process_to_output_json(grouped_json, frame, post_frame):
 
             for obj in group["objects"]:
                 if obj["class"] == 2:
-                    violation = "no_helmet"
+                    violation = ViolationType.NO_HELMET
                 elif obj["class"] == 3 and "plate_number" in obj:
                     plate_number = obj["plate_number"]
                     
-            output_json["detected_result"].append({
-                "vehicle_id": vehicle_id,
-                "image": encode_image(vehicle_img),
-                "violation": violation,
-                "plate_numbers": plate_number
-            })
+            output_json["detected_result"].append(DetectedResult(
+                vehicle_id= vehicle_id,
+                image= encode_image_to_string(vehicle_img),
+                violation= violation,
+                plate_numbers= plate_number
+            ))
+
     return output_json
 
-def encode_image(image_array: np.ndarray) -> str:
-    if image_array.dtype != np.uint8:
-        image_array = image_array.astype(np.uint8)
-    buffer = io.BytesIO()
-    iio.imwrite(buffer, image_array, format='PNG')
-    image_bytes = buffer.getvalue()
-    base64_string = base64.b64encode(image_bytes).decode('utf-8')
-    buffer.close()
-    return base64_string
+def encode_image_to_bytes(image) -> bytes:
+    """Convert an OpenCV frame to a base64-encoded string."""
+    _, buffer = cv2.imencode('.jpg', image)
+    return buffer.tobytes()
 
-def get_frames(urls: List[str]) -> List[Dict[str, Any]]:
-    """Capture frames from multiple video streams using PIL."""
-    data = []
-    for url in urls:
-        try:
-            reader = iio.imiter(url)
-            frame = next(reader)  # Get the first frame as numpy array
-            data.append({
-                "url": url,
-                "frame": frame,
-                "frame_count": 0
-            })
-        except Exception as e:
+def encode_image_to_string(image) -> str:
+    """Convert an OpenCV frame to a base64-encoded string."""
+    _, buffer = cv2.imencode('.jpg', image)
+    return base64.b64encode(buffer).decode('utf-8')
+    
+def get_frame_from_url(url: str) -> Optional[FrameData]:
+    response = requests.get(url)
+    if response.status_code == 200:
+        frame_bytes = response.content
+        frame = cv2.imdecode(np.frombuffer(frame_bytes, np.uint8), cv2.IMREAD_COLOR)
+        if frame is not None:
+            data = FrameData(
+                url= url,
+                frame= frame,
+                frame_count= 0
+                )
             return data
+        else:
+            logger.debug(f'Frame is None: {url}')
+    else:
+        logger.debug(f'{Message.CAMERA_DEATH}: {url}')
+
+def get_frames(urls: List[str]) -> List[FrameData]:
+    data = []
+    with ThreadPoolExecutor(max_workers=min(len(urls), 10)) as executor:  # Giới hạn số thread để tránh quá tải
+        futures = [executor.submit(get_frame_from_url, url) for url in urls]
+        data = [future.result() for future in futures if future.result() is not None]
     return data
