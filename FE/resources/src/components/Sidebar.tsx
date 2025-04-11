@@ -20,10 +20,10 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
   { text: "Account", icon: <AccountCircleIcon />, path: "/account" },
+  { text: "SUP ZONE", icon: <DevicesIcon />, path: "/modify" },
   { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
   { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
   { text: "Devices", icon: <DevicesIcon />, path: "/devices" },
-  { text: "Modify", icon: <DevicesIcon />, path: "/modify" },
   { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },
 ];
 

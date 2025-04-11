@@ -28,7 +28,7 @@ const Modify: React.FC = () => {
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
-       Modify Management
+       Modify - Notify & Management
       </Typography>
 
       <Grid container spacing={4} mt={2}>
