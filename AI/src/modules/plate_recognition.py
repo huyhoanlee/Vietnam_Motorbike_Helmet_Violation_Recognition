@@ -43,7 +43,7 @@ class PlateRecognizer:
             self,
             plate_frame: np.ndarray
 
-    ) -> Union[None, tuple[str, float]]:
+    ) -> Union[tuple[None, None], tuple[str, float]]:
         """
         Detect a license plate in a given frame.
 
@@ -55,7 +55,6 @@ class PlateRecognizer:
             or None if no plate is detected.
         """
         result = self.ocr_model.ocr(plate_frame, cls=True)
-        # print(result[0]) [[[[7.0, 5.0], [46.0, 5.0], [46.0, 22.0], [7.0, 22.0]], ('77-L1', 0.8120859861373901)], [[[5.0, 20.0], [47.0, 20.0], [47.0, 38.0], [5.0, 38.0]], ('387.77', 0.9097450375556946)]]
         if result and result[0]:
             plate_text = ""
             for line in result[0]: #line: [bbox, (text, confidence)]

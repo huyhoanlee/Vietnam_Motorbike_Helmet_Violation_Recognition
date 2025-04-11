@@ -1,147 +1,107 @@
-import numpy as np
+import uuid
 import time
 import asyncio
-from fastapi import FastAPI, BackgroundTasks
-from typing import List, Dict, Any
-import imageio.v3 as iio
+import threading
+from fastapi import FastAPI
+from typing import List, Dict
+from fastapi.encoders import jsonable_encoder
+from loguru import logger
 
-from src.utils import encode_image, get_frames
-
+from src.utils import get_frames
 from src.modules.ai_service import AI_Service
-
-# Initialize AI service
-AI_service = AI_Service()
+from src.modules.api_process import post_process
+from src.config import AppConfig
+from starlette.responses import StreamingResponse
+from src.models.base_model import DeviceDetection, FrameData
+from src.config.globalVariables import capture_dict, frames, urls_camera
 
 app = FastAPI()
 
 # Global variables
 latest_result = {}
-video_urls = []  # List of video URLs
-running = False  # Processing flag
-sleep_time = 10
+sleep = 3
 
-def ai_pipeline(video_frames: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+# Initialize AI service (uncomment if needed)
+AI_service = AI_Service() # onnx, float16. triton 
+
+def ai_pipeline(video_frames: List[FrameData]) -> List[DeviceDetection]:
     """Process video frames using AI controllers."""
     processed_results = []
-    for _, frame_data in enumerate(video_frames):
+    for frame_data in video_frames:
         result_json = AI_service.process_frame(frame_data["frame"], frame_data["frame_count"])
+        result_json.camera_id = frame_data.url
         processed_results.append(
             result_json
             )
+    post_process(processed_results)
     return processed_results
 
-
-async def process_video():
-    """Continuously capture frames and process them."""
-    global latest_result, running, video_urls, sleep_time
-    while running:
-        if video_urls:
-            data = get_frames(video_urls)
+def process_video():
+    """Continuously capture frames, process them, and broadcast results."""
+    global latest_result, urls_camera, sleep
+    while True:
+        if urls_camera:
+            data = get_frames(list(urls_camera.keys()))
             if data:
                 latest_result = {
                     "time": time.time(),
                     "device_list": ai_pipeline(data)
                 }
-        await asyncio.sleep(sleep_time)
+            else:
+                time.sleep(sleep)
+        else:
+            time.sleep(sleep)
 
-
-@app.post("/start")
-async def start_processing(background_tasks: BackgroundTasks, urls: List[str] = [], sleep: int = 10):
-    """Start continuous frame processing."""
-    global video_urls, running, sleep_time
-    if running:
-        return {"message": "Already running"}
-
-    video_urls = urls
-    sleep_time = max(1, sleep)
-    running = True
-    background_tasks.add_task(process_video)
-    return {"message": "Processing started"}
-
-
-@app.post("/stop")
-async def stop_processing():
-    """Stop continuous frame processing."""
-    global running, latest_result
-    running = False
-    latest_result = {"message": "Processing stopped"}
-    return {"message": "Processing stopped"}
-
+threading.Thread(target=process_video, daemon=True).start()
 
 @app.get("/result")
 async def get_result():
-    """Get the latest AI result."""
-    return latest_result
-
+    """Get the latest AI result (kept for compatibility)."""
+    output = latest_result.copy()
+    if output:
+        for i in range(len(output["device_list"])):
+            output["device_list"][i].post_frame = ""
+    return jsonable_encoder(output)
 
 @app.post("/push_url")
 async def push_url(url: str):
     """Add a new video stream URL to the list."""
-    global video_urls
-    if url not in video_urls:
-        video_urls.append(url)
-        return {"message": "URL added", "urls": video_urls}
-    return {"message": "URL already exists", "urls": video_urls}
-
+    global urls_camera
+    if url not in urls_camera:
+        stream_name = uuid.uuid5(uuid.NAMESPACE_URL, url).hex[:8]
+        urls_camera[url] = stream_name
+        rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
+        return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
+    return {"message": "URL already exists", "urls": urls_camera, "url": urls_camera[url]}
 
 @app.post("/delete_url")
 async def delete_url(url: str):
     """Remove a URL from the list."""
-    global video_urls
-    if url in video_urls:
-        video_urls.remove(url)
-        return {"message": "URL removed", "urls": video_urls}
-    return {"message": "URL not found", "urls": video_urls}
-
+    global urls_camera
+    if url in urls_camera:
+        if url in capture_dict:
+            capture_dict[url].release()
+            del capture_dict[url]
+            
+        stream_name = urls_camera.pop(url)
+        if stream_name in frames:
+            del frames[stream_name]
+        return {"message": "URL removed", "urls": urls_camera}
+    return {"message": "URL not found", "urls": urls_camera}
 
 @app.get("/get_url")
 async def get_urls():
     """Retrieve the list of currently tracked video stream URLs."""
-    return {"urls": video_urls}
+    return urls_camera
 
-# Define input video path
-input_video_path = "MVI_0334.MOV"  # Change this to your video file
+@app.get("/stream/{id}")
+async def stream_video(id: str):
+    def generate_frames():
+        while True:
+            frame = frames.get(id)
+            if not frame:
+                break
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-# Open the input video
-cap = cv2.VideoCapture(input_video_path)
-
-# Get video properties
-fps = int(cap.get(cv2.CAP_PROP_FPS))  # Frames per second
-total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-# Start processing
-total_start_time = time.time()
-frame_count = 0
-
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break  # Stop when video ends
-
-    # Measure processing time per frame
-    start_time = time.time()
-    result_json = AI_service.process_frame(frame, frame_count)
-    end_time = time.time()
-
-    # Show processed frame
-    cv2.imshow("Processed Video", result_json["post_frame"])
-
-    # Print frame processing time
-    print(f"Processed frame {frame_count+1}/{total_frames} in {end_time - start_time:.4f} seconds")
-
-    frame_count += 1
-
-    # Press 'q' to exit early
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# Release resources
-cap.release()
-cv2.destroyAllWindows()
-
-# End total processing timer
-total_end_time = time.time()
-total_time = total_end_time - total_start_time
-
-print(f"\nTotal processing time: {total_time:.4f} seconds")
-print(f"Processed {frame_count} frames.")
+    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")

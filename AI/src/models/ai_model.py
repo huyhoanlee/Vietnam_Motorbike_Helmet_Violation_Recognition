@@ -8,7 +8,7 @@ from loguru import logger
 
 # Load a model
 class Model:
-    def __init__(self, config: ModelConfig = ModelConfig):
+    def __init__(self, config: ModelConfig = ModelConfig()):
         # Check if CUDA is available
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -19,22 +19,18 @@ class Model:
             
         self.config = config
         self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
-        self.plate_detector = YOLO(config.PALATE_WEIGHT_PATH, verbose=False)
         self.ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=use_gpu)
-        self.object_tracker = DeepSort(max_age=20,
-                                n_init=2,
-                                nms_max_overlap=1.0,
-                                max_cosine_distance=0.3,
-                                nn_budget=None,
-                                override_track_class=None,
-                                embedder="mobilenet",
-                                half=True,
-                                bgr=True,
-                                embedder_gpu=use_gpu,
-                                embedder_model_name=None,
-                                embedder_wts=None,
-                                polygon=False,
-                                today=None)
+        self.object_tracker = DeepSort(
+                            max_age=1,  
+                            n_init=2,  
+                            nms_max_overlap=1.0,  # Avoid redundant overlap checks
+                            max_cosine_distance=0.2,  # Faster similarity checks
+                            nn_budget=50,  # Limit embedding storage
+                            embedder="mobilenet",
+                            embedder_model_name="mobilenetv2_x1_0",  # Smaller & faster version
+                            embedder_gpu=True,  
+                            half=True,  # Use FP16 for speed
+                            )
         self.warmup()
         
     def warmup(self):
