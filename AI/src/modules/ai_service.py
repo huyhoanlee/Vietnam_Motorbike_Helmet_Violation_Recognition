@@ -30,7 +30,7 @@ class AI_Service:
             self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
         self.data_tracker =  {}
         
-    def process_frame(self, frame: np.ndarray, frame_count: int, verbose = False) -> DeviceDetection:
+    def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str="CAM38") -> DeviceDetection:
         """Process a single frame and return annotated frame"""
         # Vehicle detection
         
@@ -73,7 +73,7 @@ class AI_Service:
             
             process_to_output_json_time = time.time()
             # Process to output JSON
-            output_json = process_to_output_json(grouped_json, frame, post_frame)
+            output_json = process_to_output_json(grouped_json, frame, post_frame, camera_id=camera_id)
             process_to_output_json_time = time.time() - process_to_output_json_time
             total_time = time.time() - detect_start
             if verbose:

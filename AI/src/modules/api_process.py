@@ -8,10 +8,13 @@ from src.config.globalVariables import frames, urls_camera
 def create_violation_process(detected_result: List[DetectedResult], camera_id: str):
     for detection in detected_result:
         violation_data = {
+            "tracking_id": detection.vehicle_id,
             "plate_number": detection.plate_numbers if detection.plate_numbers else "None",
             "camera_id": camera_id,
             "status": "AI detected",
-            "image_url": detection.image
+            "image_url": detection.image,
+            "time": detection.time if detection.time else "None",
+            "confidence": detection.plate_conf if detection.plate_conf else -1,
         }
         try:
             response = requests.post(API.CREATE_VIOLATION, json=violation_data)
