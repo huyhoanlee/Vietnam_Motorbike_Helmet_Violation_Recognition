@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 // 👉 Base API and axios setup
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts";
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/";
 
 const axiosInstance = axios.create();
 axiosInstance.interceptors.request.use(
@@ -58,7 +58,7 @@ const CitizenApplication = () => {
 
   const fetchApplications = async () => {
     try {
-      const res = await axiosInstance.get(`${API_BASE_URL}/citizens/get-applications/${citizenId}`);
+      const res = await axiosInstance.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
       setApplications(res.data);
     } catch (error) {
       console.error("Error fetching applications", error);
@@ -80,7 +80,7 @@ const CitizenApplication = () => {
 
     try {
       const res = await axiosInstance.post(
-        `${API_BASE_URL}/citizens/card_parrot/${citizenId}`,
+        `${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`,
         formData
       );
 
@@ -117,7 +117,7 @@ const CitizenApplication = () => {
     if (newImage) formData.append("image", newImage);
 
     try {
-      await axiosInstance.post(`${API_BASE_URL}/car_parrots/update/${selectedApp.car_parrot_id}`, formData);
+      await axiosInstance.patch(`${API_BASE_URL}car_parrots/${selectedApp.car_parrot_id}/`, formData);
       setSnackbarMsg("Application updated successfully.");
       setSnackbarType("success");
       fetchApplications();

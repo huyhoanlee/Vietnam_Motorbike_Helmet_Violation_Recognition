@@ -7,14 +7,20 @@ import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 
 interface CameraData {
-  id: string;
+  camera_id: string;
   device_name: string;
   location: string;
   status: string;
   last_active: string;
-  url: string;
 }
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/cameras/";
 
+const axiosInstance = axios.create();
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 const DataDetection = () => {
   const [search, setSearch] = useState<string>("");
   const [filter, setFilter] = useState<string>("All");
@@ -26,10 +32,8 @@ const DataDetection = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get<CameraData[]>(
-          "https://hanaxuan-backend.hf.space/api/cameras/"
-        );
-        setData(response.data);
+        const response = await axiosInstance.get<{data: CameraData[] }>(`${API_BASE_URL}get-all/`);
+        setData(response.data.data);
       } catch (error) {
         console.error("Error fetching cameras:", error);
       }
@@ -37,6 +41,18 @@ const DataDetection = () => {
 
     fetchData();
   }, []);
+  const handleOpenDialog = async (camera_id: string) => {
+  try {
+    const res = await axiosInstance.get(`${API_BASE_URL}streaming/${camera_id}/`);
+    const streamUrl = res.data.output_url;
+    setSelectedStream(streamUrl);
+    setOpenDialog(true);
+  } catch (error) {
+    console.error("Failed to load stream", error);
+    setSelectedStream(null);
+    setOpenDialog(true); // vẫn mở dialog để hiện lỗi nếu cần
+  }
+};
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -47,15 +63,9 @@ const DataDetection = () => {
   };
 
   const filteredData = data.filter((item) =>
-    (filter === "All" || item.device_name.includes(filter)) &&
-    item.device_name.toLowerCase().includes(search.toLowerCase())
+    (filter === "All" || item.device_name?.includes(filter)) &&
+    item.device_name?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const handleOpenDialog = (url: string) => {
-    console.log("URL hình ảnh AI detect:", url); 
-    setSelectedStream(url);
-    setOpenDialog(true);
-  };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -83,7 +93,7 @@ const DataDetection = () => {
           <Select value={filter} onChange={handleFilterChange}>
             <MenuItem value="All">All</MenuItem>
             {data.map((camera) => (
-              <MenuItem key={camera.id} value={camera.device_name}>
+              <MenuItem key={camera.camera_id} value={camera.device_name}>
                 {camera.device_name}
               </MenuItem>
             ))}
@@ -104,15 +114,15 @@ const DataDetection = () => {
           </TableHead>
           <TableBody>
             {filteredData.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>{row.id}</TableCell>
+              <TableRow key={row.camera_id}>
+                <TableCell>{row.camera_id}</TableCell>
                 <TableCell>{row.device_name}</TableCell>
                 <TableCell>{row.location}</TableCell>
                 <TableCell align="center">
                   <Button
                     variant="contained"
                     color="primary"
-                    onClick={() => handleOpenDialog(row.url)}
+                    onClick={() => handleOpenDialog(row.camera_id)}
                   >
                     View Stream
                   </Button>

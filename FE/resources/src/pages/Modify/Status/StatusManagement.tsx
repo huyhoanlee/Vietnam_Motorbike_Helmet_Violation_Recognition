@@ -39,7 +39,7 @@ interface Status {
 
 interface Violation {
   id: string;
-  description: string;
+  plate_number: string;
   images: string[];
   statusId: string;
 }
@@ -81,14 +81,24 @@ const StatusManagement: React.FC = () => {
     fetchStatuses();
     fetchViolations();
   }, []);
+  useEffect(() => {
+  console.log("Statuses:", statuses);
+  console.log("Violations:", violations);
+}, [statuses, violations]);
+
 
   const fetchStatuses = async () => {
     setLoading(true);
     try {
-      const response = await axios.get<Status[]>(
+      const response = await axiosInstance.get(
         "https://hanaxuan-backend.hf.space/api/violation_status/get-all"
       );
-      setStatuses(response.data);
+      const mapped = response.data.data.map((item: any) => ({
+        id: String(item.id),
+        name: item.status_name,
+        description: "", 
+      }));
+      setStatuses(mapped);
     } catch (error) {
       console.error("Failed to fetch statuses", error);
     } finally {
@@ -98,10 +108,16 @@ const StatusManagement: React.FC = () => {
 
   const fetchViolations = async () => {
     try {
-      const response = await axios.get<Violation[]>(
+      const response = await axiosInstance.get(
         "https://hanaxuan-backend.hf.space/api/violations/get-all/"
       );
-      setViolations(response.data);
+      const mappedViolations = response.data.data.map((v: any) => ({
+        id: String(v.violation_id),
+        plate_number: v.plate_number,
+        images: [], 
+        statusId: v.status, 
+      }));
+      setViolations(mappedViolations);
     } catch (error) {
       console.error("Failed to fetch violations", error);
     }
@@ -133,7 +149,7 @@ const StatusManagement: React.FC = () => {
     if (existingStatus && dialogMode === "create") {
       setSnackbar({
         open: true,
-        message: "Status này đã tồn tại.",
+        message: "This status already exists.",
         severity: "error",
       });
       return;
@@ -142,7 +158,7 @@ const StatusManagement: React.FC = () => {
     if (/[^a-zA-Z0-9\s]/.test(name)) {
       setSnackbar({
         open: true,
-        message: "Tên Status không được chứa ký tự đặc biệt.",
+        message: "Status name cannot contain special characters.",
         severity: "error",
       });
       return;
@@ -150,23 +166,23 @@ const StatusManagement: React.FC = () => {
 
     try {
       if (dialogMode === "create") {
-        await axios.post(
-          "https://hanaxuan-backend.hf.space/api/violation_status/create",
-          { name, description }
+        await axiosInstance.post(
+          "https://hanaxuan-backend.hf.space/api/violation_status/create/",
+          { status_name: name, description }
         );
         setSnackbar({
           open: true,
-          message: "Tạo mới status thành công!",
+          message: "Create new status successfully!",
           severity: "success",
         });
       } else if (dialogMode === "edit" && currentStatus) {
-        await axios.put(
+        await axiosInstance.put(
           `https://hanaxuan-backend.hf.space/api/violations/change-status/${currentStatus.id}`,
-          { name, description }
+          { status_name: name, description }
         );
         setSnackbar({
           open: true,
-          message: "Cập nhật status thành công!",
+          message: "Status updated successfully!",
           severity: "success",
         });
       }
@@ -175,7 +191,7 @@ const StatusManagement: React.FC = () => {
     } catch (error) {
       setSnackbar({
         open: true,
-        message: "Có lỗi xảy ra. Vui lòng thử lại.",
+        message: "An error occurred. Please try again.",
         severity: "error",
       });
     }
@@ -187,29 +203,29 @@ const StatusManagement: React.FC = () => {
     if (isLinked) {
       setSnackbar({
         open: true,
-        message: "Không thể xóa status này vì đang liên kết với vi phạm.",
+        message: "This status cannot be deleted because it is linked to a violation..",
         severity: "error",
       });
       return;
     }
 
     if (
-      window.confirm("Bạn có chắc chắn muốn xóa status này? Hành động này không thể hoàn tác.")
+      window.confirm("Are you sure you want to delete this status? This action cannot be undone..")
     ) {
       try {
-        await axios.delete(
+        await axiosInstance.delete(
           `https://hanaxuan-backend.hf.space/api/violation_status/delete/${statusId}`
         );
         setSnackbar({
           open: true,
-          message: "Xóa status thành công!",
+          message: "Delete status successfully!",
           severity: "success",
         });
         fetchStatuses();
       } catch (error) {
         setSnackbar({
           open: true,
-          message: "Không thể xóa status. Vui lòng thử lại.",
+          message: "Unable to delete status. Please try again..",
           severity: "error",
         });
       }
@@ -219,19 +235,30 @@ const StatusManagement: React.FC = () => {
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
   };
+const axiosInstance = axios.create();
 
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" gutterBottom>
-        Quản lý Status
+        Status Management
       </Typography>
       <Tabs value={tabIndex} onChange={handleTabChange}>
-        <Tab label="Quản lý Status" />
-        <Tab label="Vi phạm theo Status" />
+        <Tab label="Status Management" />
+        <Tab label="Violation by Status" />
      
       </Tabs>
 
-      {/* Tab 1: Quản lý Status */}
+      {/* Tab 1: Status Management*/}
       {tabIndex === 0 && (
         <>
           <Button
@@ -250,9 +277,9 @@ const StatusManagement: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Tên Status</TableCell>
-                    <TableCell>Mô tả</TableCell>
-                    <TableCell>Hành động</TableCell>
+                    <TableCell>Status Name</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell>Action</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -288,19 +315,19 @@ const StatusManagement: React.FC = () => {
         <Box mt={3}>
           {statuses.map((status) => {
             const relatedViolations = violations.filter(
-              (v) => v.statusId === status.id
+              (v) => v.statusId === status.name
             );
 
             return (
               <Accordion key={status.id} sx={{ mb: 2 }}>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography fontWeight="bold">
-                    {status.name} ({relatedViolations.length} vi phạm)
+                    {status.name} ({relatedViolations.length} Violations)
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   {relatedViolations.length === 0 ? (
-                    <Typography>Không có vi phạm nào với status này.</Typography>
+                    <Typography>There are no violations with this status.</Typography>
                   ) : (
                     relatedViolations.map((violation) => (
                       <Paper
@@ -309,10 +336,10 @@ const StatusManagement: React.FC = () => {
                         elevation={1}
                       >
                         <Typography fontWeight="500">
-                          Mã vi phạm: {violation.id}
+                          Violation ID: {violation.id}
                         </Typography>
                         <Typography variant="body2" gutterBottom>
-                          Mô tả: {violation.description || "Không có mô tả"}
+                          Plate Number: {violation.plate_number || "No license plate"}
                         </Typography>
                         {violation.images && violation.images.length > 0 && (
                           <ImageList cols={3} gap={8}>
@@ -341,25 +368,25 @@ const StatusManagement: React.FC = () => {
       {/* Dialog tạo / chỉnh sửa Status */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {dialogMode === "create" ? "Tạo mới Status" : "Chỉnh sửa Status"}
+          {dialogMode === "create" ? "Create new Status" : "Edit Status"}
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent>
             <TextField
-              label="Tên Status"
+              label="Status Name"
               fullWidth
               margin="normal"
-              {...register("name", { required: "Tên status không được để trống" })}
+              {...register("name", { required: "Status name cannot be blank" })}
               error={!!errors.name}
               helperText={errors.name?.message}
             />
             <TextField
-              label="Lý do tạo / Mô tả"
+              label="Reason for creation / Description"
               fullWidth
               margin="normal"
               multiline
               rows={3}
-              {...register("description", { required: "Mô tả không được để trống" })}
+              {...register("description", { required: "Description cannot be empty" })}
               error={!!errors.description}
               helperText={errors.description?.message}
             />
@@ -367,7 +394,7 @@ const StatusManagement: React.FC = () => {
           <DialogActions>
             <Button onClick={handleCloseDialog}>Hủy</Button>
             <Button variant="contained" type="submit">
-              {dialogMode === "create" ? "Tạo mới" : "Cập nhật"}
+              {dialogMode === "create" ? "Create" : "Update"}
             </Button>
           </DialogActions>
         </form>

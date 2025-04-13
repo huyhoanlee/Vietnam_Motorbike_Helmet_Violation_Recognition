@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   List,
@@ -17,26 +17,37 @@ import DevicesIcon from "@mui/icons-material/Devices";
 import DescriptionIcon from "@mui/icons-material/Description";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
-const menuItems = [
-  { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
-  { text: "Account", icon: <AccountCircleIcon />, path: "/account" },
-  { text: "SUP ZONE", icon: <DevicesIcon />, path: "/modify" },
-  { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
-  { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
-  { text: "Devices", icon: <DevicesIcon />, path: "/devices" },
-  { text: "Modify", icon: <DevicesIcon />, path: "/modify" },
-  { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },
-];
-
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selected, setSelected] = useState(location.pathname);
+  const [role, setRole] = useState<string>(''); 
+  const username = localStorage.getItem("username") || "User";
+ 
+  useEffect(() => {
+    const userRole = localStorage.getItem("user_role"); 
+    setRole(userRole || ""); 
+  }, []);
 
   const handleNavigation = (path: string) => {
     setSelected(path);
     navigate(path);
   };
+
+  // Cập nhật danh sách menu dựa trên role
+  const menuItems = [
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", roles: ["Supervisor", "Admin"] },
+    { text: "Account", icon: <AccountCircleIcon />, path: "/account", roles: ["Admin"] },
+    { text: "SUP ZONE", icon: <DevicesIcon />, path: "/modify", roles: ["Supervisor"] },
+    { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection", roles: ["Supervisor"] },
+    { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection", roles: ["Supervisor"] },
+    { text: "Devices", icon: <DevicesIcon />, path: "/devices", roles: ["Supervisor"] },
+    { text: "Reports", icon: <DescriptionIcon />, path: "/reports", roles: ["Supervisor"] },
+    { text: "Citizen Management", icon: <DevicesIcon />, path: "/citizen-management", roles: ["Supervisor"] },
+  ];
+
+  // Lọc các menu item phù hợp với role người dùng
+  const filteredMenuItems = menuItems.filter(item => item.roles?.includes(role));
 
   return (
     <div
@@ -55,24 +66,23 @@ const Sidebar: React.FC = () => {
       {/* Avatar + Thông tin */}
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <Avatar
-          alt="Kien Nguyen"
           src="/path/to/avatar.jpg"
           sx={{ width: 80, height: 80 }}
         />
         <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
-          Kien Nguyen
+          {username}
         </Typography>
         <Typography variant="body2" color="textSecondary">
-          Admin
+          {role}
         </Typography>
-        <Typography variant="body2" color="textSecondary">
+        {/* <Typography variant="body2" color="textSecondary">
           Logged in: 10hr
-        </Typography>
+        </Typography> */}
       </Box>
 
       {/* Danh sách Menu */}
       <List component="nav" sx={{ width: "100%", marginTop: "20px" }}>
-        {menuItems.map((item, index) => (
+        {filteredMenuItems.map((item, index) => (
           <React.Fragment key={item.text}>
             <ListItemButton
               onClick={() => handleNavigation(item.path)}
@@ -93,7 +103,7 @@ const Sidebar: React.FC = () => {
                 }}
               />
             </ListItemButton>
-            {index !== menuItems.length - 1 && <Divider />}
+            {index !== filteredMenuItems.length - 1 && <Divider />}
           </React.Fragment>
         ))}
       </List>

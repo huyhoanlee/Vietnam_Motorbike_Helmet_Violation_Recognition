@@ -92,7 +92,7 @@ const Header: React.FC = () => {
       <Toolbar>
         <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Welcome, {username}!
+            Welcome
           </Typography>
         </Box>
 

@@ -223,7 +223,7 @@ const Violation: React.FC = () => {
                   <React.Fragment key={violation.id}>
                     <TableRow
                       sx={{
-                        backgroundColor: violation.notified ? "#d1ffd6" : "transparent", // Highlight row if notified
+                        backgroundColor: violation.notified ? "#d1ffd6" : "transparent", 
                         "&:hover": { backgroundColor: "#f9f9f9" },
                         transition: "0.3s",
                       }}

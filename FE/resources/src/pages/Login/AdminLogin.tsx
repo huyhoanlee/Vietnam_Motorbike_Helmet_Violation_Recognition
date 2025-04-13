@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Button, TextField, Typography, Container, Paper, Box, Alert } from '@mui/material';
 
-const LoginPage = () => {
+const AdminLogin = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -13,7 +13,7 @@ const LoginPage = () => {
         e.preventDefault();
 
         try {
-            const response = await axios.post('https://hanaxuan-backend.hf.space/api/auth/login/', {
+            const response = await axios.post('https://hanaxuan-backend.hf.space/api/accounts/login/', {
                 username,
                 password
             });
@@ -76,4 +76,4 @@ const LoginPage = () => {
     );
 };
 
-export default LoginPage;
+export default AdminLogin;

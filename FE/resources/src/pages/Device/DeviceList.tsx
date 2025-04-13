@@ -5,14 +5,16 @@ import {
   TextField, Switch, Snackbar, Alert, IconButton, CircularProgress,
   MenuItem, Tooltip, Typography, Fade
 } from "@mui/material";
-import { Edit, Delete, Add } from "@mui/icons-material";
+import { Edit, Add } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 
 interface Device {
-  id: string;
+  url_input: string,
+  camera_id: string;
   device_name: string;
-  location: string;
+  location_id: number;
+  location?: string;
   status: "active" | "deactive";
   note: string;
   last_active: Date;
@@ -37,12 +39,26 @@ const DeviceManagement: React.FC = () => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Device>({
     mode: "onChange",
   });
+  const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
+  
+  useEffect(() => {
+  const fetchLocations = async () => {
+    try {
+      const res = await axiosInstance.get("https://hanaxuan-backend.hf.space/api/locations/get-all/");
+      setLocations(res.data.data); 
+    } catch (err) {
+      console.error("Failed to fetch locations", err);
+    }
+  };
+
+  fetchLocations();
+}, []);
 
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const res = await axiosInstance.get(API_BASE_URL);
-        setDevices(res.data);
+        const res = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+        setDevices(res.data.data);
       } catch (err) {
         setSnackbarMessage("Failed to fetch devices.");
         setOpenSnackbar(true);
@@ -53,11 +69,27 @@ const DeviceManagement: React.FC = () => {
     fetchDevices();
   }, []);
 
-  const handleOpenDialog = (device?: Device) => {
-    setEditingDevice(device || null);
-    reset(device || { id: "", device_name: "", location: "", status: "active", note: "" });
-    setOpenDialog(true);
-  };
+const handleOpenDialog = (device: Device | null = null) => {
+  setEditingDevice(device);
+
+  if (device) {
+    reset({
+      ...device,
+      location: device.location_id.toString(), 
+    });
+  } else {
+    reset({
+      url_input: "",
+      device_name: "",
+      location: "",
+      status: "active",
+      note: "",
+      camera_id: "", 
+    });
+  }
+
+  setOpenDialog(true);
+};
 
   const handleCloseDialog = () => setOpenDialog(false);
 
@@ -65,7 +97,7 @@ const DeviceManagement: React.FC = () => {
     try {
        const existingDevice = devices.find(
         (device) => 
-          device.id === data.id ||
+          device.camera_id === data.camera_id ||
           device.device_name == data.device_name
        );
 
@@ -80,8 +112,8 @@ const DeviceManagement: React.FC = () => {
           if(data.device_name && data.device_name !== editingDevice.device_name) {
             changes.device_name = data.device_name;
           }
-          if(data.id && data.id !== editingDevice.id) {
-            changes.id = data.id;
+          if(data.camera_id && data.camera_id !== editingDevice.camera_id) {
+            changes.camera_id = data.camera_id;
           }
           if(data.location && data.location !== editingDevice.location) {
             changes.location = data.location;
@@ -95,17 +127,22 @@ const DeviceManagement: React.FC = () => {
           }
 
           // Thực hiện cập nhật dữ liệu nếu có thay đổi
-          await axiosInstance.patch(`${API_BASE_URL}${editingDevice.id}/`, {
+          await axiosInstance.patch(`${API_BASE_URL}update/${editingDevice.camera_id}/`, {
           ...data,
           last_active: new Date().toISOString(),
+          location_id: Number(data.location),
         });
         setDevices((prev) =>
-          prev.map((d) => (d.id === editingDevice.id ? { ...d, ...data } : d))
+          prev.map((d) => (d.camera_id === editingDevice.camera_id ? { ...d, ...data } : d))
         );
         setSnackbarMessage("Device updated successfully!");
        }else{
-        const res = await axiosInstance.post(API_BASE_URL, data);
-        setDevices((prev) => [...prev, res.data]);
+         await axiosInstance.post(`${API_BASE_URL}create/`, {
+          ...data,
+          location_id: Number(data.location),
+          });
+        const refreshed = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+        setDevices(refreshed.data.data);
         setSnackbarMessage("Device added successfully!");
        }
         setOpenSnackbar(true);
@@ -117,28 +154,28 @@ const DeviceManagement: React.FC = () => {
       }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await axiosInstance.delete(`${API_BASE_URL}${id}/`);
-      setDevices((prev) => prev.filter((d) => d.id !== id));
-      setSnackbarMessage("Device deleted successfully!");
-      setOpenSnackbar(true);
-    } catch (err) {
-      setSnackbarMessage("Failed to delete device.");
-      setOpenSnackbar(true);
-    }
-  };
+  // const handleDelete = async (id: string) => {
+  //   try {
+  //     await axiosInstance.delete(`${API_BASE_URL}${id}/`);
+  //     setDevices((prev) => prev.filter((d) => d.id !== id));
+  //     setSnackbarMessage("Device deleted successfully!");
+  //     setOpenSnackbar(true);
+  //   } catch (err) {
+  //     setSnackbarMessage("Failed to delete device.");
+  //     setOpenSnackbar(true);
+  //   }
+  // };
 
   const handleStatusChange = async (device: Device) => {
     const updatedStatus = device.status === "active" ? "deactive" : "active";
     try {
-      await axiosInstance.patch(`${API_BASE_URL}${device.id}/`, {
+      await axiosInstance.patch(`${API_BASE_URL}change-status/${device.camera_id}/`, {
         ...device,
         status: updatedStatus,
         last_active: new Date().toISOString(),
       });
       setDevices((prev) =>
-        prev.map((d) => (d.id === device.id ? { ...d, status: updatedStatus } : d))
+        prev.map((d) => (d.camera_id === device.camera_id ? { ...d, status: updatedStatus } : d))
       );
       setSnackbarMessage("Device status updated successfully!");
       setOpenSnackbar(true);
@@ -179,10 +216,12 @@ const DeviceManagement: React.FC = () => {
             </TableHead>
             <TableBody>
               {devices.map((device) => (
-                <TableRow key={device.id} hover>
-                  <TableCell>{device.id}</TableCell>
+                <TableRow key={device.camera_id} hover>
+                  <TableCell>{device.camera_id}</TableCell>
                   <TableCell>{device.device_name}</TableCell>
-                  <TableCell>{device.location}</TableCell>
+                  <TableCell>
+                  {device.location}
+                </TableCell>
                   <TableCell>
                     <Switch
                       checked={device.status === "active"}
@@ -195,11 +234,11 @@ const DeviceManagement: React.FC = () => {
                         <Edit />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    {/* <Tooltip title="Delete">
                       <IconButton color="error" onClick={() => handleDelete(device.id)}>
                         <Delete />
                       </IconButton>
-                    </Tooltip>
+                    </Tooltip> */}
                   </TableCell>
                 </TableRow>
               ))}
@@ -213,12 +252,12 @@ const DeviceManagement: React.FC = () => {
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
             <TextField
-              {...register("id", { required: "Camera ID is required" })}
-              label="Camera ID (URL format)"
+              {...register("url_input", { required: "Camera URL is required" })}
+              label="Camera URL format"
               fullWidth
               margin="normal"
-              error={!!errors.id}
-              helperText={errors.id?.message}
+              error={!!errors.url_input}
+              helperText={errors.url_input?.message}
             />
             <TextField
               {...register("device_name", { required: "Device Name is required" })}
@@ -231,11 +270,18 @@ const DeviceManagement: React.FC = () => {
             <TextField
               {...register("location", { required: "Location is required" })}
               label="Location"
+              select
               fullWidth
               margin="normal"
               error={!!errors.location}
               helperText={errors.location?.message}
-            />
+            >
+              {locations.map((loc) => (
+                <MenuItem key={loc.id} value={loc.id}>
+                  {loc.name}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               {...register("status", { required: "Status is required" })}
               label="Status"
