@@ -2,7 +2,7 @@ from loguru import logger
 import numpy as np
 import time
 
-from src.modules.annotation import visualize_detections
+from src.modules.annotation import visualize_detections, visualize_yolo_results
 from src.modules.vehicle_detection import VehicleDetector
 from src.modules.plate_recognition import PlateRecognizer
 from src.modules.object_tracking import ObjectTracker
@@ -68,7 +68,8 @@ class AI_Service:
             
             vis_start = time.time()
             # Visualization
-            post_frame = visualize_detections(frame, grouped_json)
+            # post_frame = visualize_detections(frame, grouped_json)
+            post_frame = frame
             visualize_detections_time = time.time() - vis_start
             
             process_to_output_json_time = time.time()
@@ -192,4 +193,26 @@ class AI_Service:
         print(f"  Total Time: {total_time:.3f} seconds")
 
         return post_frame
-     
+
+    def streaming_visualize(self, frame: bytes) -> bytes:
+        # Decode JPEG bytes to OpenCV image (NumPy array)
+        frame_array = cv2.imdecode(np.frombuffer(frame, np.uint8), cv2.IMREAD_COLOR)
+        if frame_array is None:
+            print("Error: Could not decode frame")
+            return b""  # Return empty bytes on failure
+        
+        # Perform vehicle detection
+        detection_results = self.vehicle_detector.detect(frame_array)
+        
+        # Visualize detection results on the decoded frame
+        frame_with_boxes = visualize_yolo_results(frame_array, detection_results)
+        
+        # Encode the visualized frame back to JPEG bytes
+        success, encoded_image = cv2.imencode(".jpg", frame_with_boxes)
+        if not success:
+            print("Error: Could not encode frame")
+            return b""  # Return empty bytes on failure
+        
+        # Convert to bytes and return
+        frame_bytes = encoded_image.tobytes()
+        return frame_bytes

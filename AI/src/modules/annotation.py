@@ -197,3 +197,64 @@ def visualize_detections(frame, detections):
             cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
 
     return frame
+
+
+names = {
+    0: 'moto',
+    1: 'helm',
+    2: 'NO HELM',
+    3: 'plate'
+}
+colors = {
+    0: (0, 255, 0),   # Green - Moto
+    1: (255, 0, 0),   # Blue - Helmet
+    2: (0, 0, 255),   # Red - No Helmet
+    3: (0, 255, 255)  # Yellow - License Plate
+}
+
+def visualize_yolo_results(img, res):
+    # Sao chép ảnh gốc để tránh thay đổi
+    img_vis = img.copy()
+    
+    # Lấy kết quả từ res (giả sử res là kết quả từ detect_model.predict)
+    for result in res:
+        boxes = result.boxes  # Lấy danh sách các bounding box
+        
+        for box in boxes:
+            # Lấy tọa độ bounding box
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            # Lấy class id và confidence
+            cls_id = int(box.cls)
+            conf = float(box.conf)
+            
+            # Lấy tên class và màu sắc tương ứng
+            class_name = names[cls_id]
+            color = colors[cls_id]
+            
+            # Vẽ bounding box
+            cv2.rectangle(img_vis, (x1, y1), (x2, y2), color, 2)
+            
+            label = f'{class_name} {conf:.1f}'
+            (label_width, label_height), baseline = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 2
+            )
+            
+            cv2.rectangle(
+                img_vis, 
+                (x1, y1 - label_height - baseline), 
+                (x1 + label_width, y1), 
+                color, 
+                cv2.FILLED
+            )
+            
+            cv2.putText(
+                img_vis, 
+                label, 
+                (x1, y1 - baseline), 
+                cv2.FONT_HERSHEY_SIMPLEX, 
+                0.4, 
+                (0, 0, 0),  # Màu chữ đen
+                2
+            )
+    
+    return img_vis
