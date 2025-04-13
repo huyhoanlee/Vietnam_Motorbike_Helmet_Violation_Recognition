@@ -17,7 +17,7 @@ interface User {
   password: string;
   confirm_password: string;
   role: string | undefined;
-  status: boolean;
+  status: boolean | "Active" | "Deactive";
   // created_at: Date;
 }
 
@@ -58,7 +58,7 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await axiosInstance.get(API_BASE_URL);
+        const res = await axiosInstance.get(`${API_BASE_URL}get-all/`);
         console.log("Fetched users:", res.data);
         setUsers(res.data.map((user: { id: number; }) => ({ ...user, user_id: user.id })));
       } catch (err) {
@@ -71,20 +71,30 @@ const UserManagement: React.FC = () => {
   }, []);
 
 
-    const handleToggleActive = async (user_id: number, status: boolean) => {
+  const handleToggleActive = async (user_id: number, status: boolean) => {
+    const userToUpdate = users.find((u) => u.user_id === user_id);
+    if (!userToUpdate) return;
+
+    const payload = {
+      username: userToUpdate.username,
+      email: userToUpdate.email,
+      status: !status ? "Active" : "Deactive",
+    };
+
     try {
-      await axiosInstance.patch(`${API_BASE_URL}users/${user_id}/`, { status: !status });
+      await axiosInstance.patch(`${API_BASE_URL}status/${user_id}/`, payload);
       setUsers((prev) =>
         prev.map((user) => (user.user_id === user_id ? { ...user, status: !status } : user))
       );
       setSnackbarMessage(`User ${!status ? "Activated" : "Deactivated"} successfully.`);
       setOpenSnackbar(true);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setSnackbarMessage("Failed to update user status.");
       setOpenSnackbar(true);
     }
   };
-  // Xử lý mở popup thêm/sửa user
+    // Xử lý mở popup thêm/sửa user
   const handleOpenDialog = (user?: User) => {
     console.log("Opening dialog with user:", user);
     reset(user || { username: "", email: "", password: "", confirm_password: "", role: "" });
@@ -145,11 +155,11 @@ const onSubmit = async (data: User) => {
       // Thêm mới user
       const submitData = {
         ...data,
-        role: roles.find((role) => role.id === data.role)?.id,
+        role: roles.find((role) => role.id === data.role)?.name,
       };
 
       await axiosInstance.post(`${API_BASE_URL}register/`, submitData);
-      const res = await axiosInstance.get(API_BASE_URL);
+      const res = await axiosInstance.get(`${API_BASE_URL}get-all/`);
       setUsers(res.data.map((user: { id: number }) => ({ ...user, user_id: user.id })));
 
       setSnackbarMessage("User added successfully!");
@@ -195,8 +205,8 @@ const onSubmit = async (data: User) => {
                   <TableCell>{roles.find((role) => role.id === user.role)?.name || user.role}</TableCell>
                     <TableCell>
                     <Switch
-                      checked={user.status}
-                      onChange={() => handleToggleActive(user.user_id, user.status)}
+                      checked={user.status === true || user.status === "Active"}
+                       onChange={() => handleToggleActive(user.user_id, user.status === true || user.status === "Active")}
                       color="primary"
                     />
                   </TableCell>
@@ -263,7 +273,7 @@ const onSubmit = async (data: User) => {
                 validate: (value) => value === watch("password") || "Passwords do not match"
                })}  
               label="Confirm password"
-              type={showConfirmPassword ? "text" : "confirm_password"}
+              type={showConfirmPassword ? "text" : "password"}
               fullWidth
               margin="normal"
               error={!!errors.confirm_password}
