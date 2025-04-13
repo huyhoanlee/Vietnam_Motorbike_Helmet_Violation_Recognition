@@ -30,7 +30,7 @@ class AI_Service:
             self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
         self.data_tracker =  {}
         
-    def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str="CAM38") -> DeviceDetection:
+    def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str="") -> DeviceDetection:
         """Process a single frame and return annotated frame"""
         # Vehicle detection
         

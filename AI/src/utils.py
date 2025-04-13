@@ -59,7 +59,7 @@ def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_re
 
     return grouped
 
-def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="CAM38") -> DeviceDetection:
+def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="") -> DeviceDetection:
     """
     Convert the grouped vehicle and object information into a format suitable for outputting.
 
