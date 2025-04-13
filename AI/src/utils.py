@@ -100,7 +100,7 @@ def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="CAM3
                 continue
             
             output_json["detected_result"].append(DetectedResult(
-            vehicle_id=f"{camera_id}_{datetime.now().strftime('%Y-%m-%d')}_{vehicle_id}",
+            vehicle_id=f"{datetime.now().strftime('%Y-%m-%d')}_id_{vehicle_id}",
             image=encode_image_to_string(vehicle_img),
             violation=violation,
             plate_numbers=plate_number,
