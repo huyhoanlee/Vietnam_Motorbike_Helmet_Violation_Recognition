@@ -27,7 +27,7 @@ import axios from "axios";
 import ViolationDetail from "./ViolationDetails";
 import { format } from "date-fns";
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations";
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations/";
 const NOTIFICATION_API_URL = "https://hanaxuan-backend.hf.space/api/notifications";
 
 const axiosInstance = axios.create();
@@ -68,11 +68,12 @@ const ViolationDetected: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get(API_BASE_URL);
+        const response = await axiosInstance.get(`${API_BASE_URL}get-all/`);
         setViolations(response.data);
         const citizenResponse = await axiosInstance.get(
-          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all"
+          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all/"
         );
+        console.log("Citizens data:", citizenResponse.data);
         setCitizens(citizenResponse.data);
       } catch (err) {
         setError("Failed to fetch data, please try again later.");
@@ -217,7 +218,14 @@ const ViolationDetected: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {violations.map((violation) => (
+                {violations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center">
+                    No violations detected.
+                  </TableCell>
+                </TableRow>
+              ) : (              
+                violations.map((violation) => (
                   <React.Fragment key={violation.id}>
                     <TableRow
                       sx={{
@@ -267,7 +275,7 @@ const ViolationDetected: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   </React.Fragment>
-                ))}
+                )))}
               </TableBody>
             </Table>
           </TableContainer>
