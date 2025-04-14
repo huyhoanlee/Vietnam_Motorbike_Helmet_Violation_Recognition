@@ -59,43 +59,54 @@ const CitizenApplication = () => {
   const fetchApplications = async () => {
     try {
       const res = await axiosInstance.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
-      setApplications(res.data);
+      console.log("🔍 Applications from API:", res.data.applications);
+      setApplications(res.data.applications || []);
     } catch (error) {
       console.error("Error fetching applications", error);
     } finally {
       setLoading(false);
     }
   };
+  const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+const handleCreate = async () => {
+  if (!formPlate || !formImage) {
+    setSnackbarMsg("Please enter plate number and upload image.");
+    setSnackbarType("error");
+    return;
+  }
 
-  const handleCreate = async () => {
-    if (!formPlate || !formImage) {
-      setSnackbarMsg("Please enter plate number and upload image.");
-      setSnackbarType("error");
-      return;
-    }
+  try {
+    const base64Image = await fileToBase64(formImage);
 
-    const formData = new FormData();
-    formData.append("plate_number", formPlate);
-    formData.append("image", formImage);
+    const payload = {
+      plate_number: formPlate,
+      image: base64Image,
+    };
 
-    try {
-      const res = await axiosInstance.post(
-        `${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`,
-        formData
-      );
+    const res = await axiosInstance.post(
+      `${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`,
+      payload
+    );
 
-      setSnackbarMsg(res.data.message || "Application submitted.");
-      setSnackbarType("success");
-      setFormPlate("");
-      setFormImage(null);
-      setFormPreview(null);
-      fetchApplications();
-    } catch (err: any) {
-      const msg = err.response?.data?.error || "Something went wrong.";
-      setSnackbarMsg(msg);
-      setSnackbarType("error");
-    }
-  };
+    setSnackbarMsg(res.data.message || "Application submitted.");
+    setSnackbarType("success");
+    setFormPlate("");
+    setFormImage(null);
+    setFormPreview(null);
+    fetchApplications();
+  } catch (err: any) {
+    const msg = err.response?.data?.error || "Something went wrong.";
+    setSnackbarMsg(msg);
+    setSnackbarType("error");
+  }
+};
 
   const handleEditClick = (app: Application) => {
     setSelectedApp(app);
@@ -104,7 +115,7 @@ const CitizenApplication = () => {
     setNewImage(null);
     setEditDialogOpen(true);
   };
-
+  
   const handleUpdate = async () => {
     if (!newPlate || !previewImage || !selectedApp) {
       setSnackbarMsg("Plate number and image are required.");
@@ -112,12 +123,24 @@ const CitizenApplication = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("plate_number", newPlate);
-    if (newImage) formData.append("image", newImage);
+  try {
+    let imageBase64 = previewImage;
 
-    try {
-      await axiosInstance.patch(`${API_BASE_URL}car_parrots/${selectedApp.car_parrot_id}/`, formData);
+    if (newImage) {
+      imageBase64 = await fileToBase64(newImage);
+    }
+
+    if (!imageBase64) {
+      setSnackbarMsg("Image is required.");
+      setSnackbarType("error");
+      return;
+    }
+
+    const payload = {
+      plate_number: newPlate,
+      image: imageBase64,
+    };
+      await axiosInstance.patch(`${API_BASE_URL}car_parrots/update/${selectedApp.car_parrot_id}/`, payload);
       setSnackbarMsg("Application updated successfully.");
       setSnackbarType("success");
       fetchApplications();
@@ -205,15 +228,15 @@ const CitizenApplication = () => {
                     <Chip
                       label={app.status}
                       color={
-                        app.status === "submitted"
+                        app.status.toLowerCase() === "submitted"
                           ? "warning"
                           : app.status === "verified"
                           ? "success"
                           : "error"
                       }
                     />
-                    {app.status === "submitted" && (
-                      <IconButton onClick={() => handleEditClick(app)} size="small">
+                    {app.status.toLowerCase() === "submitted" && (
+                      <IconButton onClick={() => handleEditClick(app)} size="small" >
                         <EditIcon />
                       </IconButton>
                     )}
