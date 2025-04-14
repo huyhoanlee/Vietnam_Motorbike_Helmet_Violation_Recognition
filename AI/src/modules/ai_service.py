@@ -68,8 +68,8 @@ class AI_Service:
             
             vis_start = time.time()
             # Visualization
-            # post_frame = visualize_detections(frame, grouped_json)
-            post_frame = frame
+            post_frame = visualize_detections(frame, grouped_json)
+            # post_frame = frame
             visualize_detections_time = time.time() - vis_start
             
             process_to_output_json_time = time.time()

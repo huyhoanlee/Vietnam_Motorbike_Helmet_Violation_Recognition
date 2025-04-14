@@ -24,7 +24,7 @@ sleep = 3
 # Initialize AI service (uncomment if needed)
 AI_service = AI_Service() # onnx, float16. triton 
 
-AI_service_streaming = AI_Service()
+# AI_service_streaming = AI_Service()
 
 def ai_pipeline(video_frames: List[FrameData]) -> List[DeviceDetection]:
     """Process video frames using AI controllers."""
@@ -103,7 +103,7 @@ async def stream_video(id: str):
             frame = frames.get(id)
             if not frame:
                 break
-            frame = AI_service_streaming.streaming_visualize(frame)
+            # frame = AI_service_streaming.streaming_visualize(frame)
             yield (b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
