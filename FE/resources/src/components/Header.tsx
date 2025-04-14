@@ -28,12 +28,18 @@ interface Notification {
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "User";
+  // const username = localStorage.getItem("username") || "User";
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string>(''); 
+ 
+  useEffect(() => {
+    const userRole = localStorage.getItem("user_role"); 
+    setRole(userRole || ""); 
+  }, []);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -92,7 +98,7 @@ const Header: React.FC = () => {
       <Toolbar>
         <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Welcome
+            Welcome {role}
           </Typography>
         </Box>
 

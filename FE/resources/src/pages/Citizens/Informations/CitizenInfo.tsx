@@ -1,326 +1,281 @@
-import { useState } from "react";
 import {
   Box, Typography, Grid, TextField, Button,
-  MenuItem, Snackbar, Alert, Paper, FormControlLabel,
-  RadioGroup, Radio, InputLabel, Select, FormControl,
-  Avatar
+  MenuItem, Snackbar, Alert, Paper, Avatar,
+  RadioGroup, FormControlLabel, Radio, CircularProgress
 } from "@mui/material";
-import { useFormik } from "formik";
-import * as Yup from "yup";
+import { useState } from "react";
+import EmailUpdateSection from "./EmailUpdateSection";
+import axios from "axios";
+
+const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/";
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
 
 const CitizenInfoForm = () => {
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    dob: "",
+    birthPlace: "",
+    gender: "Male",
+    address: "",
+    citizen_identity_id: "",
+    issueDate: "",
+    issuePlace: "",
+    nationality: "Vietnam",
+  });
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" });
+  const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
-  const [cccdFile, setCccdFile] = useState<File | null>(null);
-  const [cccdPreview, setCccdPreview] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(false);
+  const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
 
-  const [newEmail, setNewEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [emailStep, setEmailStep] = useState<"Input" | "Sent">("Input");
-
-  const userId = localStorage.getItem("userId");
+  const citizenId = Number(localStorage.getItem("citizen_id") || 1);
   const isVerified = status === "Verified";
   const today = new Date().toISOString().split("T")[0];
 
-  const handleFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-    setFile: (file: File | null) => void,
-    setPreview: (url: string | null) => void
-  ) => {
-    const file = event.target.files?.[0];
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      setFile(file);
-      setPreview(URL.createObjectURL(file));
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
-  const formik = useFormik({
-    initialValues: {
-      fullName: "",
-      email: "",
-      phone: "",
-      dob: "",
-      birthPlace: "",
-      gender: "Male",
-      address: "",
-      cccd: "",
-      issueDate: "",
-      issuePlace: "",
-      nationality: "Vietnam",
-    },
-    validationSchema: Yup.object({
-      fullName: Yup.string().required("Required"),
-      email: Yup.string().email("Invalid email").required("Required"),
-      phone: Yup.string().matches(/^[0-9]{10}$/, "Invalid phone number").required("Required"),
-      dob: Yup.date().max(new Date(), "Invalid date").required("Required"),
-      birthPlace: Yup.string().required("Required"),
-      cccd: Yup.string().required("Required"),
-      issueDate: Yup.date().max(new Date(), "Invalid date").required("Required"),
-      issuePlace: Yup.string().required("Required"),
-    }),
-    onSubmit: async (values) => {
-      if (isVerified) return;
+  const validate = () => {
+    const newErrors: { [key: string]: string } = {};
+    const requiredFields = [
+      "full_name", "email", "phone", "dob", "birthPlace",
+      "citizen_identity_id", "issueDate", "issuePlace",
+    ];
 
-      if (!cccdFile) {
-        setError(true);
-        return;
+    requiredFields.forEach((field) => {
+      if (!form[field as keyof typeof form]?.trim()) {
+        newErrors[field] = "Trường này là bắt buộc";
       }
+    });
 
-      if (status === "Submitted") {
-        const confirmEdit = window.confirm(
-          "Bạn sẽ xác nhận chỉnh sửa và dữ liệu cũ gửi sẽ không được lưu. Bạn có chắc chắn muốn chỉnh sửa không?"
-        );
-        if (!confirmEdit) return;
-      }
+    if (form.full_name && /\d/.test(form.full_name)) {
+      newErrors.full_name = "Họ tên không được chứa số";
+    }
 
-      try {
-        const formData = new FormData();
-        Object.entries(values).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
-        formData.append("cccdFile", cccdFile);
+    if (form.email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(form.email)) {
+      newErrors.email = "Email không hợp lệ";
+    }
 
-        const res = await fetch(`/api/citizens/update-info/${userId}`, {
-          method: "POST",
-          body: formData,
-        });
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      newErrors.phone = "Số điện thoại phải gồm 10 chữ số";
+    }
 
-        if (res.ok) {
-          setSuccess(true);
-          setStatus("Submitted");
-        } else {
-          throw new Error("Failed to submit");
-        }
-      } catch (err) {
-        setError(true);
-        console.error("Error submitting info:", err);
-      }
-    },
-  });
+    if (form.citizen_identity_id && !/^(\d{9}|\d{12})$/.test(form.citizen_identity_id)) {
+      newErrors.citizen_identity_id = "Số CCCD phải gồm 9 hoặc 12 chữ số";
+    }
 
-  const handleRequestCode = async () => {
+    const dobDate = new Date(form.dob);
+    const age = new Date().getFullYear() - dobDate.getFullYear();
+    if (form.dob && age < 18) {
+      newErrors.dob = "Bạn phải trên 18 tuổi để đăng ký";
+    }
+
+    if (form.issueDate && new Date(form.issueDate) > new Date()) {
+      newErrors.issueDate = "Ngày cấp không hợp lệ";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) {
+      setSnackbar({ msg: "Vui lòng kiểm tra lại thông tin.", type: "error" });
+      return;
+    }
+
+    if (!imageFile) {
+      setSnackbar({ msg: "Vui lòng tải ảnh CCCD.", type: "error" });
+      return;
+    }
+
+    if (isVerified) return;
+
+    if (status === "Submitted" && !awaitingConfirmEdit) {
+    setSnackbar({
+      msg: "Bạn đã gửi trước đó. Nhấn 'Xác nhận gửi lại' nếu muốn sửa thông tin.",
+      type: "error"
+    });
+    setAwaitingConfirmEdit(true);
+    return;
+  }
+
+    setLoading(true);
+
     try {
-      const res = await fetch(`/api/citizens/request-code/${userId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ new_email: newEmail }),
-      });
-      if (res.ok) setEmailStep("Sent");
-      else throw new Error("Failed to request code");
-    } catch (err) {
-      alert("Không thể gửi mã xác nhận.");
+      const base64Image = await fileToBase64(imageFile);
+
+      const trimmedForm = Object.fromEntries(
+        Object.entries(form).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])
+      );
+
+      const payload = {
+        ...trimmedForm,
+        identity_card: base64Image,
+      };
+
+      await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload);
+
+      setSnackbar({ msg: "Thông tin đã được gửi thành công!", type: "success" });
+      setStatus("Submitted");
+      setAwaitingConfirmEdit(false);
+    } catch (err: any) {
+      const msg = err.response?.data?.error || "Gửi thông tin thất bại.";
+      setSnackbar({ msg, type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVerifyEmail = async () => {
-    try {
-      const res = await fetch(`/api/citizens/verify-code/${userId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          new_email: newEmail,
-          password,
-          confirm_code: code,
-        }),
-      });
-
-      if (res.ok) {
-        alert("Email updated successfully!");
-        setNewEmail("");
-        setPassword("");
-        setCode("");
-        setEmailStep("Input");
-      } else {
-        alert("Xác thực thất bại. Kiểm tra lại thông tin.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Đã có lỗi xảy ra.");
-    }
-  };
- type FormField = keyof typeof formik.values;
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1000, mx: "auto" }}>
-      <Typography variant="h4" fontWeight={600} gutterBottom>
-        Citizen Information Form
+      <Typography variant="h4" fontWeight={700} mb={3}>
+        Thông tin công dân
       </Typography>
 
-      <Paper elevation={3} sx={{ p: { xs: 2, md: 4 }, mt: 3 }}>
-        <form onSubmit={formik.handleSubmit}>
-          <Grid container spacing={3}>
-            {/* Fields */}
-            {[
-              { label: "Full Name", name: "fullName" },
-              { label: "Phone Number", name: "phone" },
-              { label: "Place of Birth", name: "birthPlace" },
-              { label: "ID Number", name: "cccd" },
-              { label: "Place of Issue", name: "issuePlace" },
-              { label: "Address", name: "address" },
-            ].map(({ label, name }) => (
-              <Grid item xs={12} sm={6} key={name}>
-                <TextField
-                  label={label}
-                  fullWidth
-                  disabled={isVerified}
-                  {...formik.getFieldProps(name)}
-                  error={formik.touched[name as FormField] && Boolean(formik.errors[name as FormField])}
-                  helperText={formik.touched[name as FormField] && formik.errors[name as FormField]}
-                />
-              </Grid>
-            ))}
-
-            <Grid item xs={12} sm={6}>
+      <Paper sx={{ p: 3 }}>
+        <Grid container spacing={2}>
+          {[{ label: "Họ và tên", name: "full_name" },
+            { label: "Email", name: "email" },
+            { label: "Số điện thoại", name: "phone" },
+            { label: "Nơi sinh", name: "birthPlace" },
+            { label: "Địa chỉ thường trú", name: "address" },
+            { label: "Số CCCD", name: "citizen_identity_id" },
+            { label: "Nơi cấp", name: "issuePlace" },
+          ].map(({ label, name }) => (
+            <Grid item xs={12} sm={6} key={name}>
               <TextField
-                label="Email"
+                label={label}
+                name={name}
+                value={form[name as keyof typeof form]}
+                onChange={handleChange}
                 fullWidth
                 disabled={isVerified}
-                {...formik.getFieldProps("email")}
-                error={formik.touched.email && Boolean(formik.errors.email)}
-                helperText={formik.touched.email && formik.errors.email}
+                error={!!errors[name]}
+                helperText={errors[name]}
               />
             </Grid>
+          ))}
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Date of Birth"
-                type="date"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ max: today }}
-                disabled={isVerified}
-                {...formik.getFieldProps("dob")}
-                error={formik.touched.dob && Boolean(formik.errors.dob)}
-                helperText={formik.touched.dob && formik.errors.dob}
-              />
-            </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Ngày sinh"
+              name="dob"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={form.dob}
+              onChange={handleChange}
+              inputProps={{ max: today }}
+              fullWidth
+              disabled={isVerified}
+              error={!!errors.dob}
+              helperText={errors.dob}
+            />
+          </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Issue Date"
-                type="date"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ max: today }}
-                disabled={isVerified}
-                {...formik.getFieldProps("issueDate")}
-                error={formik.touched.issueDate && Boolean(formik.errors.issueDate)}
-                helperText={formik.touched.issueDate && formik.errors.issueDate}
-              />
-            </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Ngày cấp"
+              name="issueDate"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={form.issueDate}
+              onChange={handleChange}
+              inputProps={{ max: today }}
+              fullWidth
+              disabled={isVerified}
+              error={!!errors.issueDate}
+              helperText={errors.issueDate}
+            />
+          </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth disabled={isVerified}>
-                <InputLabel>Nationality</InputLabel>
-                <Select
-                  value={formik.values.nationality}
-                  onChange={(e) => formik.setFieldValue("nationality", e.target.value)}
-                  label="Nationality"
-                >
-                  <MenuItem value="Vietnam">Vietnam</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+          <Grid item xs={12} sm={6}>
+            <RadioGroup row name="gender" value={form.gender} onChange={handleChange}>
+              <FormControlLabel value="Male" control={<Radio />} label="Nam" disabled={isVerified} />
+              <FormControlLabel value="Female" control={<Radio />} label="Nữ" disabled={isVerified} />
+            </RadioGroup>
+          </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth disabled={isVerified}>
-                <Typography sx={{ mb: 1 }}>Gender</Typography>
-                <RadioGroup row {...formik.getFieldProps("gender")}>
-                  <FormControlLabel value="Male" control={<Radio />} label="Male" />
-                  <FormControlLabel value="Female" control={<Radio />} label="Female" />
-                </RadioGroup>
-              </FormControl>
-            </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Quốc tịch"
+              name="nationality"
+              value={form.nationality}
+              onChange={handleChange}
+              fullWidth
+              disabled={isVerified}
+              select
+            >
+              <MenuItem value="Vietnam">Việt Nam</MenuItem>
+              <MenuItem value="Other">Khác</MenuItem>
+            </TextField>
+          </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <Typography gutterBottom>ID Image</Typography>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={isVerified}
-                onChange={(e) => handleFileChange(e, setCccdFile, setCccdPreview)}
-              />
-              {cccdPreview && (
-                <Box mt={2}>
-                  <Avatar variant="rounded" src={cccdPreview} sx={{ width: 150, height: 100 }} />
-                </Box>
-              )}
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography color="primary" fontWeight={500}>
-                Verification Status:{" "}
-                <strong style={{ color: status === "Verified" ? "green" : "orange" }}>
-                  {status}
-                </strong>
-              </Typography>
-            </Grid>
-
-            {!isVerified && (
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" size="large" fullWidth>
-                  Submit Information
-                </Button>
-              </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body1" mb={1}>
+              Tải ảnh CCCD
+            </Typography>
+            <input type="file" accept="image/*" disabled={isVerified} onChange={handleImageChange} />
+            {imagePreview && (
+              <Box mt={2}>
+                <Avatar src={imagePreview} variant="rounded" sx={{ width: 160, height: 100 }} />
+              </Box>
             )}
           </Grid>
-        </form>
-      </Paper>
 
-      {isVerified && (
-        <Box mt={4}>
-          <Typography variant="h6">Cập nhật Email mới</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="New Email"
+          <Grid item xs={12}>
+            <Typography>
+              Trạng thái:{" "}
+              <strong style={{ color: status === "Verified" ? "green" : "orange" }}>{status}</strong>
+            </Typography>
+          </Grid>
+
+          {!isVerified && (
+            <Grid item xs={12}>
+              <Button
+                onClick={handleSubmit}
+                variant="contained"
                 fullWidth
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Button onClick={handleRequestCode} variant="outlined" sx={{ mt: 1 }}>
-                Get Code
+                disabled={loading}
+                startIcon={loading && <CircularProgress size={20} />}
+              >
+                {loading ? "Đang gửi..." : awaitingConfirmEdit ? "Xác nhận gửi lại" : "Gửi thông tin"}
               </Button>
             </Grid>
-            {emailStep === "Sent" && (
-              <>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Confirmation Code"
-                    fullWidth
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Password"
-                    type="password"
-                    fullWidth
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Button onClick={handleVerifyEmail} variant="contained" sx={{ mt: 1 }}>
-                    Send
-                  </Button>
-                </Grid>
-              </>
-            )}
-          </Grid>
-        </Box>
-      )}
+          )}
+        </Grid>
+      </Paper>
 
-      <Snackbar open={success} autoHideDuration={3000} onClose={() => setSuccess(false)}>
-        <Alert severity="success">Information submitted successfully!</Alert>
-      </Snackbar>
-      <Snackbar open={error} autoHideDuration={3000} onClose={() => setError(false)}>
-        <Alert severity="error">Please upload all required images!</Alert>
+      {isVerified && <EmailUpdateSection citizenId={citizenId} />}
+
+      <Snackbar
+        open={!!snackbar.msg}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, msg: "" })}
+      >
+        <Alert severity={snackbar.type}>{snackbar.msg}</Alert>
       </Snackbar>
     </Box>
   );

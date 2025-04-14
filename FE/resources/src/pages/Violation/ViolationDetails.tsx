@@ -43,7 +43,8 @@ interface ViolationDetailProps {
 }
 
 const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
-  const [statusOptions, setStatusOptions] = useState<string[]>([]);
+  const [statusOptions, setStatusOptions] = useState<{ id: number, status_name: string }[]>([]);
+  const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>(violation.status);
   const [editing, setEditing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,13 +52,25 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
   // const userRole = localStorage.getItem("role");
    const userRole = "supervisor";
+  useEffect(() => {
+  if (statusOptions.length > 0) {
+    const matched = statusOptions.find((s) => s.status_name === violation.status);
+    if (matched) {
+      setSelectedStatusId(matched.id);
+    }
+  }
+}, [statusOptions]);
 
   useEffect(() => {
     if (userRole === "supervisor") {
-      axiosInstance.get("https://hanaxuan-backend.hf.space/api//violation_status/get-all")
+      axiosInstance.get("https://hanaxuan-backend.hf.space/api/violation_status/get-all")
         .then(res => {
-          setStatusOptions(res.data);
-        })
+          setStatusOptions(res.data.data);
+        const matched = res.data.data.find((s: any) => s.status_name === violation.status);
+        if (matched) {
+          setSelectedStatusId(matched.id); 
+        }
+      })
         .catch(() => {
           setSnackbar({ open: true, message: "Lỗi khi tải danh sách status", severity: "error" });
         });
@@ -72,7 +85,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
 
   const handleConfirmUpdate = () => {
     setLoading(true);
-    axiosInstance.post(`https://hanaxuan-backend.hf.space/api//violations/change-status/${violation.id}`, { status: selectedStatus })
+    axiosInstance.put(`https://hanaxuan-backend.hf.space/api/violations/change-status/${violation.id}/`, { status_id: selectedStatusId  })
       .then(() => {
         setSnackbar({ open: true, message: "Cập nhật trạng thái thành công", severity: "success" });
         setConfirmOpen(false);
@@ -115,15 +128,23 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
             <Typography variant="subtitle1" fontWeight="bold">Status:</Typography>
             {userRole === "supervisor" && editing ? (
               <Select
-                fullWidth
-                size="small"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                {statusOptions.map((status) => (
-                  <MenuItem key={status} value={status}>{status}</MenuItem>
-                ))}
-              </Select>
+              fullWidth
+              size="small"
+              value={selectedStatusId ?? ""}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setSelectedStatusId(id);
+                const statusObj = statusOptions.find(s => s.id === id);
+                if (statusObj) setSelectedStatus(statusObj.status_name);
+              }}
+              displayEmpty
+            >
+              {statusOptions.map((status) => (
+                <MenuItem key={status.id} value={status.id}>
+                  {status.status_name}
+                </MenuItem>
+              ))}
+            </Select>
             ) : (
               <Typography sx={{ color: violation.status === "Critical" ? "red" : "orange" }}>
                 {selectedStatus}

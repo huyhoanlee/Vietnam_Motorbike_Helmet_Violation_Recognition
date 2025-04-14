@@ -37,7 +37,10 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ element, requiredRole }) =>
 
         if (refreshToken) {
           try {
-            const response = await axios.post(API_REFRESH_URL, { refresh: refreshToken });
+            const response = await axios.post(
+            "https://hanaxuan-backend.hf.space/api/accounts/refresh/",
+            { refresh: refreshToken }
+          );
             const newToken = response.data.access;
             const newRole = response.data.role || role;
             localStorage.setItem("access_token", newToken);
