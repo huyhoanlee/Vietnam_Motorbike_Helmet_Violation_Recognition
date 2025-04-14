@@ -19,7 +19,10 @@ class Model:
             
         self.config = config
         self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
-        self.ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=use_gpu)
+        if config.PADDLE_DET_PATH == "pretrained" and config.PADDLE_REC_PATH == "pretrained":
+            self.ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=use_gpu)
+        else:
+            self.ocr_model = PaddleOCR(det_model_dir=config.PADDLE_DET_PATH, rec_model_dir=config.PADDLE_REC_PATH, rec_char_dict_path=config.REC_CHAR_DICT_PATH, show_log=False, use_angle_cls=True, use_gpu=True)
         self.object_tracker = DeepSort(
                             max_age=1,  
                             n_init=2,  

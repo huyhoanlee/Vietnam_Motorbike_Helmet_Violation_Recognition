@@ -6,10 +6,13 @@ class ViolationType(str, Enum):
     NO_HELMET = "no_helmet"
     
 class DetectedResult(BaseModel):
-    vehicle_id: int
+    vehicle_id: str
     image: str  #  base64
     violation: Optional[ViolationType]
     plate_numbers: str | None
+    time: str | None
+    plate_conf: float
+    camera_id: str | None
     
     def __getitem__(self, item):
         return getattr(self, item)
