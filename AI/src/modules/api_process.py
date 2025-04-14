@@ -6,18 +6,25 @@ from src.models.base_model import DeviceDetection, DetectedResult
 from src.config.globalVariables import frames, urls_camera
 
 def create_violation_process(detected_result: List[DetectedResult], camera_id: str):
+    post_be_data = []
     for detection in detected_result:
         violation_data = {
+            "camera_input_url": camera_id,
+            "tracking_id": detection.vehicle_id,
+            "violate_image": detection.image, #base64
             "plate_number": detection.plate_numbers if detection.plate_numbers else "None",
-            "camera_id": camera_id,
+            "confidence": detection.plate_conf if detection.plate_conf else -1,
             "status": "AI detected",
-            "image_url": detection.image
+            "time": detection.time if detection.time else "None",
         }
-        try:
-            response = requests.post(API.CREATE_VIOLATION, json=violation_data)
-            logger.info({"data": violation_data["image_url"][:3], "response": response, "status_code": response.status_code})
-        except Exception as e:
-            logger.error({"data": violation_data["image_url"][:3], "error": str(e)})
+        post_be_data.append(violation_data)
+    try:
+        response = requests.post(API.CREATE_VIOLATION, json=post_be_data)
+        # logger.info({"data": violation_data["violate_image"][:3], "response": response, "status_code": response.status_code}) #old
+        logger.info({"data": post_be_data, "response": response, "status_code": response.status_code})
+    except Exception as e:
+        # logger.error({"data": violation_data["violate_image"][:3], "error": str(e)}) #old
+        logger.error({"data": post_be_data, "error": str(e)})
     return
 
 def post_process(processed_results: List[DeviceDetection]):

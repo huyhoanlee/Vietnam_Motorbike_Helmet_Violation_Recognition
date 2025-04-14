@@ -7,7 +7,8 @@ from loguru import logger
 from src.config import Message
 from src.models.base_model import DeviceDetection, FrameData, DetectedResult, ViolationType
 from concurrent.futures import ThreadPoolExecutor
-from src.config.globalVariables import capture_dict
+from src.config.globalVariables import capture_dict, THRESHOLD_PALATE
+from datetime import datetime
 
 def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
 
@@ -58,7 +59,7 @@ def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_re
 
     return grouped
 
-def process_to_output_json(grouped_json, frame, post_frame) -> DeviceDetection:
+def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="") -> DeviceDetection:
     """
     Convert the grouped vehicle and object information into a format suitable for outputting.
 
@@ -70,7 +71,7 @@ def process_to_output_json(grouped_json, frame, post_frame) -> DeviceDetection:
         dict: JSON output with detected vehicles and violations.
     """
     output_json = DeviceDetection(
-        camera_id= '',
+        camera_id= camera_id,
         post_frame= encode_image_to_bytes(post_frame),
         detected_result= []
     )
@@ -86,19 +87,27 @@ def process_to_output_json(grouped_json, frame, post_frame) -> DeviceDetection:
         if any(obj["class"] == 2 for obj in group["objects"]):
             violation = None
             plate_number = None
-
+            plate_conf = None
+            
             for obj in group["objects"]:
                 if obj["class"] == 2:
                     violation = ViolationType.NO_HELMET
                 elif obj["class"] == 3 and "plate_number" in obj:
                     plate_number = obj["plate_number"]
-                    
+                    plate_conf = obj.get("plate_conf", -1)
+            
+            if plate_conf is None or plate_conf < THRESHOLD_PALATE:
+                continue
+            
             output_json["detected_result"].append(DetectedResult(
-                vehicle_id= vehicle_id,
-                image= encode_image_to_string(vehicle_img),
-                violation= violation,
-                plate_numbers= plate_number
-            ))
+            vehicle_id=f"{datetime.now().strftime('%Y-%m-%d')}_id_{vehicle_id}",
+            image=encode_image_to_string(vehicle_img),
+            violation=violation,
+            plate_numbers=plate_number,
+            time=datetime.now().isoformat(),
+            plate_conf=float(plate_conf) if plate_conf is not None else 0.0,
+            camera_id=camera_id,
+        ))
 
     return output_json
 

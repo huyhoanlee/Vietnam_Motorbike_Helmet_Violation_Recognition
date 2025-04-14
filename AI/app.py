@@ -24,6 +24,8 @@ sleep = 3
 # Initialize AI service (uncomment if needed)
 AI_service = AI_Service() # onnx, float16. triton 
 
+# AI_service_streaming = AI_Service()
+
 def ai_pipeline(video_frames: List[FrameData]) -> List[DeviceDetection]:
     """Process video frames using AI controllers."""
     processed_results = []
@@ -72,7 +74,8 @@ async def push_url(url: str):
         urls_camera[url] = stream_name
         rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
         return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
-    return {"message": "URL already exists", "urls": urls_camera, "url": urls_camera[url]}
+    rtsp_stream = f"{AppConfig.HOST_STREAM}{urls_camera[url]}"
+    return {"message": "URL already exists", "urls": urls_camera, "url": rtsp_stream} #f'https://hanaxuan-ai-service.hf.space/stream/{urls_camera[url]}' 
 
 @app.post("/delete_url")
 async def delete_url(url: str):
@@ -101,7 +104,8 @@ async def stream_video(id: str):
             frame = frames.get(id)
             if not frame:
                 break
+            # frame = AI_service_streaming.streaming_visualize(frame)
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
