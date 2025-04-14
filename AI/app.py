@@ -74,7 +74,8 @@ async def push_url(url: str):
         urls_camera[url] = stream_name
         rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
         return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
-    return {"message": "URL already exists", "urls": urls_camera, "url": urls_camera[url]}
+    rtsp_stream = f"{AppConfig.HOST_STREAM}{urls_camera[url]}"
+    return {"message": "URL already exists", "urls": urls_camera, "url": rtsp_stream} #f'https://hanaxuan-ai-service.hf.space/stream/{urls_camera[url]}' 
 
 @app.post("/delete_url")
 async def delete_url(url: str):
