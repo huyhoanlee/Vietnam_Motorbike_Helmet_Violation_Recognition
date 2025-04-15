@@ -14,7 +14,7 @@ class ModelConfig:
     source_video_path = "MVI_0334.MOV"
     
 class AppConfig:
-    # HOST = "huyhoanlee-ai-service.hf.space"
+    # HOST = "https://huyhoanlee-ai-service.hf.space"
     # HOST_STREAM = "https://huyhoanlee-ai-service.hf.space/stream/"
     HOST = "http://127.0.0.1:8000"
     HOST_STREAM = "http://127.0.0.1:8000/stream/"
