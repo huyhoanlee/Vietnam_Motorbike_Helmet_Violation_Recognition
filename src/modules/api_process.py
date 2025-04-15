@@ -9,13 +9,13 @@ def create_violation_process(detected_result: List[DetectedResult], camera_id: s
     post_be_data = []
     for detection in detected_result:
         violation_data = {
-            "camera_input_url": camera_id,
-            "tracking_id": detection.vehicle_id,
-            "violate_image": detection.image, #base64
-            "plate_number": detection.plate_numbers if detection.plate_numbers else "None",
-            "confidence": detection.plate_conf if detection.plate_conf else -1,
-            "status": "AI detected",
-            "time": detection.time if detection.time else "None",
+            "camera_input_url": f"{camera_id}",
+            "tracking_id": f"{detection.vehicle_id}",
+            "violate_image": f"{detection.image}", #base64
+            "plate_number": f"{detection.plate_numbers if detection.plate_numbers else None}",
+            "confidence": float(detection.plate_conf if detection.plate_conf else 0),
+            "status": f"AI detected",
+            "time": f"{detection.time}",
         }
         post_be_data.append(violation_data)
     try:
