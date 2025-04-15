@@ -26,6 +26,14 @@ interface Notification {
   cameraId: string;
 }
 
+const axiosInstance = axios.create();
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+
 const Header: React.FC = () => {
   const navigate = useNavigate();
   // const username = localStorage.getItem("username") || "User";
@@ -81,7 +89,7 @@ const Header: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("https://hanaxuan-backend.hf.space/api/account/logout");
+      await axiosInstance.post("https://hanaxuan-backend.hf.space/api/accounts/logout/");
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -89,7 +97,8 @@ const Header: React.FC = () => {
     // Đặt token về trạng thái hết hạn thay vì xóa hoàn toàn
     localStorage.setItem("access_token", "undefined");
     localStorage.setItem("refresh_token", "undefined");
-
+    localStorage.setItem("is_citizen_authenticated", "undefined");
+    localStorage.setItem("user_role", "undefined");
     navigate("/");
   };
 

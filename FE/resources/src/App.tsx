@@ -8,9 +8,9 @@ import ViolationDetected from "./pages//Violation/ViolationDetected";
 import DataDetection from "./pages/data/DataDetection";
 import DataDetail from "./pages/data/DataDetail_fetch";
 import UserManagement from "./pages/Account/UserManagement";
-import AnalyticsPage from "./pages/Analytics/AnalyticsPage ";
+import ViolationByLocation from "./pages/Analytics/ViolationByLocation";
 import PrivateRoute from "./stores/privateroute";
-import CitizenManagement from "./pages/Supervisor/CitizenManagement";
+import CitizenManagement from "./pages/Supervisor/CitizenManagement/CitizenManagement";
 import Modify from "./pages/Modify/page";
 import StatusManagement from "./pages/Modify/Status/StatusManagement";
 import LocationCreator from "./pages/Modify/Location/LocationManagement";
@@ -24,6 +24,7 @@ import HomePage from "./pages/Home/HomePage";
 import CitizenLogin from "./pages/Login/CitienLogin";
 import Notification from "./pages/Citizens/Notifications/Notification";
 import CitizenRoute from "./stores/citizenroute";
+import SupervisorProfile from "./pages/Supervisor/Profile/SupervisorProfile";
 // import StreamingImage from "./pages/Streaming/StreamingImage";
 // import Violation from "./pages/Violation/ViolationModify";
 // import HardCodeStatus from "./pages/Modify/Status/harcode";
@@ -57,13 +58,13 @@ const App = () => {
         <Route path="/citizen-management" element={<PrivateRoute element={<MainLayout><CitizenManagement /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/data-detection" element={<PrivateRoute element={<MainLayout><DataDetection /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/device/:deviceId" element={<PrivateRoute element={<MainLayout><DataDetail /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/analytics" element={<PrivateRoute element={<MainLayout><AnalyticsPage /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/analytics" element={<PrivateRoute element={<MainLayout><ViolationByLocation /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/modify" element={<PrivateRoute element={<MainLayout><Modify /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/manage-status" element={<PrivateRoute element={<MainLayout><StatusManagement /></MainLayout>} requiredRole="Supervisor"/>} />
         {/* <Route path="/status-hard-code" element={<MainLayout><HardCodeStatus /></MainLayout>} /> */}
         <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationCreator /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/reports" element={<PrivateRoute element={<MainLayout><ReportPage /></MainLayout>} requiredRole="Supervisor"/>} />
-
+        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole="Supervisor"/>} />
 
         <Route path="/citizen" element={<CitizenRoute element={<MainLayout><CitizenManager /></MainLayout>}/>} />
         <Route path="/citizen-info" element={<CitizenRoute  element={<MainLayout><CitizenInfoForm /></MainLayout>}/>} />

@@ -49,18 +49,6 @@ const statusColors: Record<string, string> = {
   Modified: "#2196F3",
   Provided: "#9C27B0",
 };
-const axiosInstance = axios.create();
-
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 const ViolationLookupPage: React.FC = () => {
   const [plateNumber, setPlateNumber] = useState("");
@@ -76,7 +64,7 @@ const ViolationLookupPage: React.FC = () => {
   const [imageViewer, setImageViewer] = useState<string | null>(null);
 
   useEffect(() => {
-    axiosInstance
+    axios
       .get(`${API_BASE}/search-by-citizen/`)
       .then((res) => {
         setCitizenViolations(res.data?.data);
@@ -105,7 +93,7 @@ const ViolationLookupPage: React.FC = () => {
     setLoading(true);
     setSearchResult(null);
 
-    axiosInstance
+    axios
       .post(`${API_BASE}/search-by-plate-number/`, {
         params: { plate_number: plateNumber },
       })

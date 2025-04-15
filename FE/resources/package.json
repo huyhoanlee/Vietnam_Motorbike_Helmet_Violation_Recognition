@@ -24,6 +24,7 @@
     "formik": "^2.4.6",
     "framer-motion": "^12.6.3",
     "jspdf-autotable": "^5.0.2",
+    "jwt-decode": "^4.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.474.0",
     "msw": "^2.7.3",
