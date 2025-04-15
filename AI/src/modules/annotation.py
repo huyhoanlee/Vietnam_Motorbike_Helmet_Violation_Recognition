@@ -1,6 +1,5 @@
 from collections import deque
 from typing import Union
-
 import cv2
 import numpy as np
 from supervision.draw.color import Color
@@ -187,14 +186,13 @@ def visualize_detections(frame, detections):
             cv2.rectangle(frame, (x1, y1), (x2, y2), colors[obj_class], 1)
             if obj_class == 2:
                 label = f"No Helmet ({conf:.2f})"
-            else:
-                label = f"Class {obj_class} ({conf:.2f})"
+                cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
 
-            # If license plate, display plate number
-            if obj_class == 3 and "plate_number" in obj:
-                label = f"Plate: {obj['plate_number']} ({obj['plate_conf']:.2f})"
-            
-            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
+            elif obj_class == 3 and "plate_number" in obj:  # If license plate, display plate number
+                label = f"{obj['plate_number']} ({obj['plate_conf']:.2f})"
+                cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
+            # else:
+            #     label = f"Class {obj_class} ({conf:.2f})"
 
     return frame
 

@@ -64,13 +64,15 @@ def process_and_display_video():
 
 def process_and_display_frame():
     """Đọc frame từ video file, xử lý AI và hiển thị lên màn hình với FPS."""
+    frame_count = 0  # Đếm số frame
+    total_time = 0   # Tổng thời gian xử lý
+    
     # Mở video từ đường dẫn
     for i in range(200):
-        frame = cv2.imread('CAM013_20250214_1108_Mua_14.jpg')
-        
-        frame_count = 0  # Đếm số frame
-        total_time = 0   # Tổng thời gian xử lý
-        
+        # frame = cv2.imread('CAM013_20250214_1108_Mua_14.jpg')
+        frame = cv2.imread('test.jpg')
+        frame_count+=1
+
         # Xử lý frame qua AI_service
         start_time = time.time()
         post_frame = AI_service.test_process_frame(frame, frame_count)
@@ -87,6 +89,9 @@ def process_and_display_frame():
         cv2.imshow("Video", post_frame)
         cv2.waitKey() 
         cv2.destroyAllWindows()
+
+    print(f"Số frame xử lý: {frame_count}")
+    print(f"FPS trung bình: {frame_count / total_time:.2f}" if total_time > 0 else "FPS trung bình: N/A")
 
 if __name__ == "__main__":
     # Run
