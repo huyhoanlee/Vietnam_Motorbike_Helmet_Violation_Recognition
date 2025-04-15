@@ -8,7 +8,7 @@ from src.modules.plate_recognition import PlateRecognizer
 from src.modules.object_tracking import ObjectTracker
 from src.config import ModelConfig
 from src.models.ai_model import Model
-from src.utils import mapping_tracked_vehicles, process_to_output_json
+from src.utils import mapping_tracked_vehicles, process_to_output_json, fully_optimized_mapping_tracked_vehicles
 from src.models.base_model import DeviceDetection
 import time, cv2
 
@@ -45,7 +45,7 @@ class AI_Service:
         
         mapping_start = time.time()
         # Group objects with vehicles   
-        grouped_json = mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
         mapping_time = time.time() - mapping_start
         
         
@@ -143,6 +143,7 @@ class AI_Service:
             })
 
         return grouped
+    
     def test_process_frame(self, frame: np.ndarray, frame_count: int) -> DeviceDetection:
         """Process a single frame and return DRAWED FRAME"""
         # Start total time
@@ -157,12 +158,16 @@ class AI_Service:
         track_start = time.time()
         vehicle_track_dets, track_confs, track_classes, vehicle_track_ids, mask = self.object_tracker.track(detection_results, frame)
         track_time = time.time() - track_start
-        grouped_json = mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        mapping_start = time.time()
+        # Group objects with vehicles   
+        # grouped_json = mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        mapping_time = time.time() - mapping_start
         # grouped_json = self.mapping_vehicles_no_tracked(detection_results[0].boxes.data)
         
-        # OCR
+        # Single OCR
         plate_time = 0
-        if len(vehicle_track_dets) > 0:
+        if len(vehicle_track_dets) > 0: # Check if result has object
             plate_start = time.time()
             for vehicle in grouped_json:
                 if any(obj["class"] == 2 for obj in vehicle["objects"]):
@@ -176,6 +181,8 @@ class AI_Service:
                                 obj["plate_number"] = plate_number
                                 obj["plate_conf"] = plate_conf
             plate_time = time.time() - plate_start
+
+        # Batch OCR
                 
         # Visualization
         vis_start = time.time()
@@ -188,6 +195,7 @@ class AI_Service:
         print(f"Frame {frame_count} processing times:")
         print(f"  Vehicle Detection: {detect_time:.3f} seconds")
         print(f"  Object Tracking: {track_time:.3f} seconds")
+        print(f"  Mapping tracking time: {mapping_time:.3f} seconds")
         print(f"  License Plate Recognition: {plate_time:.3f} seconds")
         print(f"  Visualization: {vis_time:.3f} seconds")
         print(f"  Total Time: {total_time:.3f} seconds")

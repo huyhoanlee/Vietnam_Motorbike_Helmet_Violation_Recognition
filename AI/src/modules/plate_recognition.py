@@ -59,7 +59,7 @@ class PlateRecognizer:
             plate_text = ""
             for line in result[0]: #line: [bbox, (text, confidence)]
                 text, conf = line[-1]
-                plate_text += text + " "
+                plate_text += text
             return plate_text, conf
     
         return None, None

@@ -1,6 +1,7 @@
 from typing import List, Optional
 import cv2
 import base64
+import torch
 import requests
 import numpy as np
 from loguru import logger
@@ -145,9 +146,6 @@ def get_frames(urls: List[str]) -> List[FrameData]:
         data = [future.result() for future in futures if future.result() is not None]
     return data
 
-
-import torch
-
 def calculate_cip(vehicle_bbox, object_bbox):
     v_xmin, v_ymin, v_xmax, v_ymax = vehicle_bbox
     o_xmin, o_ymin, o_xmax, o_ymax = object_bbox
@@ -200,3 +198,130 @@ def validate_object(class_id, cip, hhb):
     elif class_id == 3:  # License plate
         return cip > 0.947 and 0.64 <= hhb <= 1  # Phần dưới
     return False
+
+def fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
+    """
+    Optimized version of mapping_tracked_vehicles function.
+
+    Args:
+        vehicle_track_dets (torch.Tensor): Tensor of vehicle bounding boxes
+        vehicle_track_ids (list): List of vehicle track IDs
+        detection_results (torch.Tensor): All detections
+        device (str): Device to run computations on
+
+    Returns:
+        list: List of dictionaries with vehicles and their associated objects
+    """
+    # Ensure inputs are on the right device
+    if not isinstance(vehicle_track_dets, torch.Tensor):
+        vehicle_track_dets = torch.tensor(vehicle_track_dets, device=device)
+    if not isinstance(detection_results, torch.Tensor):
+        detection_results = torch.tensor(detection_results, device=device)
+
+    # Separate vehicle and non-vehicle objects
+    other_objects = detection_results[detection_results[:, 5] != 0]
+
+    # If no vehicles or no other objects, return empty results
+    if len(vehicle_track_dets) == 0 or len(other_objects) == 0:
+        return [{"vehicle_id": id, "vehicle_bbox": vehicle[:4].tolist(), "objects": []} 
+                for id, vehicle in zip(vehicle_track_ids, vehicle_track_dets)]
+
+    # Pre-filtering: create a spatial index for quick overlap checks
+    # Use a simple grid-based approach for demonstration
+    # In a production system, consider using libraries like PyTorch3D or custom CUDA kernels
+
+    grouped = []
+
+    # Process in batches to avoid memory issues with large datasets
+    batch_size = min(100, len(vehicle_track_dets))  # Adjust based on available memory
+
+    for batch_start in range(0, len(vehicle_track_dets), batch_size):
+        batch_end = min(batch_start + batch_size, len(vehicle_track_dets))
+        batch_vehicles = vehicle_track_dets[batch_start:batch_end]
+        batch_ids = vehicle_track_ids[batch_start:batch_end]
+
+        # Quick filtering using vectorized operations
+        v_min_xy = batch_vehicles[:, :2].unsqueeze(1)  # [batch, 1, 2]
+        v_max_xy = batch_vehicles[:, 2:4].unsqueeze(1)  # [batch, 1, 2]
+
+        o_min_xy = other_objects[:, :2].unsqueeze(0)  # [1, num_objects, 2]
+        o_max_xy = other_objects[:, 2:4].unsqueeze(0)  # [1, num_objects, 2]
+
+        # Check for potential overlaps (vectorized)
+        overlap_check = (
+            (v_max_xy[:, :, 0] >= o_min_xy[:, :, 0]) &  # vehicle_xmax >= object_xmin
+            (v_min_xy[:, :, 0] <= o_max_xy[:, :, 0]) &  # vehicle_xmin <= object_xmax
+            (v_max_xy[:, :, 1] >= o_min_xy[:, :, 1]) &  # vehicle_ymax >= object_ymin
+            (v_min_xy[:, :, 1] <= o_max_xy[:, :, 1])    # vehicle_ymin <= object_ymax
+        )  # [batch, num_objects]
+
+        # Now compute CIP and HHB only for potentially overlapping pairs
+        for i, (v_id, vehicle) in enumerate(zip(batch_ids, batch_vehicles)):
+            potential_obj_indices = torch.where(overlap_check[i])[0]
+
+            if len(potential_obj_indices) == 0:
+                # No potentially overlapping objects for this vehicle
+                grouped.append({
+                    "vehicle_id": v_id,
+                    "vehicle_bbox": vehicle[:4].tolist(),
+                    "objects": []
+                })
+                continue
+
+            # Get potential objects
+            pot_objects = other_objects[potential_obj_indices]
+
+            # Calculate CIP for potential objects (vectorized)
+            v_bbox = vehicle[:4].unsqueeze(0)  # [1, 4]
+            o_bboxes = pot_objects[:, :4]      # [n_pot, 4]
+
+            # Intersection calculation
+            inter_xmin = torch.maximum(v_bbox[:, 0].unsqueeze(1), o_bboxes[:, 0].unsqueeze(0))
+            inter_ymin = torch.maximum(v_bbox[:, 1].unsqueeze(1), o_bboxes[:, 1].unsqueeze(0))
+            inter_xmax = torch.minimum(v_bbox[:, 2].unsqueeze(1), o_bboxes[:, 2].unsqueeze(0))
+            inter_ymax = torch.minimum(v_bbox[:, 3].unsqueeze(1), o_bboxes[:, 3].unsqueeze(0))
+
+            inter_width = torch.clamp(inter_xmax - inter_xmin, min=0)
+            inter_height = torch.clamp(inter_ymax - inter_ymin, min=0)
+            inter_area = (inter_width * inter_height).squeeze(0)  # [n_pot]
+
+            # Object areas
+            obj_area = (o_bboxes[:, 2] - o_bboxes[:, 0]) * (o_bboxes[:, 3] - o_bboxes[:, 1])  # [n_pot]
+
+            # CIP calculation
+            cip = inter_area / obj_area  # [n_pot]
+
+            # HHB calculation
+            v_height = vehicle[3] - vehicle[1]  # scalar
+            obj_center_y = (o_bboxes[:, 1] + o_bboxes[:, 3]) / 2  # [n_pot]
+            hhb = (obj_center_y - vehicle[1]) / v_height  # [n_pot]
+
+            # Get object classes
+            o_classes = pot_objects[:, 5]  # [n_pot]
+
+            # Apply filtering conditions
+            valid_helmet = ((o_classes == 1) | (o_classes == 2)) & (cip > 0.947) & (hhb >= 0) & (hhb <= 0.29)
+            valid_license = (o_classes == 3) & (cip > 0.947) & (hhb >= 0.64) & (hhb <= 1)
+            valid_mask = valid_helmet | valid_license  # [n_pot]
+
+            # Get final valid objects
+            valid_indices = torch.where(valid_mask)[0]
+
+            inside_objects = []
+            for idx in valid_indices:
+                obj_idx = potential_obj_indices[idx]
+                obj = other_objects[obj_idx]
+                inside_objects.append({
+                    "class": int(obj[5].item()),
+                    "bbox": obj[:4].tolist(),
+                    "confidence": float(obj[4].item())
+                })
+
+            grouped.append({
+                "vehicle_id": v_id,
+                "vehicle_bbox": vehicle[:4].tolist(),
+                "objects": inside_objects
+            })
+
+    return grouped
+ 
