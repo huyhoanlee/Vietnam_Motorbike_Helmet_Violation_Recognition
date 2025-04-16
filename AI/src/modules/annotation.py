@@ -150,7 +150,7 @@ class TraceAnnotator:
             # Draw trails
             cv2.line(frame, data_deque[i - 1], data_deque[i], color.as_bgr(), thickness)
 
-def visualize_detections(frame, detections):
+def visualize_detections(frame_ori, detections):
     """
     Draws bounding boxes on the frame based on detected objects.
 
@@ -161,6 +161,8 @@ def visualize_detections(frame, detections):
     Returns:
         np.ndarray: Annotated frame.
     """
+    # frame = frame_ori.copy()  # Create a copy of the frame to avoid modifying the original
+    frame = frame_ori  # Create a copy of the frame to avoid modifying the original
     # Define colors for each class
     colors = {0: (0, 255, 0),  # Green - Vehicle
               1: (255, 0, 0),  # Blue - Helmet
