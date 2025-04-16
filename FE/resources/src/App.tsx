@@ -5,30 +5,34 @@ import NotFound from "./pages/Error/NotFound";
 import MainLayout from "./layout/MainLayout";
 import DeviceList from "./pages/Device/DeviceList";
 import ViolationDetected from "./pages//Violation/ViolationDetected";
-import StreamingImage from "./pages/Streaming/StreamingImage";
 import DataDetection from "./pages/data/DataDetection";
 import DataDetail from "./pages/data/DataDetail_fetch";
 import UserManagement from "./pages/Account/UserManagement";
-import AnalyticsPage from "./pages/Analytics/AnalyticsPage ";
+import ViolationByLocation from "./pages/Analytics/ViolationByLocation";
 import PrivateRoute from "./stores/privateroute";
-import CitizenManagement from "./pages/Supervisor/CitizenManagement";
-import Violation from "./pages/Violation/ViolationModify";
+import CitizenManagement from "./pages/Supervisor/CitizenManagement/CitizenManagement";
 import Modify from "./pages/Modify/page";
 import StatusManagement from "./pages/Modify/Status/StatusManagement";
-import HardCodeStatus from "./pages/Modify/Status/harcode";
-import LocationManager from "./pages/Modify/Location/LocationManagement";
+import LocationCreator from "./pages/Modify/Location/LocationManagement";
 import ReportPage from "./pages/Report/Report";
 import CitizenManager from "./pages/Citizens/page";
-import CitizenInfoForm from "./pages/Citizens/Informations/CitizenInfo-hard-code";
-import CitizenInfoFormHardCode from "./pages/Citizens/Informations/CitizenInfo-hard-code";
+import CitizenInfoForm from "./pages/Citizens/Informations/CitizenInfo";
 import CitizenApplication from "./pages/Citizens/Aplications/CitizenApplication";
-import CarApplicationsHardCode from "./pages/Citizens/Aplications/CitizenApplication-hard-code";
 import ViolationLookupPage from "./pages/Citizens/View/ViolationSearch";
-import ViolationLookupPageHardCode from "./pages/Citizens/View/ViolationSearchHardCode";
 import ReportViolation from "./pages/Citizens/Report/ReportViolationPage";
 import HomePage from "./pages/Home/HomePage";
 import CitizenLogin from "./pages/Login/CitienLogin";
 import Notification from "./pages/Citizens/Notifications/Notification";
+import CitizenRoute from "./stores/citizenroute";
+import SupervisorProfile from "./pages/Supervisor/Profile/SupervisorProfile";
+// import StreamingImage from "./pages/Streaming/StreamingImage";
+// import Violation from "./pages/Violation/ViolationModify";
+// import HardCodeStatus from "./pages/Modify/Status/harcode";
+// import CitizenInfoFormHardCode from "./pages/Citizens/Informations/CitizenInfo-hard-code";
+// import CarApplicationsHardCode from "./pages/Citizens/Aplications/CitizenApplication-hard-code";
+// import ViolationLookupPageHardCode from "./pages/Citizens/View/ViolationSearchHardCode";
+
+
 
 const App = () => {
   return (
@@ -50,22 +54,22 @@ const App = () => {
         {/* Routes cho Supervisor */}
         <Route path="/devices" element={<PrivateRoute element={<MainLayout><DeviceList /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/violation-detection" element={<PrivateRoute element={<MainLayout><ViolationDetected /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/violation" element={<PrivateRoute element={<MainLayout><Violation /></MainLayout>} />} />
+        {/* <Route path="/violation" element={<PrivateRoute element={<MainLayout><Violation /></MainLayout>} />} /> */}
         <Route path="/citizen-management" element={<PrivateRoute element={<MainLayout><CitizenManagement /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/data-detection" element={<PrivateRoute element={<MainLayout><DataDetection /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/device/:deviceId" element={<PrivateRoute element={<MainLayout><DataDetail /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/analytics" element={<PrivateRoute element={<MainLayout><AnalyticsPage /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/analytics" element={<PrivateRoute element={<MainLayout><ViolationByLocation /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/modify" element={<PrivateRoute element={<MainLayout><Modify /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/manage-status" element={<PrivateRoute element={<MainLayout><StatusManagement /></MainLayout>} requiredRole="Supervisor"/>} />
         {/* <Route path="/status-hard-code" element={<MainLayout><HardCodeStatus /></MainLayout>} /> */}
-        <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationManager /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationCreator /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/reports" element={<PrivateRoute element={<MainLayout><ReportPage /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole="Supervisor"/>} />
 
-
-        <Route path="/citizen" element={<MainLayout><CitizenManager /></MainLayout>} />
-        <Route path="/citizen-info" element={<PrivateRoute element={<MainLayout><CitizenInfoForm /></MainLayout>} />} />
+        <Route path="/citizen" element={<CitizenRoute element={<MainLayout><CitizenManager /></MainLayout>}/>} />
+        <Route path="/citizen-info" element={<CitizenRoute  element={<MainLayout><CitizenInfoForm /></MainLayout>}/>} />
         {/* <Route path="/citizen-info-hard-code" element={<MainLayout><CitizenInfoFormHardCode /></MainLayout>} /> */}
-        <Route path="/citizen-applications" element={<MainLayout><CitizenApplication /></MainLayout>} />
+        <Route path="/citizen-applications" element={<CitizenRoute  element={<MainLayout><CitizenApplication /></MainLayout>}/>} />
         {/* <Route path="/citizen-applications-hard-code" element={<MainLayout><CarApplicationsHardCode /></MainLayout>} /> */}
         <Route path="/citizen-violation" element={<MainLayout><ViolationLookupPage /></MainLayout>} />
         {/* <Route path="/citizen-violation-hard-code" element={<MainLayout><ViolationLookupPageHardCode /></MainLayout>} /> */}

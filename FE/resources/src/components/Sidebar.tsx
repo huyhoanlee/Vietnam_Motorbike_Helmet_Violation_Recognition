@@ -13,16 +13,18 @@ import {
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import WarningIcon from "@mui/icons-material/Warning";
-import DevicesIcon from "@mui/icons-material/Devices";
+import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import DescriptionIcon from "@mui/icons-material/Description";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople';
+import HomeIcon from '@mui/icons-material/Home';
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selected, setSelected] = useState(location.pathname);
   const [role, setRole] = useState<string>(''); 
-  const username = localStorage.getItem("username") || "User";
+  // const username = localStorage.getItem("username") || "User";
  
   useEffect(() => {
     const userRole = localStorage.getItem("user_role"); 
@@ -38,12 +40,13 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", roles: ["Supervisor", "Admin"] },
     { text: "Account", icon: <AccountCircleIcon />, path: "/account", roles: ["Admin"] },
-    { text: "SUP ZONE", icon: <DevicesIcon />, path: "/modify", roles: ["Supervisor"] },
+    { text: "Supervisor Maintainance", icon: <ManageAccountsIcon />, path: "/modify", roles: ["Supervisor"] },
+    { text: "Citizen Management", icon: <EmojiPeopleIcon />, path: "/citizen-management", roles: ["Supervisor"] },
+    { text: "Devices", icon: <VideoCameraFrontIcon />, path: "/devices", roles: ["Supervisor"] },
     { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection", roles: ["Supervisor"] },
     { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection", roles: ["Supervisor"] },
-    { text: "Devices", icon: <DevicesIcon />, path: "/devices", roles: ["Supervisor"] },
     { text: "Reports", icon: <DescriptionIcon />, path: "/reports", roles: ["Supervisor"] },
-    { text: "Citizen Management", icon: <DevicesIcon />, path: "/citizen-management", roles: ["Supervisor"] },
+    { text: "Citizen Home", icon: <HomeIcon />, path: "/citizen", roles: ["Citizen"] },
   ];
 
   // Lọc các menu item phù hợp với role người dùng
@@ -69,9 +72,9 @@ const Sidebar: React.FC = () => {
           src="/path/to/avatar.jpg"
           sx={{ width: 80, height: 80 }}
         />
-        <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
+        {/* <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
           {username}
-        </Typography>
+        </Typography> */}
         <Typography variant="body2" color="textSecondary">
           {role}
         </Typography>

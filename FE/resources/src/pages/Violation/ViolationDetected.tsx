@@ -66,24 +66,33 @@ const ViolationDetected: React.FC = () => {
   const [citizens, setCitizens] = useState<Citizen[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axiosInstance.get(`${API_BASE_URL}get-all/`);
-        setViolations(response.data);
-        const citizenResponse = await axiosInstance.get(
-          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all/"
-        );
-        console.log("Citizens data:", citizenResponse.data);
-        setCitizens(citizenResponse.data);
-      } catch (err) {
-        setError("Failed to fetch data, please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      const response = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+      const mappedViolations = response.data.data.map((v: any) => ({
+        id: v.violation_id,
+        plate_number: v.plate_number,
+        camera_id: v.camera_id,
+        detected_at: v.detected_at,
+        status: v.status,
+        location: "Unknown",
+        image_url: "",
+      }));
+      setViolations(mappedViolations);
 
-    fetchData();
-  }, []);
+      const citizenResponse = await axiosInstance.get(
+        "https://hanaxuan-backend.hf.space/api/car_parrots/get-all/"
+      );
+      setCitizens(citizenResponse.data);
+    } catch (err) {
+      setError("Failed to fetch data, please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
 
   const toggleRow = (id: number) => {
     setExpandedRow(expandedRow === id ? null : id);

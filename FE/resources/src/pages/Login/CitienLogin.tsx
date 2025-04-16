@@ -121,7 +121,7 @@ const CitizenLogin = () => {
       setLoading(false);
     }
   };
-
+  localStorage.setItem("is_citizen_authenticated", "true");
   return (
     <Box
       sx={{

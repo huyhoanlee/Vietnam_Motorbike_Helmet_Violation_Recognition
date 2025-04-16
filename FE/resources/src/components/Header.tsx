@@ -26,14 +26,28 @@ interface Notification {
   cameraId: string;
 }
 
+const axiosInstance = axios.create();
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "User";
+  // const username = localStorage.getItem("username") || "User";
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string>(''); 
+ 
+  useEffect(() => {
+    const userRole = localStorage.getItem("user_role"); 
+    setRole(userRole || ""); 
+  }, []);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -75,7 +89,7 @@ const Header: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("https://hanaxuan-backend.hf.space/api/account/logout");
+      await axiosInstance.post("https://hanaxuan-backend.hf.space/api/accounts/logout/");
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -83,7 +97,8 @@ const Header: React.FC = () => {
     // Đặt token về trạng thái hết hạn thay vì xóa hoàn toàn
     localStorage.setItem("access_token", "undefined");
     localStorage.setItem("refresh_token", "undefined");
-
+    localStorage.setItem("is_citizen_authenticated", "undefined");
+    localStorage.setItem("user_role", "undefined");
     navigate("/");
   };
 
@@ -92,7 +107,7 @@ const Header: React.FC = () => {
       <Toolbar>
         <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Welcome
+            Welcome {role}
           </Typography>
         </Box>
 

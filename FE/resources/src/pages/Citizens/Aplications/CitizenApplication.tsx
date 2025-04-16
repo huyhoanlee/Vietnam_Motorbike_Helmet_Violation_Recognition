@@ -12,18 +12,6 @@ import axios from "axios";
 // 👉 Base API and axios setup
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/";
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 interface Application {
   car_parrot_id: number;
   plate_number: string;
@@ -58,7 +46,7 @@ const CitizenApplication = () => {
 
   const fetchApplications = async () => {
     try {
-      const res = await axiosInstance.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
+      const res = await axios.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
       console.log("🔍 Applications from API:", res.data.applications);
       setApplications(res.data.applications || []);
     } catch (error) {
@@ -90,7 +78,7 @@ const handleCreate = async () => {
       image: base64Image,
     };
 
-    const res = await axiosInstance.post(
+    const res = await axios.post(
       `${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`,
       payload
     );
@@ -140,7 +128,7 @@ const handleCreate = async () => {
       plate_number: newPlate,
       image: imageBase64,
     };
-      await axiosInstance.patch(`${API_BASE_URL}car_parrots/update/${selectedApp.car_parrot_id}/`, payload);
+      await axios.patch(`${API_BASE_URL}car_parrots/update/${selectedApp.car_parrot_id}/`, payload);
       setSnackbarMsg("Application updated successfully.");
       setSnackbarType("success");
       fetchApplications();

@@ -252,7 +252,12 @@ const handleOpenDialog = (device: Device | null = null) => {
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
             <TextField
-              {...register("url_input", { required: "Camera URL is required" })}
+              {...register("url_input", 
+                { 
+                  required: "Camera URL is required",  pattern: {
+                    value: /^(https?:\/\/)?([\w.-]+)+(:\d+)?(\/([\w/_-]+)?)*\/?(\?.*)?$/,
+                    message: "Invalid URL format",
+                  },})}
               label="Camera URL format"
               fullWidth
               margin="normal"
