@@ -199,7 +199,7 @@ def validate_object(class_id, cip, hhb):
         return cip > 0.947 and 0.64 <= hhb <= 1  # Phần dưới
     return False
 
-def fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
+def fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device):
     """
     Optimized version of mapping_tracked_vehicles function.
 

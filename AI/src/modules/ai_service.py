@@ -10,7 +10,9 @@ from src.config import ModelConfig
 from src.models.ai_model import Model
 from src.utils import mapping_tracked_vehicles, process_to_output_json, fully_optimized_mapping_tracked_vehicles
 from src.models.base_model import DeviceDetection
-import time, cv2
+import time, cv2, torch
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class AI_Service:
     def __init__(self, config: ModelConfig = ModelConfig()):
@@ -32,8 +34,8 @@ class AI_Service:
         
     def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str="") -> DeviceDetection:
         """Process a single frame and return annotated frame"""
-        # Vehicle detection
         
+        # Vehicle detection
         detect_start = time.time()
         detection_results = self.vehicle_detector.detect(frame)
         detect_time = time.time() - detect_start
@@ -45,7 +47,7 @@ class AI_Service:
         
         mapping_start = time.time()
         # Group objects with vehicles   
-        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data, device)
         mapping_time = time.time() - mapping_start
         
         
