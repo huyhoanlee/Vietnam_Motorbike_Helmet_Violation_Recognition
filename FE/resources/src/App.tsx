@@ -25,6 +25,9 @@ import CitizenLogin from "./pages/Login/CitienLogin";
 import Notification from "./pages/Citizens/Notifications/Notification";
 import CitizenRoute from "./stores/citizenroute";
 import SupervisorProfile from "./pages/Supervisor/Profile/SupervisorProfile";
+import NotificationManager from "./pages/Modify/Notify/NotificationManager";
+import Violation from "./pages/Violation/ViolationModify";
+import CitizenVerification from "./pages/Supervisor/CitizenManagement/CitizenVerification";
 // import StreamingImage from "./pages/Streaming/StreamingImage";
 // import Violation from "./pages/Violation/ViolationModify";
 // import HardCodeStatus from "./pages/Modify/Status/harcode";
@@ -53,9 +56,11 @@ const App = () => {
 
         {/* Routes cho Supervisor */}
         <Route path="/devices" element={<PrivateRoute element={<MainLayout><DeviceList /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/violation" element={<PrivateRoute element={<MainLayout><Violation /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/violation-detection" element={<PrivateRoute element={<MainLayout><ViolationDetected /></MainLayout>} requiredRole="Supervisor"/>} />
         {/* <Route path="/violation" element={<PrivateRoute element={<MainLayout><Violation /></MainLayout>} />} /> */}
         <Route path="/citizen-management" element={<PrivateRoute element={<MainLayout><CitizenManagement /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/citizen-verification" element={<PrivateRoute element={<MainLayout><CitizenVerification /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/data-detection" element={<PrivateRoute element={<MainLayout><DataDetection /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/device/:deviceId" element={<PrivateRoute element={<MainLayout><DataDetail /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/analytics" element={<PrivateRoute element={<MainLayout><ViolationByLocation /></MainLayout>} requiredRole="Supervisor"/>} />
@@ -65,6 +70,8 @@ const App = () => {
         <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationCreator /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/reports" element={<PrivateRoute element={<MainLayout><ReportPage /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/manage-notifications" element={<PrivateRoute element={<MainLayout><NotificationManager /></MainLayout>} requiredRole="Supervisor"/>} />
+
 
         <Route path="/citizen" element={<CitizenRoute element={<MainLayout><CitizenManager /></MainLayout>}/>} />
         <Route path="/citizen-info" element={<CitizenRoute  element={<MainLayout><CitizenInfoForm /></MainLayout>}/>} />

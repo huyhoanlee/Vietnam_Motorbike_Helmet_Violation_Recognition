@@ -27,6 +27,7 @@ const DataDetection = () => {
   const [data, setData] = useState<CameraData[]>([]);
   const [openDialog, setOpenDialog] = useState<boolean>(false);
   const [selectedStream, setSelectedStream] = useState<string | null>(null);
+  const [streamSrc, setStreamSrc] = useState<string | null>(null);
 
   // Fetch dữ liệu từ API
   useEffect(() => {
@@ -43,16 +44,28 @@ const DataDetection = () => {
   }, []);
   const handleOpenDialog = async (camera_id: string) => {
   try {
-    const res = await axiosInstance.get(`${API_BASE_URL}streaming/${camera_id}/`);
-    const streamUrl = res.data.output_url;
+    const res = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
+    let streamUrl = res.data.output_url;
     setSelectedStream(streamUrl);
     setOpenDialog(true);
   } catch (error) {
     console.error("Failed to load stream", error);
     setSelectedStream(null);
-    setOpenDialog(true); // vẫn mở dialog để hiện lỗi nếu cần
+    setOpenDialog(true); 
   }
 };
+   useEffect(() => {
+    let interval: any;
+    if (selectedStream) {
+      // Tạo một ảnh mới với timestamp để tránh cache
+      const updateStream = () => {
+        setStreamSrc(`${selectedStream}?t=${Date.now()}`);
+      };
+      updateStream();
+      interval = setInterval(updateStream, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [selectedStream]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -142,11 +155,11 @@ const DataDetection = () => {
       >
         <DialogTitle>Live Stream</DialogTitle>
         <DialogContent>
-          {selectedStream ? (
+          {streamSrc ? (
             <img
-              src={selectedStream}
+              src={streamSrc}
               alt="Live Stream"
-              style={{ width: "100%", height: "auto" }}
+              style={{ width: "100%", height: "auto", borderRadius: 8 }}
             />
           ) : (
             <Typography>Stream not available</Typography>

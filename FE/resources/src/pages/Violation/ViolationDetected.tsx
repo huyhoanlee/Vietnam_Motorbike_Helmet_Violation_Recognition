@@ -64,7 +64,11 @@ const ViolationDetected: React.FC = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<"notifyAll" | "notifySelected">("notifyAll");
   const [citizens, setCitizens] = useState<Citizen[]>([]);
-
+  const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: "",
+  severity: "success" as "success" | "error",
+});
   useEffect(() => {
   const fetchData = async () => {
     try {
@@ -187,6 +191,17 @@ const ViolationDetected: React.FC = () => {
             {violations.length} Violations Detected By AI
           </Typography>
 
+          {selectedViolations.length > 0 && (
+            <Button
+              variant="contained"
+              color="secondary"
+              sx={{ mt: 2, borderRadius: "20px" }}
+              onClick={handleNotifySelected}
+            >
+              Notify Selected Violations
+            </Button>
+          )}
+          
           <Button
             variant="outlined"
             onClick={handleNotifyAll}
@@ -289,16 +304,7 @@ const ViolationDetected: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {selectedViolations.length > 0 && (
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mt: 2, borderRadius: "20px" }}
-              onClick={handleNotifySelected}
-            >
-              Notify Selected Violations
-            </Button>
-          )}
+          
 
           <Snackbar
             open={openSnackbar}

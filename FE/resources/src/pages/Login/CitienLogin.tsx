@@ -99,12 +99,17 @@ const CitizenLogin = () => {
         phone_number: phone,
         code_authen: otp,
       });
+      const { access, refresh, role, id } = res.data.data;
+      localStorage.setItem("user_id", String(id));
+      localStorage.setItem('user_role', role);
+      localStorage.setItem("is_citizen_authenticated", "true");
 
       setNotification({
         open: true,
         message: res.data.message || "Đăng nhập thành công!",
         type: "success",
       });
+      
       navigate("/citizen");
     } catch (err: any) {
       const error = err?.response?.data;
@@ -121,7 +126,6 @@ const CitizenLogin = () => {
       setLoading(false);
     }
   };
-  localStorage.setItem("is_citizen_authenticated", "true");
   return (
     <Box
       sx={{

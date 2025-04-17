@@ -19,7 +19,14 @@ interface Device {
   note: string;
   last_active: Date;
 }
-
+interface DeviceFormData {
+  url_input: string;
+  device_name: string;
+  location: string; 
+  status: "active" | "deactive";
+  note: string;
+  camera_id: string;
+}
 const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/cameras/";
 
 const axiosInstance = axios.create();
@@ -70,12 +77,13 @@ const DeviceManagement: React.FC = () => {
   }, []);
 
 const handleOpenDialog = (device: Device | null = null) => {
+  console.log("Opening dialog", device); 
   setEditingDevice(device);
 
   if (device) {
     reset({
       ...device,
-      location: device.location_id.toString(), 
+      location: device.location_id ? device.location_id.toString() : "",
     });
   } else {
     reset({
@@ -108,35 +116,41 @@ const handleOpenDialog = (device: Device | null = null) => {
        }
 
        const changes: Partial<Device> = {};
-       if (editingDevice) {
-          if(data.device_name && data.device_name !== editingDevice.device_name) {
-            changes.device_name = data.device_name;
-          }
-          if(data.camera_id && data.camera_id !== editingDevice.camera_id) {
-            changes.camera_id = data.camera_id;
-          }
-          if(data.location && data.location !== editingDevice.location) {
-            changes.location = data.location;
-          }
+if (editingDevice) {
+  const changes: Partial<Device> = {};
 
-          // Nếu dữ liệu không thay đổi
-          if (Object.keys(changes).length == 0) {
-            setSnackbarMessage("No changes made. No update performed.");
-            setOpenSnackbar(true);
-            return;
-          }
+  if (data.device_name && data.device_name !== editingDevice.device_name) {
+    changes.device_name = data.device_name;
+  }
+  if (data.camera_id && data.camera_id !== editingDevice.camera_id) {
+    changes.camera_id = data.camera_id;
+  }
+  if (data.location && data.location !== editingDevice.location_id.toString()) {
+    changes.location = data.location;
+  }
 
-          // Thực hiện cập nhật dữ liệu nếu có thay đổi
-          await axiosInstance.patch(`${API_BASE_URL}update/${editingDevice.camera_id}/`, {
-          ...data,
-          last_active: new Date().toISOString(),
-          location_id: Number(data.location),
-        });
-        setDevices((prev) =>
-          prev.map((d) => (d.camera_id === editingDevice.camera_id ? { ...d, ...data } : d))
-        );
-        setSnackbarMessage("Device updated successfully!");
-       }else{
+  if (Object.keys(changes).length === 0) {
+    setSnackbarMessage("No changes were made. Please modify at least one field.");
+    setOpenSnackbar(true);
+    return;
+  }
+
+  // Tạo payload chỉ gồm các trường thay đổi
+  const payload: Record<string, any> = {};
+  if (changes.device_name) payload.device_name = changes.device_name;
+  if (changes.camera_id) payload.camera_id = changes.camera_id;
+  if (changes.location) payload.location_id = Number(changes.location);
+
+  await axiosInstance.patch(`${API_BASE_URL}update/${editingDevice.camera_id}/`, payload);
+
+  // Update lại local state
+  setDevices((prev) =>
+    prev.map((d) =>
+      d.camera_id === editingDevice.camera_id ? { ...d, ...payload } : d
+    )
+  );
+  setSnackbarMessage("Device updated successfully!");
+}else{
          await axiosInstance.post(`${API_BASE_URL}create/`, {
           ...data,
           location_id: Number(data.location),
@@ -211,7 +225,7 @@ const handleOpenDialog = (device: Device | null = null) => {
                 <TableCell><b>Device Name</b></TableCell>
                 <TableCell><b>Location</b></TableCell>
                 <TableCell><b>Status</b></TableCell>
-                <TableCell><b>Actions</b></TableCell>
+                {/* <TableCell><b>Actions</b></TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -228,18 +242,18 @@ const handleOpenDialog = (device: Device | null = null) => {
                       onChange={() => handleStatusChange(device)}
                     />
                   </TableCell>
-                  <TableCell>
+                  {/* <TableCell>
                     <Tooltip title="Edit">
                       <IconButton color="primary" onClick={() => handleOpenDialog(device)}>
                         <Edit />
                       </IconButton>
-                    </Tooltip>
+                    </Tooltip> */}
                     {/* <Tooltip title="Delete">
                       <IconButton color="error" onClick={() => handleDelete(device.id)}>
                         <Delete />
                       </IconButton>
                     </Tooltip> */}
-                  </TableCell>
+                  {/* </TableCell> */}
                 </TableRow>
               ))}
             </TableBody>
