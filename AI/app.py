@@ -13,11 +13,11 @@ from loguru import logger
 import base64
 from src.services.stream_service import StreamService
 from src.models.schema import AIResult
-from src.extractors.service import VehicleInfoExtractor
+from src.extractors.service import InfoExtractor
 from src.extractors.model import VehicleInfo, CitizenInfo, ImageBase64Request
 
 
-license_extractor = VehicleInfoExtractor()
+extractor = InfoExtractor()
 class CameraInput(BaseModel):
     camera_id: str
     
@@ -169,7 +169,7 @@ async def update_ai_config(config: dict):
 @app.post("/extract-license-info", response_model=VehicleInfo)
 async def extract_license_info(request: ImageBase64Request):
     try:
-        res = await license_extractor.ainvoke_vihicle(request.image_base64)
+        res = await extractor.ainvoke_vihicle(request.image_base64)
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -178,7 +178,7 @@ async def extract_license_info(request: ImageBase64Request):
 @app.post("/extract-citizen-info", response_model=CitizenInfo)
 async def extract_license_info(request: ImageBase64Request):
     try:
-        res = await license_extractor.ainvoke_c(request.image_base64)
+        res = await extractor.ainvoke_citizen(request.image_base64)
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -21,7 +21,7 @@ load_dotenv()
 
 
 # Define the class for processing OCR and extracting vehicle information
-class VehicleInfoExtractor:
+class InfoExtractor:
     def __init__(self):
         # Initialize the LLM (Google Generative AI model)
         # self.llm = ChatGoogleGenerativeAI(
