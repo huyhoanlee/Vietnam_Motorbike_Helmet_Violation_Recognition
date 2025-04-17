@@ -64,9 +64,9 @@ const ViolationLookupPage: React.FC = () => {
   const [imageViewer, setImageViewer] = useState<string | null>(null);
 const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
   if (data.startsWith("data:image/")) {
-    return data; // Đã có prefix, giữ nguyên
+    return data; 
   }
-  return `data:image/${format};base64,${data}`; // Thêm prefix nếu thiếu
+  return `data:image/${format};base64,${data}`; 
 };
   useEffect(() => {
     axios

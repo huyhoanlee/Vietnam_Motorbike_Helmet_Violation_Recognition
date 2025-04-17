@@ -38,11 +38,12 @@ interface ViolationDetailProps {
     plate_number: string;
     status: string;
     detected_at: string;
-    image_url: string;
+    violation_image: string[];
   };
+  onStatusUpdate?: (id: number, newStatus: string) => void;
 }
 
-const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
+const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUpdate  }) => {
   const [statusOptions, setStatusOptions] = useState<{ id: number, status_name: string }[]>([]);
   const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>(violation.status);
@@ -50,8 +51,12 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
-  // const userRole = localStorage.getItem("role");
-   const userRole = "supervisor";
+  const userRole = localStorage.getItem("user_role");
+  //  const userRole = "supervisor";
+const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
+  if (data.startsWith("data:image/")) return data;
+  return `data:image/${format};base64,${data}`;
+};
   useEffect(() => {
   if (statusOptions.length > 0) {
     const matched = statusOptions.find((s) => s.status_name === violation.status);
@@ -72,7 +77,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
         }
       })
         .catch(() => {
-          setSnackbar({ open: true, message: "Lỗi khi tải danh sách status", severity: "error" });
+          setSnackbar({ open: true, message: "Error loading status list", severity: "error" });
         });
     }
   }, []);
@@ -87,12 +92,15 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
     setLoading(true);
     axiosInstance.put(`https://hanaxuan-backend.hf.space/api/violations/change-status/${violation.id}/`, { status_id: selectedStatusId  })
       .then(() => {
-        setSnackbar({ open: true, message: "Cập nhật trạng thái thành công", severity: "success" });
+        setSnackbar({ open: true, message: "Status updated successful", severity: "success" });
         setConfirmOpen(false);
         setEditing(false);
+        if (onStatusUpdate) {
+        onStatusUpdate(violation.id, selectedStatus);
+      }
       })
       .catch((err) => {
-        const message = err.response?.data?.message || "Đã xảy ra lỗi khi cập nhật trạng thái.";
+        const message = err.response?.data?.message || "An error occurred while updating status..";
         setSnackbar({ open: true, message, severity: "error" });
       })
       .finally(() => setLoading(false));
@@ -108,7 +116,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
       <CardMedia
         component="img"
         sx={{ width: 150, height: 150, borderRadius: 2, border: "1px solid #ddd" }}
-        image={violation.image_url}
+        image={normalizeBase64Image(violation.violation_image?.[0])}
         alt="Violation Image"
       />
 
@@ -206,7 +214,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation }) => {
         <DialogTitle>Xác nhận cập nhật trạng thái</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Bạn có chắc chắn muốn cập nhật trạng thái vi phạm từ <strong>{violation.status}</strong> sang <strong>{selectedStatus}</strong>?
+            Are you sure you want to update the violation status from <strong>{violation.status}</strong> to <strong>{selectedStatus}</strong>?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

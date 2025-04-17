@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Grid } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import NotificationsNoneTwoToneIcon from '@mui/icons-material/NotificationsNoneTwoTone';
 
 const boxStyles = {
   height: 160,
@@ -33,7 +34,7 @@ const Modify: React.FC = () => {
 
       <Grid container spacing={4} mt={2}>
         {/* Box 1 - Status */}
-        <Grid item xs={12} sm={4} md={2}>
+        <Grid item xs={12} sm={4} md={4}>
           <Paper
             sx={boxStyles}
             onClick={() => navigate("/manage-status")}
@@ -50,7 +51,7 @@ const Modify: React.FC = () => {
         </Grid>
 
         {/* Box 2 - Location */}
-        <Grid item xs={12} sm={4} md={2}>
+        <Grid item xs={12} sm={4} md={4}>
           <Paper
             sx={boxStyles}
             onClick={() => navigate("/manage-location")}
@@ -62,6 +63,23 @@ const Modify: React.FC = () => {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Add or edit location points
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* Box 3 - Notifications */}
+        <Grid item xs={12} sm={4} md={4}>
+          <Paper
+            sx={boxStyles}
+            onClick={() => navigate("/manage-notifications")}
+            elevation={4}
+          >
+            <NotificationsNoneTwoToneIcon sx={{ fontSize: 40, color: "#f1c40f", mb: 1 }} />
+            <Typography variant="h6" fontWeight="500">
+              Notification
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              List of Notifications
             </Typography>
           </Paper>
         </Grid>
