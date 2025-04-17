@@ -2,6 +2,7 @@ from typing import Union
 import cv2
 import numpy as np
 from supervision.draw.color import Color, ColorPalette
+from ultralytics import YOLO
 from paddleocr import PaddleOCR
 
 

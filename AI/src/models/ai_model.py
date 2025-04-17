@@ -1,11 +1,10 @@
 import numpy as np
-import torch
 from src.config import ModelConfig
-from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
-from paddleocr import PaddleOCR
 from loguru import logger
-
+import torch
+from ultralytics import YOLO
+from paddleocr import PaddleOCR
 # Load a model
 class Model:
     def __init__(self, config: ModelConfig = ModelConfig()):

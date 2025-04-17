@@ -1,5 +1,4 @@
 from deep_sort_realtime.deepsort_tracker import DeepSort
-import torch
 import numpy as np
 import cv2
 from src.modules.vehicle_detection import VehicleDetector
