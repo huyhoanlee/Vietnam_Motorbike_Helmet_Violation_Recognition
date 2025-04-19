@@ -21,6 +21,8 @@ app = FastAPI()
 latest_result = {}
 sleep = 3
 
+#ohoho
+
 # Initialize AI service (uncomment if needed)
 AI_service = AI_Service() # onnx, float16. triton 
 
