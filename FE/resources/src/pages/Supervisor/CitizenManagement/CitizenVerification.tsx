@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -9,13 +8,8 @@ import { ExpandMore, CheckCircle, Cancel } from "@mui/icons-material";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const statusColors: any = {
-  submit: { label: "Pending approval", color: "warning" },
-  approve: { label: "Approved", color: "success" },
-  reject: { label: "Refuse", color: "error" }
-};
-
 const API_BASE = "https://hanaxuan-backend.hf.space/api/";
+
 const axiosInstance = axios.create();
 axiosInstance.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
@@ -23,7 +17,12 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
-const CitizenManagement: React.FC = () => {
+const statusColors: any = {
+  submitted: { label: "Submitted", color: "warning" },
+  verified: { label: "Verified", color: "success" }
+};
+
+const CitizenPersonalInfoManagement: React.FC = () => {
   const [citizens, setCitizens] = useState<any[]>([]);
   const [selectedCitizen, setSelectedCitizen] = useState<any>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -31,23 +30,11 @@ const CitizenManagement: React.FC = () => {
   useEffect(() => {
     const fetchCitizens = async () => {
       try {
-        const response = await axiosInstance.get(`${API_BASE}car_parrots/get-all/`);
-        const apiData = response.data;
-
-        const formatted = apiData.map((citizen: any) => {
-          const firstCar = citizen.card_parrots?.[0] || {};
-          return {
-            ...citizen,
-            card_parrot_id: firstCar?.id,
-            card_parrot: firstCar?.image,
-            status: citizen.status || "submit"
-          };
-        });
-
-        setCitizens(formatted);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        toast.error("Unable to load data from server");
+        const response = await axiosInstance.get(`${API_BASE}citizens/get-all-submitted/`);
+        setCitizens(response.data);
+      } catch (error) {
+        console.error("Failed to fetch submitted citizens", error);
+        toast.error("Error loading data");
       }
     };
 
@@ -64,43 +51,20 @@ const CitizenManagement: React.FC = () => {
     setSelectedCitizen(null);
   };
 
-  const showToast = (message: string, type: "success" | "error") => {
-    toast(message, {
-      type,
-      position: "top-right",
-      autoClose: 3000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      theme: "colored"
-    });
-  };
-
-  const updateStatus = async (status: "approve" | "reject") => {
+  const verifyCitizen = async () => {
     if (!selectedCitizen) return;
-    const carId = selectedCitizen.card_parrot_id;
 
     try {
-      const response = await axiosInstance.put(`${API_BASE}car_parrots/verified/${carId}/`, {
-        status: status === "approve" ? "Verified" : "Rejected"
-      });
-
+      await axiosInstance.patch(`${API_BASE}citizens/verify/${selectedCitizen.id}/`);
       setCitizens(prev =>
         prev.map(c =>
-          c.card_parrot_id === carId
-            ? { ...c, status }
-            : c
+          c.id === selectedCitizen.id ? { ...c, status: "verified" } : c
         )
       );
-
-      showToast(
-        `Đơn đăng ký của ${selectedCitizen.full_name} đã được ${status === "approve" ? "duyệt" : "từ chối"}`,
-        status === "approve" ? "success" : "error"
-      );
+      toast.success(`Citizen ${selectedCitizen.full_name} verified successfully`);
     } catch (error) {
-      console.error("Error while updating status:", error);
-      showToast("Update status failed", "error");
+      console.error("Verification failed:", error);
+      toast.error("Verification failed");
     } finally {
       handleCloseDialog();
     }
@@ -109,29 +73,28 @@ const CitizenManagement: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ mb: 3, color: "primary.main", fontWeight: "bold" }}>
-        Citizen Registration Management
+        Citizen Identity Verification
       </Typography>
 
       <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
         <Table>
           <TableHead sx={{ bgcolor: "grey.200" }}>
             <TableRow>
-              {["Citizen ID", "Full Name", "Phone Number", "Email", "Status", "Actions"].map((header) => (
+              {["Full Name", "Email", "DOB", "Status", "Actions"].map(header => (
                 <TableCell key={header} sx={{ fontWeight: "bold" }}>{header}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {citizens.map((citizen) => (
-              <TableRow key={citizen.citizen_id} hover>
-                <TableCell>{citizen.citizen_id}</TableCell>
+            {citizens.map(citizen => (
+              <TableRow key={citizen.id} hover>
                 <TableCell>{citizen.full_name}</TableCell>
-                <TableCell>{citizen.phone_number}</TableCell>
                 <TableCell>{citizen.email}</TableCell>
+                <TableCell>{citizen.dob}</TableCell>
                 <TableCell>
                   <Chip
-                    label={statusColors[citizen.status]?.label || "Không rõ"}
-                    color={statusColors[citizen.status]?.color || "default"}
+                    label={statusColors[citizen.status?.toLowerCase()]?.label || "Unknown"}
+                    color={statusColors[citizen.status?.toLowerCase()]?.color || "default"}
                     sx={{ fontWeight: "bold" }}
                   />
                 </TableCell>
@@ -141,7 +104,7 @@ const CitizenManagement: React.FC = () => {
                     startIcon={<ExpandMore />}
                     onClick={() => handleViewDetails(citizen)}
                   >
-                    Xem chi tiết
+                    View Details
                   </Button>
                 </TableCell>
               </TableRow>
@@ -150,62 +113,57 @@ const CitizenManagement: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Dialog xem chi tiết */}
+      {/* Dialog for citizen detail view */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         {selectedCitizen && (
           <>
             <DialogTitle>
               <Typography variant="h6" fontWeight="bold">
-                Chi tiết công dân: {selectedCitizen.full_name}
+                Citizen Details: {selectedCitizen.full_name}
               </Typography>
             </DialogTitle>
             <DialogContent dividers>
+              <Typography><strong>📧 Email:</strong> {selectedCitizen.email}</Typography>
+              <Typography><strong>🆔 ID Number:</strong> {selectedCitizen.citizen_identity_id}</Typography>
               <Typography><strong>📍 Address:</strong> {selectedCitizen.address}</Typography>
-              <Typography><strong>🆔 Citizen Identify:</strong> {selectedCitizen.citizen_identity_id}</Typography>
-              <Typography><strong>🚗 Plate Number:</strong> {selectedCitizen.card_parrot_id}</Typography>
+              <Typography><strong>📅 Date of Birth:</strong> {selectedCitizen.dob}</Typography>
+              <Typography><strong>🌐 Place of Birth:</strong> {selectedCitizen.place_of_birth}</Typography>
+              <Typography><strong>⚧ Gender:</strong> {selectedCitizen.gender}</Typography>
+              <Typography><strong>📅 Issue Date:</strong> {selectedCitizen.issue_date}</Typography>
+              <Typography><strong>🏢 Place of Issue:</strong> {selectedCitizen.place_of_issue}</Typography>
+              <Typography><strong>🌎 Nationality:</strong> {selectedCitizen.nationality}</Typography>
 
-              <Box sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 2, mt: 2
-              }}>
-                {/* Chỉ hiển thị ảnh card_parrot */}
-                <Box sx={{ textAlign: "center" }}>
-                  <Typography variant="subtitle1" fontWeight="bold">🚙 CARD PARROTS</Typography>
+              {selectedCitizen.identity_card && (
+                <Box mt={3} sx={{ textAlign: "center" }}>
+                  <Typography variant="subtitle1" fontWeight="bold">🪪 Identity Card</Typography>
                   <Box sx={{
+                    mt: 1,
                     overflow: "hidden",
                     borderRadius: 2,
                     boxShadow: 3,
                     "& img": {
                       width: "100%",
+                      maxWidth: 400,
                       transition: "transform 0.3s ease-in-out",
                       "&:hover": { transform: "scale(1.05)" }
                     }
                   }}>
-                    <img src={selectedCitizen.card_parrot} alt="Card Parrots" />
+                    <img src={`data:image/png;base64,${selectedCitizen.identity_card}`} alt="Identity Card" />
                   </Box>
                 </Box>
-              </Box>
+              )}
             </DialogContent>
             <DialogActions>
               <Button
                 variant="contained"
                 color="success"
                 startIcon={<CheckCircle />}
-                onClick={() => updateStatus("approve")}
+                onClick={verifyCitizen}
               >
-                Duyệt đơn
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<Cancel />}
-                onClick={() => updateStatus("reject")}
-              >
-                Từ chối
+                Verify
               </Button>
               <Button onClick={handleCloseDialog} color="secondary">
-                Đóng
+                Close
               </Button>
             </DialogActions>
           </>
@@ -217,4 +175,4 @@ const CitizenManagement: React.FC = () => {
   );
 };
 
-export default CitizenManagement;
+export default CitizenPersonalInfoManagement;

@@ -29,7 +29,7 @@ interface Violation {
   vehicle_id?: string;
   location: string;
   detected_at: string;
-  violation_image: string;
+  violation_image: string[];
   violation_status: string;
 }
 
@@ -62,7 +62,12 @@ const ViolationLookupPage: React.FC = () => {
     message: "",
   });
   const [imageViewer, setImageViewer] = useState<string | null>(null);
-
+const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
+  if (data.startsWith("data:image/")) {
+    return data; 
+  }
+  return `data:image/${format};base64,${data}`; 
+};
   useEffect(() => {
     axios
       .get(`${API_BASE}/search-by-citizen/`)
@@ -95,7 +100,7 @@ const ViolationLookupPage: React.FC = () => {
 
     axios
       .post(`${API_BASE}/search-by-plate-number/`, {
-        params: { plate_number: plateNumber },
+        plate_number: plateNumber.trim()
       })
       .then((res) => {
         const data: Violation[] = res.data?.data?.violations || [];
@@ -146,17 +151,23 @@ const ViolationLookupPage: React.FC = () => {
                   <Typography> Violation ID: {item.violation_id}</Typography>
                   <Typography> Location: {item.location}</Typography>
                   <Typography> Time: {item.detected_at}</Typography>
-                  <Typography sx={{ color: statusColors[item.violation_status] || "#000" }}>
+                  {/* <Typography sx={{ color: statusColors[item.violation_status] || "#000" }}>
                      Status: {item.violation_status}
-                  </Typography>
+                  </Typography> */}
                   <Typography> Images:</Typography>
-                  {item.violation_image?.split(",").map((img: string, i: number) => (
+                  {item.violation_image?.map((img: string, i: number) => (
                     <img
                       key={i}
-                      src={img.trim()}
+                      src={normalizeBase64Image(img, "png")}
                       alt={`violation-${i}`}
-                      style={{ width: "100%", borderRadius: 6, marginTop: 8, cursor: "pointer" }}
-                      onClick={() => setImageViewer(img.trim())}
+                      style={{
+                        maxWidth: "100px",   
+                        width: "100%",
+                        borderRadius: 6,
+                        marginTop: 8,
+                        cursor: "pointer"
+                      }}
+                      onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
                     />
                   ))}
                 </Paper>
@@ -219,20 +230,28 @@ const ViolationLookupPage: React.FC = () => {
                             <Grid item xs={12} md={6} key={idx}>
                               <Paper sx={{ p: 2 }}>
                                 <Typography> Violation ID: {v.violation_id}</Typography>
-                                <Typography> Location: {v.location}</Typography>
+                                <Typography> Plate Number: {v.plate_number}</Typography>
+                                <Typography> Location: {v.location || "Unknown"}</Typography>
                                 <Typography> Time: {v.detected_at}</Typography>
                                 <Typography sx={{ color: statusColors[v.violation_status] || "#000" }}>
                                    Status: {v.violation_status}
                                 </Typography>
                                 <Typography> Images:</Typography>
-                                {v.violation_image?.split(",").map((img: string, i: number) => (
+                                {v.violation_image?.map((img: string, i: number) => (
                                   <img
                                     key={i}
-                                    src={img.trim()}
+                                    src={normalizeBase64Image(img, "png")}
                                     alt={`violation-${i}`}
-                                    style={{ width: "100%", borderRadius: 6, marginTop: 8, cursor: "pointer" }}
-                                    onClick={() => setImageViewer(img.trim())}
+                                    style={{
+                                      maxWidth: "400px",   // 👈 fix chiều rộng tối đa
+                                      width: "100%",
+                                      borderRadius: 6,
+                                      marginTop: 8,
+                                      cursor: "pointer"
+                                    }}
+                                    onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
                                   />
+
                                 ))}
                               </Paper>
                             </Grid>

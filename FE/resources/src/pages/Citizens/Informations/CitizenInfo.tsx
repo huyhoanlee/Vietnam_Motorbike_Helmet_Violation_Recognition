@@ -40,7 +40,7 @@ const CitizenInfoForm = () => {
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
   const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
 
-  const citizenId = Number(localStorage.getItem("citizen_id") || 1);
+  const citizenId = Number(localStorage.getItem("user_id") || 1);
   const isVerified = status === "Verified";
   const today = new Date().toISOString().split("T")[0];
 
@@ -66,34 +66,34 @@ const CitizenInfoForm = () => {
 
     requiredFields.forEach((field) => {
       if (!form[field as keyof typeof form]?.trim()) {
-        newErrors[field] = "Trường này là bắt buộc";
+        newErrors[field] = "This field is required";
       }
     });
 
     if (form.full_name && /\d/.test(form.full_name)) {
-      newErrors.full_name = "Họ tên không được chứa số";
+      newErrors.full_name = "Name cannot contain numbers";
     }
 
     if (form.email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(form.email)) {
-      newErrors.email = "Email không hợp lệ";
+      newErrors.email = "Invalid email";
     }
 
     if (form.phone && !/^\d{10}$/.test(form.phone)) {
-      newErrors.phone = "Số điện thoại phải gồm 10 chữ số";
+      newErrors.phone = "Phone number must be 10 digits";
     }
 
     if (form.citizen_identity_id && !/^(\d{9}|\d{12})$/.test(form.citizen_identity_id)) {
-      newErrors.citizen_identity_id = "Số CCCD phải gồm 9 hoặc 12 chữ số";
+      newErrors.citizen_identity_id = "The ID number must consist of 9 or 12 digits.";
     }
 
     const dobDate = new Date(form.dob);
     const age = new Date().getFullYear() - dobDate.getFullYear();
     if (form.dob && age < 18) {
-      newErrors.dob = "Bạn phải trên 18 tuổi để đăng ký";
+      newErrors.dob = "You must be over 18 to register";
     }
 
     if (form.issueDate && new Date(form.issueDate) > new Date()) {
-      newErrors.issueDate = "Ngày cấp không hợp lệ";
+      newErrors.issueDate = "Invalid issue date";
     }
 
     setErrors(newErrors);
@@ -102,12 +102,12 @@ const CitizenInfoForm = () => {
 
   const handleSubmit = async () => {
     if (!validate()) {
-      setSnackbar({ msg: "Vui lòng kiểm tra lại thông tin.", type: "error" });
+      setSnackbar({ msg: "Please check the information again..", type: "error" });
       return;
     }
 
     if (!imageFile) {
-      setSnackbar({ msg: "Vui lòng tải ảnh CCCD.", type: "error" });
+      setSnackbar({ msg: "Please upload ID photo.", type: "error" });
       return;
     }
 
@@ -115,7 +115,7 @@ const CitizenInfoForm = () => {
 
     if (status === "Submitted" && !awaitingConfirmEdit) {
     setSnackbar({
-      msg: "Bạn đã gửi trước đó. Nhấn 'Xác nhận gửi lại' nếu muốn sửa thông tin.",
+      msg: "You have already submitted. Click 'Confirm Resend' if you want to edit the information..",
       type: "error"
     });
     setAwaitingConfirmEdit(true);
@@ -138,11 +138,11 @@ const CitizenInfoForm = () => {
 
       await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload);
 
-      setSnackbar({ msg: "Thông tin đã được gửi thành công!", type: "success" });
+      setSnackbar({ msg: "Information sent successfully!", type: "success" });
       setStatus("Submitted");
       setAwaitingConfirmEdit(false);
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Gửi thông tin thất bại.";
+      const msg = err.response?.data?.error || "Send information failed.";
       setSnackbar({ msg, type: "error" });
     } finally {
       setLoading(false);
@@ -157,13 +157,13 @@ const CitizenInfoForm = () => {
 
       <Paper sx={{ p: 3 }}>
         <Grid container spacing={2}>
-          {[{ label: "Họ và tên", name: "full_name" },
+          {[{ label: "Full name", name: "full_name" },
             { label: "Email", name: "email" },
-            { label: "Số điện thoại", name: "phone" },
-            { label: "Nơi sinh", name: "birthPlace" },
-            { label: "Địa chỉ thường trú", name: "address" },
-            { label: "Số CCCD", name: "citizen_identity_id" },
-            { label: "Nơi cấp", name: "issuePlace" },
+            { label: "Phone number", name: "phone" },
+            { label: "Place of birth", name: "birthPlace" },
+            { label: "Permanent address", name: "address" },
+            { label: "Citizen ID number", name: "citizen_identity_id" },
+            { label: "Place of issue of citizen ID card", name: "issuePlace" },
           ].map(({ label, name }) => (
             <Grid item xs={12} sm={6} key={name}>
               <TextField
@@ -181,7 +181,7 @@ const CitizenInfoForm = () => {
 
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Ngày sinh"
+              label="Date of birth"
               name="dob"
               type="date"
               InputLabelProps={{ shrink: true }}
@@ -197,7 +197,7 @@ const CitizenInfoForm = () => {
 
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Ngày cấp"
+              label="Date of issue"
               name="issueDate"
               type="date"
               InputLabelProps={{ shrink: true }}
@@ -213,14 +213,14 @@ const CitizenInfoForm = () => {
 
           <Grid item xs={12} sm={6}>
             <RadioGroup row name="gender" value={form.gender} onChange={handleChange}>
-              <FormControlLabel value="Male" control={<Radio />} label="Nam" disabled={isVerified} />
-              <FormControlLabel value="Female" control={<Radio />} label="Nữ" disabled={isVerified} />
+              <FormControlLabel value="Male" control={<Radio />} label="Male" disabled={isVerified} />
+              <FormControlLabel value="Female" control={<Radio />} label="Female" disabled={isVerified} />
             </RadioGroup>
           </Grid>
 
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Quốc tịch"
+              label="Nationality"
               name="nationality"
               value={form.nationality}
               onChange={handleChange}
@@ -228,14 +228,14 @@ const CitizenInfoForm = () => {
               disabled={isVerified}
               select
             >
-              <MenuItem value="Vietnam">Việt Nam</MenuItem>
-              <MenuItem value="Other">Khác</MenuItem>
+              <MenuItem value="Vietnam">Viet Nam</MenuItem>
+              <MenuItem value="Other">Orthers</MenuItem>
             </TextField>
           </Grid>
 
           <Grid item xs={12} sm={6}>
             <Typography variant="body1" mb={1}>
-              Tải ảnh CCCD
+              Upload ID photo
             </Typography>
             <input type="file" accept="image/*" disabled={isVerified} onChange={handleImageChange} />
             {imagePreview && (
@@ -247,7 +247,7 @@ const CitizenInfoForm = () => {
 
           <Grid item xs={12}>
             <Typography>
-              Trạng thái:{" "}
+              Status:{" "}
               <strong style={{ color: status === "Verified" ? "green" : "orange" }}>{status}</strong>
             </Typography>
           </Grid>
@@ -261,7 +261,7 @@ const CitizenInfoForm = () => {
                 disabled={loading}
                 startIcon={loading && <CircularProgress size={20} />}
               >
-                {loading ? "Đang gửi..." : awaitingConfirmEdit ? "Xác nhận gửi lại" : "Gửi thông tin"}
+                {loading ? "Sending..." : awaitingConfirmEdit ? "Confirm resend" : "Submit information"}
               </Button>
             </Grid>
           )}

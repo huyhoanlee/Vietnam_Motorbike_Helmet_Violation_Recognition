@@ -8,18 +8,15 @@ import { useNavigate } from 'react-router-dom';
 
 const API_BASE = "https://hanaxuan-backend.hf.space/api";
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
+interface Violation {
+  violation_id: number;
+  plate_number: string;
+  vehicle_id?: string;
+  location: string;
+  detected_at: string;
+  violation_image: string[];
+  violation_status: string;
+}
 const statusColors: Record<string, string> = {
   "AI Detected": "#FFA726",
   "Approved": "#66BB6A",
@@ -31,11 +28,16 @@ const statusColors: Record<string, string> = {
 const HomePage = () => {
   const navigate = useNavigate();
   const [plateNumber, setPlateNumber] = useState('');
-  const [searchResult, setSearchResult] = useState<any[] | null>(null);
+  const [searchResult, setSearchResult] = useState<Violation[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ open: false, type: 'info', message: '' });
   const [imageViewer, setImageViewer] = useState<string | null>(null);
-
+  const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
+  if (data.startsWith("data:image/")) {
+    return data; // Đã có prefix, giữ nguyên
+  }
+  return `data:image/${format};base64,${data}`; // Thêm prefix nếu thiếu
+};
   const handleSearch = () => {
     if (!plateNumber.trim()) {
       setNotification({
@@ -49,9 +51,9 @@ const HomePage = () => {
     setLoading(true);
     setSearchResult(null);
 
-    axiosInstance
-      .post(`${API_BASE}/violations/search-by-plate-number/`, null, {
-        params: { plate_number: plateNumber },
+    axios
+      .post(`${API_BASE}/violations/search-by-plate-number/`, {
+        plate_number: plateNumber.trim()
       })
       .then((res) => {
         const data = res.data?.data?.violations || [];
@@ -107,24 +109,24 @@ const HomePage = () => {
             {searchResult.length === 0 ? (
               <Alert severity="info">There are no violations for this license plate..</Alert>
             ) : (
-              searchResult.map((item, idx) => (
+              searchResult.map((item: Violation, idx: number) => (
                 <Paper key={idx} sx={{ p: 2, mt: 2 }}>
                   <Typography> Violation ID: {item.violation_id}</Typography>
-                  <Typography> Camera ID: {item.camera_id}</Typography>
+                  <Typography> Location: {item.location || "Unknown"}</Typography>
                   <Typography> Time: {item.detected_at}</Typography>
                   <Typography sx={{ color: statusColors[item.violation_status] || "#000" }}>
                      Status: {item.violation_status}
                   </Typography>
-                  <Typography> Hình ảnh:</Typography>
+                  <Typography> Images:</Typography>
                   <ImageList cols={3} rowHeight={140} sx={{ mt: 1 }}>
-                    {item.violation_image?.split(",").map((img: string, i: number) => (
-                      <ImageListItem key={i}>
-                        <img
-                          src={img.trim()}
-                          alt={`violation-${i}`}
-                          style={{ cursor: "pointer", borderRadius: 6 }}
-                          onClick={() => setImageViewer(img.trim())}
-                        />
+                    {item.violation_image?.filter(Boolean).map((img: string, i: number) => (
+                    <ImageListItem key={i}>
+                      <img
+                        src={normalizeBase64Image(img, "png")}
+                        alt={`violation-${i}`}
+                        style={{ width: "100%", borderRadius: 6, marginTop: 8, cursor: "pointer" }}
+                        onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
+                      />
                       </ImageListItem>
                     ))}
                   </ImageList>

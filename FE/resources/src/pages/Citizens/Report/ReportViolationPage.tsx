@@ -21,12 +21,6 @@ import { useDropzone } from 'react-dropzone';
 
 const API_BASE_URL = 'https://hanaxuan-backend.hf.space/api';
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 interface UploadingImage {
   file: File;
@@ -129,7 +123,7 @@ const ReportViolation = () => {
         location: data.location
       };
 
-      const response = await axiosInstance.post(`${API_BASE_URL}/violations/report/`, payload);
+      const response = await axios.post(`${API_BASE_URL}/violations/report/`, payload);
 
       setSnackbar({
         open: true,

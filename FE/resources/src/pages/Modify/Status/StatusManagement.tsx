@@ -91,12 +91,12 @@ const StatusManagement: React.FC = () => {
     setLoading(true);
     try {
       const response = await axiosInstance.get(
-        "https://hanaxuan-backend.hf.space/api/violation_status/get-all"
+        "https://hanaxuan-backend.hf.space/api/violation_status/get-all/"
       );
       const mapped = response.data.data.map((item: any) => ({
         id: String(item.id),
         name: item.status_name,
-        description: "", 
+        description: item.description,
       }));
       setStatuses(mapped);
     } catch (error) {
@@ -176,8 +176,8 @@ const StatusManagement: React.FC = () => {
           severity: "success",
         });
       } else if (dialogMode === "edit" && currentStatus) {
-        await axiosInstance.put(
-          `https://hanaxuan-backend.hf.space/api/violations/change-status/${currentStatus.id}`,
+        await axiosInstance.patch(
+          `https://hanaxuan-backend.hf.space/api/violation_status/change-status/${currentStatus.id}`,
           { status_name: name, description }
         );
         setSnackbar({

@@ -13,18 +13,29 @@ const AdminLogin = () => {
         e.preventDefault();
 
         try {
-            const response = await axios.post('https://hanaxuan-backend.hf.space/api/accounts/login/', {
-                username,
-                password
+    const response = await axios.post('https://hanaxuan-backend.hf.space/api/accounts/login/', {
+        username,
+        password
             });
-            const { access, refresh, role } = response.data;
+
+            if (response.data.message === "This account has been deactivated") {
+                setError("Account has been Deactive.");
+                return;
+            }
+
+            const { access, refresh, role, id } = response.data;
 
             localStorage.setItem('access_token', access);
             localStorage.setItem('refresh_token', refresh);
             localStorage.setItem('user_role', role);
+            localStorage.setItem("user_id", id);
             navigate('/dashboard');
-        } catch (err) {
-            setError('Tên đăng nhập hoặc mật khẩu không đúng.');
+        } catch (err: any) {
+            if (err.response?.data?.message === "This account has been deactivated") {
+                setError("Account has been Deactive.");
+            } else {
+                setError("Tên đăng nhập hoặc mật khẩu không đúng.");
+            }
         }
     };
 
