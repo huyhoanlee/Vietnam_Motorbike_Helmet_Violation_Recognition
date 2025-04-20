@@ -1,6 +1,10 @@
-from loguru import logger
+import asyncio
+from typing import List, Dict, Any, Optional
 import numpy as np
-import time
+import cv2
+from loguru import logger
+from src.models.schema import DeviceDetection, FrameData
+from src.config import AppConfig
 
 from src.modules.annotation import visualize_detections, visualize_yolo_results
 from src.modules.vehicle_detection import VehicleDetector
@@ -9,9 +13,9 @@ from src.modules.object_tracking import ObjectTracker
 from src.config import ModelConfig
 from src.models.ai_model import Model
 from src.utils import mapping_tracked_vehicles, process_to_output_json, fully_optimized_mapping_tracked_vehicles
-from src.models.base_model import DeviceDetection
-import time, cv2, torch
-
+import time
+from ultralytics import YOLO
+import torch
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class AI_Service:
@@ -226,3 +230,156 @@ class AI_Service:
         # Convert to bytes and return
         frame_bytes = encoded_image.tobytes()
         return frame_bytes
+    
+    
+class AIService:
+    def __init__(self, url: str = "", config: ModelConfig = ModelConfig()):
+        """Initialize the AI service with vehicle detection, tracking, and plate recognition"""
+        self.config = config or ModelConfig()
+        self._processing_lock = asyncio.Lock()
+        self._worker_semaphore = asyncio.Semaphore(AppConfig.MAX_CONCURRENT_AI_TASKS)
+        self.url = url
+        # Initialize models
+        logger.info("Initializing AI models...")
+        model = Model()
+        # self.vehicle_detector = VehicleDetector(model.detect_model)
+        self.vehicle_detector = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
+        self.object_tracker = ObjectTracker(model.object_tracker)
+        self.plate_recognizer = PlateRecognizer(ocr_model=model.ocr_model)
+
+        self.y_min = 750.0
+
+        # Setup class mapping
+        self.CLASS_DICT = {}
+        self.CLASS_ID = [0, 1, 2, 3]
+        for id in self.CLASS_ID:
+            self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
+        self.data_tracker = {}
+        
+        logger.info("AI Service initialized successfully")
+        
+    async def update_config(self, new_config: Dict[str, Any]) -> None:
+        """Update AI configuration parameters"""
+        async with self._processing_lock:
+            # Update config - this would need to be adapted to your specific configuration needs
+            # For example:
+            if "confidence_threshold" in new_config:
+                self.config.confidence_threshold = new_config["confidence_threshold"]
+            if "iou_threshold" in new_config:
+                self.config.iou_threshold = new_config["iou_threshold"]
+            
+            logger.info(f"AI configuration updated: {new_config}")
+            
+    async def aprocess_frame(self, frame: np.ndarray, frame_count: int):
+        """Process a single frame and return detection results - async wrapper around synchronous processing"""
+        async with self._worker_semaphore:
+            # Run CPU-intensive processing in a thread pool to avoid blocking the event loop
+            return await asyncio.to_thread(
+                self._process_frame_sync, 
+                frame, 
+                frame_count, 
+                True,  # verbose
+            )
+    
+    def _process_frame_sync(self, frame: np.ndarray, frame_count: int, verbose: bool = False) -> DeviceDetection:
+        """Synchronous implementation of frame processing - your original code"""
+        try:
+            # Vehicle detection
+            detect_start = time.time()
+            detection_results = self.vehicle_detector.predict(frame, verbose=False)
+            detect_time = time.time() - detect_start
+            
+            # Object tracking
+            track_start = time.time()
+            vehicle_track_dets, track_confs, track_classes, vehicle_track_ids, mask = self.object_tracker.track(detection_results, frame)
+            track_time = time.time() - track_start
+            
+            mapping_start = time.time()
+            # Group objects with vehicles   
+            grouped_json = mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+            mapping_time = time.time() - mapping_start
+            
+            # License plate recognition
+            palate_start = time.time()
+            if len(vehicle_track_dets) > 0:
+                for vehicle in grouped_json:
+                    if any(obj["class"] == 2 for obj in vehicle["objects"]):
+                        for obj in vehicle["objects"]:
+                            if obj["class"] == 3:
+                                x_min, y_min, x_max, y_max = map(int, obj["bbox"])
+                                plate_frame = frame[y_min:y_max, x_min:x_max]  # Crop license plate region
+                                plate_frame = cv2.resize(plate_frame, (320, 320), interpolation=cv2.INTER_LANCZOS4)
+                                plate_number, plate_conf = self.plate_recognizer.recognize(plate_frame)
+                                if plate_number is not None:
+                                    obj["plate_number"] = plate_number
+                                    obj["plate_conf"] = plate_conf
+                
+                palate_time = time.time() - palate_start
+                
+                # Visualization
+                vis_start = time.time()
+                post_frame = visualize_detections(frame, grouped_json)
+                visualize_detections_time = time.time() - vis_start
+                
+                # Process to output JSON
+                process_to_output_json_time = time.time()
+                output_json = process_to_output_json(grouped_json, frame, post_frame, camera_id=self.url)
+                process_to_output_json_time = time.time() - process_to_output_json_time
+                
+                total_time = time.time() - detect_start
+                
+                if verbose:
+                    logger.debug(f"Detection: {detect_time:.3f}s, Tracking: {track_time:.3f}s, " 
+                                f"Mapping: {mapping_time:.3f}s, Plate: {palate_time:.3f}s, "
+                                f"Visualization: {visualize_detections_time:.3f}s, "
+                                f"JSON Processing: {process_to_output_json_time:.3f}s, "
+                                f"Total: {total_time:.3f}s")
+                    logger.info(f"URL detect: {self.url}")
+                
+                return output_json
+            else:
+                # No vehicles detected
+                output_json = process_to_output_json(grouped_json, frame, frame, camera_id=self.url)
+                return output_json
+        except Exception as e:
+            logger.error(f"Error processing frame: {str(e)}", exc_info=True)
+            # Return an empty result on error
+            return None
+    
+    
+    async def process_frames(self, frame_data_list: List[FrameData]) -> List[DeviceDetection]:
+        """Process multiple frames concurrently"""
+        if not frame_data_list:
+            return []
+        
+        # Process frames concurrently with semaphore limiting
+        tasks = []
+        for frame_data in frame_data_list:
+            task = asyncio.create_task(self.aprocess_frame(
+                frame_data["frame"],
+                frame_data["frame_count"],
+            ))
+            tasks.append(task)
+        
+        results: List[DeviceDetection] = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter out exceptions and replace with empty results
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Error processing frame {i}: {str(result)}")
+                # Create empty result for failed processing
+                processed_results.append(DeviceDetection(
+                    camera_id=frame_data_list[i]["url"],
+                    frame_count=frame_data_list[i]["frame_count"],
+                    timestamp=time.time(),
+                    detections=[],
+                    post_frame=None
+                ))
+            else:
+                processed_results.append(result)
+        
+        # Post-process results if needed
+        # await self._post_process(processed_results)
+        
+        return processed_results
