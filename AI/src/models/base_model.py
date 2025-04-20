@@ -13,6 +13,7 @@ class DetectedResult(BaseModel):
     time: str | None
     plate_conf: float
     camera_id: str | None
+    status: str | None
     
     def __getitem__(self, item):
         return getattr(self, item)

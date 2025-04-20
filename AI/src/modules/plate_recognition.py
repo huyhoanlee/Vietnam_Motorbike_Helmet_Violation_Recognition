@@ -57,11 +57,16 @@ class PlateRecognizer:
         """
         result = self.ocr_model.ocr(plate_frame, cls=True)
         if result and result[0]:
-            plate_text = ""
-            for line in result[0]: #line: [bbox, (text, confidence)]
-                text, conf = line[-1]
-                plate_text += text
-            return plate_text, conf
+            plate_text = []
+            confidences = []
+            for line in result[0]:  # line: [bbox, (text, confidence)]
+                if len(line) >= 2 and isinstance(line[-1], tuple):
+                    text, conf = line[-1]
+                    plate_text.append(text)
+                    confidences.append(conf)
+            plate_text = "\n".join(plate_text)
+            avg_conf = sum(confidences) / len(confidences) if confidences else 0
+            return plate_text, avg_conf
     
         return None, None
 

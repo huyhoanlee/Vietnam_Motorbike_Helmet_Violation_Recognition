@@ -24,7 +24,7 @@ class AI_Service:
         self.config = config
         
         model = Model()
-        self.vehicle_detector = VehicleDetector(model.detect_model)
+        self.vehicle_detector = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
         self.object_tracker = ObjectTracker(model.object_tracker)
         self.plate_recognizer = PlateRecognizer(ocr_model=model.ocr_model)
 
@@ -41,7 +41,7 @@ class AI_Service:
         
         # Vehicle detection
         detect_start = time.time()
-        detection_results = self.vehicle_detector.detect(frame)
+        detection_results = self.vehicle_detector(frame)
         detect_time = time.time() - detect_start
         
         # Object tracking
@@ -91,7 +91,7 @@ class AI_Service:
                 logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
                 logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")  
                 logger.info(f"---Total time---: {total_time:.3f} seconds")  
-                return output_json, detect_time, track_time, palate_time, visualize_detections_time, process_to_output_json_time
+                return output_json, detect_time, track_time,mapping_time, palate_time, visualize_detections_time, process_to_output_json_time
             return output_json
         else:
             output_json = process_to_output_json(grouped_json, frame, frame)
@@ -103,7 +103,7 @@ class AI_Service:
                 logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
                 logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")
                 logger.info(f"---Total time---: {total_time:.3f} seconds")  
-                return output_json, detect_time, track_time, palate_time, visualize_detections_time, process_to_output_json_time
+                return output_json, detect_time, track_time, mapping_time, palate_time, visualize_detections_time, process_to_output_json_time
             return output_json
     
 

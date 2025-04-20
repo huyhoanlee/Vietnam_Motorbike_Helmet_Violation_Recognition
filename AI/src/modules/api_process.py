@@ -14,7 +14,7 @@ def create_violation_process(detected_result: List[DetectedResult], camera_id: s
             "violate_image": f"{detection.image}", #base64
             "plate_number": f"{detection.plate_numbers if detection.plate_numbers else None}",
             "confidence": float(detection.plate_conf if detection.plate_conf else 0),
-            "status": f"AI detected",
+            "status": detection.status,
             "time": f"{detection.time}",
         }
         post_be_data.append(violation_data)
