@@ -46,3 +46,7 @@ class AIResult(BaseModel):
     """Model for the complete AI processing result"""
     time: float
     device_list: List[DeviceDetection] = Field(default_factory=list)
+
+class ViolationStatus(str, Enum):
+    AI_RELIABEL = "AI-reliable"
+    AI_DETECT  = "AI-detect"
