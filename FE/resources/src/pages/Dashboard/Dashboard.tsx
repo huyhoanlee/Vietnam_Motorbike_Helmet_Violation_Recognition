@@ -1,98 +1,467 @@
+import React, { useEffect, useState } from "react";
 import {
-  Card,
-  CardContent,
-  Typography,
   Grid,
-  Button
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Snackbar,
+  Alert,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  CircularProgress,
+  Box,
+  Dialog,
+  DialogContent,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import ReportIcon from "@mui/icons-material/Report";
+import PeopleIcon from "@mui/icons-material/People";
+import { Bar, Pie, Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  LineElement,
+  PointElement,
+  Tooltip,
+  Legend,
+  TimeScale,
+} from "chart.js";
+import axiosInstance from "../../services/axiosInstance.tsx";
+import config from "../../config";
 
-const Dashboard = () => {
-  const navigate = useNavigate();
+const API_BASE_URL = config.API_URL;
 
-  const summaryData = [
-    { title: "Accounts", value: 10, buttonText: "View Detections" },
-    { title: "Violation Detection", value: 9, buttonText: "View", showDot: true },
-    { title: "List of Devices", value: 5, buttonText: "View Details" },
-    { title: "Reports", value: 9, buttonText: "View Reports" },
-  ];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  LineElement,
+  PointElement,
+  Tooltip,
+  Legend,
+  TimeScale
+);
+
+interface Violation {
+  violation_id: number;
+  plate_number: string;
+  location: string | null;
+  detected_at: string;
+  status_name: string;
+  violation_image: string[];
+}
+
+interface Camera {
+  camera_id: number;
+  device_name: string;
+  status: string;
+  last_active: string | null;
+  location: string;
+}
+
+interface Citizen {
+  id: number;
+  citizen_identity_id: string;
+  full_name: string;
+  phone_number: string;
+  address: string | null;
+  dob: string | null;
+  email: string;
+  gender: string | null;
+  status: string;
+}
+
+interface Notification {
+  notification_id: number;
+  status: string;
+  created_at: string;
+}
+
+interface ViolationByDate {
+  date: string;
+  count: number;
+}
+
+const Dashboard: React.FC = () => {
+  const [violations, setViolations] = useState<Violation[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [citizens, setCitizens] = useState<Citizen[]>([]);
+  const [locationViolations, setLocationViolations] = useState<Violation[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [violationByDate, setViolationByDate] = useState<ViolationByDate[]>([]);
+  const [plateNumber, setPlateNumber] = useState<string>("");
+  const [searchResult, setSearchResult] = useState<Violation[] | null>(null);
+  const [notification, setNotification] = useState({
+    open: false,
+    type: "info",
+    message: ""
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [imageViewer, setImageViewer] = useState<string | null>(null);
+
+  const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
+    if (data.startsWith("data:image/")) {
+      return data;
+    }
+    return `data:image/${format};base64,${data}`;
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  useEffect(() => {
+    console.log("Citizens state:", citizens);
+  }, [citizens]);
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      
+      const [violationsRes, camerasRes, citizensRes, locationViolationsRes, notificationsRes, timelineRes] = await Promise.all([
+        axiosInstance.get(`${API_BASE_URL}violations/get-all/`),
+        axiosInstance.get(`${API_BASE_URL}cameras/get-all/`),
+        axiosInstance.get(`${API_BASE_URL}citizens/get-all/`),
+        axiosInstance.get(`${API_BASE_URL}violations/get-all/`),
+        axiosInstance.get(`${API_BASE_URL}notifications/view_all/`),
+        axiosInstance.get(`${API_BASE_URL}violations/get-all/`)
+      ]);
+
+      console.log("Citizens API response:", citizensRes.data);
+
+      setViolations(violationsRes.data?.data || []);
+      setCameras(camerasRes.data?.data || []);
+      setCitizens(Array.isArray(citizensRes.data) ? citizensRes.data : citizensRes.data?.data || []);
+      setLocationViolations(locationViolationsRes.data?.data || []);
+      setNotifications(notificationsRes.data?.data || []);
+
+      const timelineData = processTimelineData(timelineRes.data?.data || []);
+      setViolationByDate(timelineData);
+
+    } catch (err) {
+      console.error("Fetch error:", err);
+      showAlert("error", "Failed to load data from the system");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processTimelineData = (violations: Violation[]): ViolationByDate[] => {
+    const dateCounts: { [key: string]: number } = {};
+    
+    violations.forEach(v => {
+      if (v.detected_at) {
+        const date = new Date(v.detected_at).toISOString().split('T')[0];
+        dateCounts[date] = (dateCounts[date] || 0) + 1;
+      }
+    });
+
+    return Object.entries(dateCounts).map(([date, count]) => ({
+      date,
+      count
+    }));
+  };
+
+  const showAlert = (type: any, message: string) => {
+    setNotification({ open: true, type, message });
+  };
+
+  const handleSearch = async () => {
+    if (!plateNumber.trim()) {
+      showAlert("warning", "Please enter a plate number!");
+      return;
+    }
+
+     setSearchLoading(true);
+    setSearchResult(null);
+
+    try {
+      const res = await axiosInstance.post(`${API_BASE_URL}violations/search-by-plate-number/`, {
+        plate_number: plateNumber.trim()
+      });
+      const data: Violation[] = res.data?.data?.violations || [];
+      setSearchResult(data);
+      showAlert("success", "Search successful!");
+    } catch (err: any) {
+      showAlert("error", err?.response?.data?.message || "Plate not found or server error!");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const getViolationStatusPie = () => {
+    const statusCounts = violations.reduce((acc: { [key: string]: number }, v) => {
+      if (v.status_name) {
+        acc[v.status_name] = (acc[v.status_name] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    return {
+      labels: Object.keys(statusCounts),
+      datasets: [
+        {
+          data: Object.values(statusCounts),
+          backgroundColor: [
+            "#FF6384",
+            "#36A2EB",
+            "#FFCE56",
+            "#4BC0C0",
+            "#9966FF",
+            "#FF9F40",
+            "#8BC34A",
+            "#00ACC1",
+          ],
+        },
+      ],
+    };
+  };
+
+  const getCameraStatusPie = () => {
+    const active = cameras.filter((cam) => cam.status.toLowerCase() === "active").length;
+    const deactive = cameras.length - active;
+
+    return {
+      labels: ["Active", "Deactivated"],
+      datasets: [
+        {
+          data: [active, deactive],
+          backgroundColor: ["#4caf50", "#f44336"],
+        },
+      ],
+    };
+  };
+
+  const getCitizenStatusPie = () => {
+    console.log("Generating citizen pie chart, citizens:", citizens);
+    const statusCounts = citizens.reduce((acc: { [key: string]: number }, c) => {
+      if (c.status) {
+        acc[c.status] = (acc[c.status] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    console.log("Citizen status counts:", statusCounts);
+
+    return {
+      labels: Object.keys(statusCounts).length ? Object.keys(statusCounts) : ["No Data"],
+      datasets: [
+        {
+          data: Object.values(statusCounts).length ? Object.values(statusCounts) : [1],
+          backgroundColor: ["#2196f3", "#ff9800", "#4caf50", "#f44336"],
+        },
+      ],
+    };
+  };
+
+  const locationChartData = () => {
+    const counts: { [key: string]: number } = {};
+    locationViolations.forEach((v) => {
+      const location = v.location || "Unknown";
+      counts[location] = (counts[location] || 0) + 1;
+    });
+
+    return {
+      labels: Object.keys(counts),
+      datasets: [
+        {
+          label: "Violations",
+          data: Object.values(counts),
+          backgroundColor: "#3f51b5",
+        },
+      ],
+    };
+  };
+
+  const lineChartData = {
+    labels: violationByDate.map((item) => item.date),
+    datasets: [
+      {
+        label: "Violations Over Time",
+        data: violationByDate.map((item) => item.count),
+        borderColor: "#3f51b5",
+        backgroundColor: "rgba(63, 81, 181, 0.2)",
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-        <Typography variant="h4">Dashboard Overview</Typography>
- {/* Card thống kê */}
-      <Grid container spacing={2} style={{ marginTop: "20px" }}>
-        {summaryData.map((item, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card
-              variant="outlined"
-              style={{
-                background: "#F3EDF7",
-                textAlign: "center",
-                padding: "10px",
-                borderRadius: "12px",
-                position: "relative",
-              }}
-            >
-              <CardContent>
-                {/* Icon Placeholder */}
-                <div style={{ position: "absolute", top: "10px", left: "10px" }}>
-                  <div
-                    style={{
-                      width: "20px",
-                      height: "20px", 
-                      border: "2px solid #333",
-                      borderRadius: "4px",
-                    }}
-                  ></div>
-                </div>
-
-                <Typography variant="h6" fontWeight="bold">
-                  {item.title}
-                </Typography>
-
-                {/* Nếu có chấm đỏ */}
-                {item.showDot && (
-                  <div
-                    style={{
-                      width: "10px",
-                      height: "10px",
-                      backgroundColor: "red",
-                      borderRadius: "50%",
-                      position: "absolute",
-                      top: "10px",
-                      right: "10px",
-                    }}
-                  ></div>
-                )}
-
-                <Typography variant="h4" color="primary" fontWeight="bold">
-                  {String(item.value).padStart(3, "0")}
-                </Typography>
-
-                <Typography variant="body2">Detections</Typography>
-
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  style={{
-                    marginTop: "10px",
-                    borderRadius: "20px",
-                    textTransform: "none",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {item.buttonText}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+    <Grid container spacing={3} padding={2}>
+      <Grid item xs={12}>
+        <Typography variant="h5" fontWeight={600}>
+          Traffic Monitoring Dashboard
+        </Typography>
+        <Divider sx={{ mt: 1, mb: 2 }} />
       </Grid>
-      <Button variant="contained" color="primary" onClick={() => navigate("/analytics")} style={{ marginTop: "20px" }}>
-        View Analytics
-      </Button>  
-    </div>
+
+      {/* Search by Plate Number */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Search by Plate Number
+          </Typography>
+          <Box display="flex" gap={2} alignItems="center" mb={2}>
+            <TextField
+              label="Enter plate number"
+              value={plateNumber}
+              onChange={(e) => setPlateNumber(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <Button variant="contained" onClick={handleSearch}>
+              Search
+            </Button>
+          </Box>
+
+          {searchLoading && <CircularProgress sx={{ mt: 2 }} />}
+          {searchResult && (
+            <Box mt={3}>
+              {searchResult.length === 0 ? (
+                <Alert severity="info">No violations found for this plate number.</Alert>
+              ) : (
+                searchResult.map((item: Violation, idx: number) => (
+                  <Paper key={idx} sx={{ p: 2, mt: 2 }}>
+                    <Typography>Violation ID: {item.violation_id}</Typography>
+                    <Typography>Location: {item.location || "Unknown"}</Typography>
+                    <Typography>Time: {new Date(item.detected_at).toLocaleString()}</Typography>
+                    <Typography>Status: {item.status_name}</Typography>
+                    <Typography>Images:</Typography>
+                    {item.violation_image?.map((img: string, i: number) => (
+                      <img
+                        key={i}
+                        src={normalizeBase64Image(img, "png")}
+                        alt={`violation-${i}`}
+                        style={{
+                          maxWidth: "100px",
+                          width: "100%",
+                          borderRadius: 6,
+                          marginTop: 8,
+                          cursor: "pointer"
+                        }}
+                        onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
+                      />
+                    ))}
+                  </Paper>
+                ))
+              )}
+            </Box>
+          )}
+        </Paper>
+      </Grid>
+
+      {/* Pie Charts Summary */}
+      <Grid item xs={12} md={4}>
+        <Paper sx={{ p: 2, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            <ReportIcon color="error" sx={{ verticalAlign: "middle" }} /> Violations by Status
+          </Typography>
+          <Pie data={getViolationStatusPie()} />
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={4}>
+        <Paper sx={{ p: 2, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            <CameraAltIcon color="action" sx={{ verticalAlign: "middle" }} /> Cameras by Status
+          </Typography>
+          <Pie data={getCameraStatusPie()} />
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={4}>
+        <Paper sx={{ p: 2, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            <PeopleIcon color="primary" sx={{ verticalAlign: "middle" }} /> Citizens by Status
+          </Typography>
+          <Pie data={getCitizenStatusPie()} />
+        </Paper>
+      </Grid>
+
+      {/* Charts Section */}
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Violations by Location</Typography>
+          <Bar data={locationChartData()} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Violations Over Time</Typography>
+          <Line data={lineChartData} />
+        </Paper>
+      </Grid>
+
+      {/* Notifications and Detail List */}
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Recent Notifications</Typography>
+          <List dense>
+            {notifications.slice(0, 5).map((n) => (
+              <ListItem key={n.notification_id}>
+                <ListItemText
+                  primary={`ID: ${n.notification_id}`}
+                  secondary={`At: ${new Date(n.created_at).toLocaleString()} | Status: ${n.status}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Violation Location Details</Typography>
+          <List dense>
+            {locationViolations.slice(0, 5).map((v) => (
+              <ListItem key={v.violation_id}>
+                <ListItemText
+                  primary={<Typography fontWeight={500}>{v.location || "Unknown"}</Typography>}
+                  secondary={`At: ${new Date(v.detected_at).toLocaleString()} | Status: ${v.status_name}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+      </Grid>
+
+      {/* Snackbar Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={3000}
+        onClose={() => setNotification({ ...notification, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert severity={notification.type as any} variant="filled">
+          {notification.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!imageViewer} onClose={() => setImageViewer(null)} maxWidth="md">
+        <DialogContent sx={{ p: 0 }}>
+          <img src={imageViewer ?? ""} alt="Full size" style={{ width: "100%" }} />
+        </DialogContent>
+      </Dialog>
+    </Grid>
   );
 };
 
