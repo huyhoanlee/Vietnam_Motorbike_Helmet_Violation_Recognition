@@ -16,7 +16,7 @@ import {
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axiosInstance from "../services/axiosInstance";
 
 interface Notification {
   id: number;
@@ -26,12 +26,6 @@ interface Notification {
   cameraId: string;
 }
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 
 const Header: React.FC = () => {
@@ -53,7 +47,7 @@ const Header: React.FC = () => {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("https://hanaxuan-ai-service.hf.space/result");
+        const response = await axiosInstance.get("https://hanaxuan-ai-service.hf.space/result");
         const formattedData: Notification[] = response.data.device_list.flatMap(
           (device: any) =>
             device.detected_result.map((detection: any) => ({
@@ -85,6 +79,9 @@ const Header: React.FC = () => {
   const handleNotificationClick = (id: number) => {
     navigate(`/detection-detail/${id}`);
     handleCloseNotifications();
+  };
+  const handleProfileClick = () => {
+    navigate("/profile");
   };
 
   const handleLogout = async () => {
@@ -147,7 +144,9 @@ const Header: React.FC = () => {
           )}
         </Menu>
 
-        <Button color="inherit" startIcon={<AccountCircleIcon />}>Profile</Button>
+        <Button color="inherit" startIcon={<AccountCircleIcon />} onClick={handleProfileClick}>
+          Profile
+        </Button>
 
         <Button color="inherit" onClick={handleLogout}>Logout</Button>
       </Toolbar>

@@ -7,7 +7,9 @@ import {
 } from "@mui/material";
 import { Edit, Add } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
-import axios from "axios";
+import config from "../../config";
+import axiosInstance from "../../services/axiosInstance.tsx";
+const API_BASE_URL = `${config.API_URL}`;
 
 interface Device {
   url_input: string,
@@ -19,22 +21,15 @@ interface Device {
   note: string;
   last_active: Date;
 }
-interface DeviceFormData {
-  url_input: string;
-  device_name: string;
-  location: string; 
-  status: "active" | "deactive";
-  note: string;
-  camera_id: string;
-}
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/cameras/";
+// interface DeviceFormData {
+//   url_input: string;
+//   device_name: string;
+//   location: string; 
+//   status: "active" | "deactive";
+//   note: string;
+//   camera_id: string;
+// }
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 const DeviceManagement: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -51,7 +46,7 @@ const DeviceManagement: React.FC = () => {
   useEffect(() => {
   const fetchLocations = async () => {
     try {
-      const res = await axiosInstance.get("https://hanaxuan-backend.hf.space/api/locations/get-all/");
+      const res = await axiosInstance.get(`${API_BASE_URL}locations/get-all/`);
       setLocations(res.data.data); 
     } catch (err) {
       console.error("Failed to fetch locations", err);
@@ -64,7 +59,7 @@ const DeviceManagement: React.FC = () => {
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const res = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+        const res = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
         setDevices(res.data.data);
       } catch (err) {
         setSnackbarMessage("Failed to fetch devices.");
@@ -141,7 +136,7 @@ if (editingDevice) {
   if (changes.camera_id) payload.camera_id = changes.camera_id;
   if (changes.location) payload.location_id = Number(changes.location);
 
-  await axiosInstance.patch(`${API_BASE_URL}update/${editingDevice.camera_id}/`, payload);
+  await axiosInstance.patch(`${API_BASE_URL}cameras/update/${editingDevice.camera_id}/`, payload);
 
   // Update lại local state
   setDevices((prev) =>
@@ -151,11 +146,11 @@ if (editingDevice) {
   );
   setSnackbarMessage("Device updated successfully!");
 }else{
-         await axiosInstance.post(`${API_BASE_URL}create/`, {
+         await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
           ...data,
           location_id: Number(data.location),
           });
-        const refreshed = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+        const refreshed = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
         setDevices(refreshed.data.data);
         setSnackbarMessage("Device added successfully!");
        }
@@ -183,7 +178,7 @@ if (editingDevice) {
   const handleStatusChange = async (device: Device) => {
     const updatedStatus = device.status === "active" ? "deactive" : "active";
     try {
-      await axiosInstance.patch(`${API_BASE_URL}change-status/${device.camera_id}/`, {
+      await axiosInstance.put(`${API_BASE_URL}cameras/change-status/${device.camera_id}/`, {
         ...device,
         status: updatedStatus,
         last_active: new Date().toISOString(),

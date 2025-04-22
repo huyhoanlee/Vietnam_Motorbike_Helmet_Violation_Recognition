@@ -10,8 +10,9 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import config from "../../config";
 
-const API_BASE = "https://hanaxuan-backend.hf.space/api/citizens/auth/";
+const API_BASE_URL = `${config.API_URL}citizens/auth/`;
 const OTP_EXPIRE_TIME = 120; // 120 seconds = 2 phút
 
 const CitizenLogin = () => {
@@ -59,7 +60,7 @@ const CitizenLogin = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post(API_BASE, { phone_number: phone });
+      const res = await axios.post(API_BASE_URL, { phone_number: phone });
 
       setNotification({
         open: true,
@@ -95,7 +96,7 @@ const CitizenLogin = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post(API_BASE, {
+      const res = await axios.post(API_BASE_URL, {
         phone_number: phone,
         code_authen: otp,
       });

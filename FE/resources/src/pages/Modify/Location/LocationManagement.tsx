@@ -9,7 +9,10 @@ import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import config from "../../../config";
+import axiosInstance from "../../../services/axiosInstance";
 
+const API_BASE_URL = `${config.API_URL}`;
 // Fix icon marker không hiển thị
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -18,14 +21,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api";
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 const DEFAULT_POSITION: LatLngExpression = [13.782289, 109.219272]; // Quy Nhơn
 
@@ -61,7 +57,7 @@ const LocationCreator = () => {
 
 useEffect(() => {
   console.log("Fetching cities...");
-  axiosInstance.get(`${API_BASE_URL}/locations/cities/`)
+  axiosInstance.get(`${API_BASE_URL}locations/cities/`)
     .then(res => {
       console.log("Cities fetched:", res.data);
       setCities(res.data.cities);
@@ -74,7 +70,7 @@ useEffect(() => {
 useEffect(() => {
   if (selectedCity) {
     console.log("City selected:", selectedCity);
-    axiosInstance.get(`${API_BASE_URL}/locations/districts/?city=${selectedCity}`)
+    axiosInstance.get(`${API_BASE_URL}locations/districts/?city=${selectedCity}`)
       .then(res => {
         console.log("Districts fetched:", res.data);
         setDistricts(res.data.districts);
@@ -90,7 +86,7 @@ useEffect(() => {
 useEffect(() => {
   if (selectedCity && selectedDistrict) {
     console.log("City and District selected:", selectedCity, selectedDistrict);
-    axiosInstance.get(`${API_BASE_URL}/locations/roads/?city=${encodeURIComponent(selectedCity)}&district=${encodeURIComponent(selectedDistrict)}`)
+    axiosInstance.get(`${API_BASE_URL}locations/roads/?city=${encodeURIComponent(selectedCity)}&district=${encodeURIComponent(selectedDistrict)}`)
       .then(res => {
         console.log("Roads fetched:", res.data);
         setRoads(res.data.roads || res.data); // tùy thuộc vào format của response
@@ -119,7 +115,7 @@ const handleCreate = async () => {
 
     setLoading(true);
     try {
-      const res = await axiosInstance.post(`${API_BASE_URL}/locations/create/`, payload);
+      const res = await axiosInstance.post(`${API_BASE_URL}locations/create/`, payload);
       console.log("Create response:", res.data);
       setSnackbar({ open: true, message: "Tạo địa điểm thành công!", severity: "success" });
       setName("");

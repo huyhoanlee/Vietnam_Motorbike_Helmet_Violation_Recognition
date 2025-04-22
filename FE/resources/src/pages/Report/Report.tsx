@@ -17,8 +17,11 @@ import {
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import axios from "axios";
 import { format, parseISO } from "date-fns";
+import config from "../../config";
+import axiosInstance from "../../services/axiosInstance";
+
+const API_BASE_URL = `${config.API_URL}violations/search-by-time/`;
 
 interface Violation {
   id: number;
@@ -29,14 +32,6 @@ interface Violation {
   description: string;
 }
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations/search-by-time/";
-
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 const ReportPage: React.FC = () => {
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -47,7 +42,7 @@ const ReportPage: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarType, setSnackbarType] = useState<"success" | "error" | "info">("info");
 
-  const today = new Date().toISOString().split("T")[0]; // yyyy-MM-dd
+  const today = new Date().toISOString().split("T")[0]; 
 
   const fetchViolations = async () => {
     if (!startDate || !endDate) {

@@ -6,8 +6,9 @@ import {
 import { useState } from "react";
 import EmailUpdateSection from "./EmailUpdateSection";
 import axios from "axios";
+import config from "../../../config";
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/";
+const API_BASE_URL = config.API_URL;
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {

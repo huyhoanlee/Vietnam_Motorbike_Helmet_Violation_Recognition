@@ -18,7 +18,9 @@ import {
 import axios from "axios";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
 
-const API_BASE = "https://hanaxuan-backend.hf.space/api/violations";
+import config from "../../../config";
+
+const API_BASE_URL = `${config.API_URL}violations`;
 
 // ------------------------
 // 📌 Type Definitions
@@ -70,7 +72,7 @@ const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => 
 };
   useEffect(() => {
     axios
-      .get(`${API_BASE}/search-by-citizen/`)
+      .get(`${API_BASE_URL}/search-by-citizen/`)
       .then((res) => {
         setCitizenViolations(res.data?.data);
         setLoadCitizen(false);
@@ -99,7 +101,7 @@ const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => 
     setSearchResult(null);
 
     axios
-      .post(`${API_BASE}/search-by-plate-number/`, {
+      .post(`${API_BASE_URL}/search-by-plate-number/`, {
         plate_number: plateNumber.trim()
       })
       .then((res) => {

@@ -1,27 +1,43 @@
-
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axiosInstance from "../../../services/axiosInstance";
+import config from "../../../config";
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box, Chip
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
 } from "@mui/material";
-import { ExpandMore, CheckCircle, Cancel } from "@mui/icons-material";
+import { ExpandMore } from "@mui/icons-material";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const API_BASE_URL = `${config.API_URL}`;
 const statusColors: any = {
-  submit: { label: "Pending approval", color: "warning" },
+  submit: { label: "Pending", color: "warning" },
   approve: { label: "Approved", color: "success" },
-  reject: { label: "Refuse", color: "error" }
+  reject: { label: "Rejected", color: "error" }
 };
 
-const API_BASE = "https://hanaxuan-backend.hf.space/api/";
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// Format ảnh base64 hoặc url
+const formatImageSrc = (imageData: string | null): string | undefined  => {
+  if (!imageData) return undefined ;
+  if (imageData.startsWith("data:image")) return imageData;
+  if (imageData.length > 100 && !imageData.startsWith("http")) {
+    return `data:image/jpeg;base64,${imageData}`;
+  }
+  return imageData;
+};
 
 const CitizenManagement: React.FC = () => {
   const [citizens, setCitizens] = useState<any[]>([]);
@@ -31,23 +47,23 @@ const CitizenManagement: React.FC = () => {
   useEffect(() => {
     const fetchCitizens = async () => {
       try {
-        const response = await axiosInstance.get(`${API_BASE}car_parrots/get-all/`);
+        const response = await axiosInstance.get(`${API_BASE_URL}car_parrots/get-all/`);
         const apiData = response.data;
 
         const formatted = apiData.map((citizen: any) => {
           const firstCar = citizen.card_parrots?.[0] || {};
           return {
             ...citizen,
-            card_parrot_id: firstCar?.id,
-            card_parrot: firstCar?.image,
+            card_parrot_image: firstCar?.image || null,
+            plate_number: firstCar?.plate_number || "Unknown",
             status: citizen.status || "submit"
           };
         });
 
         setCitizens(formatted);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        toast.error("Unable to load data from server");
+      } catch (error) {
+        console.error("Fetch error:", error);
+        toast.error("Failed to load citizens");
       }
     };
 
@@ -60,55 +76,13 @@ const CitizenManagement: React.FC = () => {
   };
 
   const handleCloseDialog = () => {
-    setOpenDialog(false);
     setSelectedCitizen(null);
-  };
-
-  const showToast = (message: string, type: "success" | "error") => {
-    toast(message, {
-      type,
-      position: "top-right",
-      autoClose: 3000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      theme: "colored"
-    });
-  };
-
-  const updateStatus = async (status: "approve" | "reject") => {
-    if (!selectedCitizen) return;
-    const carId = selectedCitizen.card_parrot_id;
-
-    try {
-      const response = await axiosInstance.put(`${API_BASE}car_parrots/verified/${carId}/`, {
-        status: status === "approve" ? "Verified" : "Rejected"
-      });
-
-      setCitizens(prev =>
-        prev.map(c =>
-          c.card_parrot_id === carId
-            ? { ...c, status }
-            : c
-        )
-      );
-
-      showToast(
-        `Đơn đăng ký của ${selectedCitizen.full_name} đã được ${status === "approve" ? "duyệt" : "từ chối"}`,
-        status === "approve" ? "success" : "error"
-      );
-    } catch (error) {
-      console.error("Error while updating status:", error);
-      showToast("Update status failed", "error");
-    } finally {
-      handleCloseDialog();
-    }
+    setOpenDialog(false);
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3, color: "primary.main", fontWeight: "bold" }}>
+      <Typography variant="h4" fontWeight="bold" color="primary" mb={3}>
         Citizen Registration Management
       </Typography>
 
@@ -117,7 +91,9 @@ const CitizenManagement: React.FC = () => {
           <TableHead sx={{ bgcolor: "grey.200" }}>
             <TableRow>
               {["Citizen ID", "Full Name", "Phone Number", "Email", "Status", "Actions"].map((header) => (
-                <TableCell key={header} sx={{ fontWeight: "bold" }}>{header}</TableCell>
+                <TableCell key={header} sx={{ fontWeight: "bold" }}>
+                  {header}
+                </TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -130,9 +106,8 @@ const CitizenManagement: React.FC = () => {
                 <TableCell>{citizen.email}</TableCell>
                 <TableCell>
                   <Chip
-                    label={statusColors[citizen.status]?.label || "Không rõ"}
+                    label={statusColors[citizen.status]?.label || "Unknown"}
                     color={statusColors[citizen.status]?.color || "default"}
-                    sx={{ fontWeight: "bold" }}
                   />
                 </TableCell>
                 <TableCell>
@@ -141,7 +116,7 @@ const CitizenManagement: React.FC = () => {
                     startIcon={<ExpandMore />}
                     onClick={() => handleViewDetails(citizen)}
                   >
-                    Xem chi tiết
+                    View Details
                   </Button>
                 </TableCell>
               </TableRow>
@@ -150,63 +125,81 @@ const CitizenManagement: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Dialog xem chi tiết */}
+      {/* Dialog hiển thị chi tiết */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         {selectedCitizen && (
           <>
             <DialogTitle>
               <Typography variant="h6" fontWeight="bold">
-                Chi tiết công dân: {selectedCitizen.full_name}
+                Citizen Details: {selectedCitizen.full_name}
               </Typography>
             </DialogTitle>
             <DialogContent dividers>
-              <Typography><strong>📍 Address:</strong> {selectedCitizen.address}</Typography>
-              <Typography><strong>🆔 Citizen Identify:</strong> {selectedCitizen.citizen_identity_id}</Typography>
-              <Typography><strong>🚗 Plate Number:</strong> {selectedCitizen.card_parrot_id}</Typography>
+              <Typography><strong>📍 Address:</strong> {selectedCitizen.address || "Unknown"}</Typography>
+              <Typography><strong>🆔 Citizen Identity ID:</strong> {selectedCitizen.citizen_identity_id}</Typography>
+              <Typography><strong>🚗 Plate Number:</strong> {selectedCitizen.plate_number}</Typography>
 
               <Box sx={{
                 display: "grid",
                 gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 2, mt: 2
+                gap: 2,
+                mt: 2
               }}>
-                {/* Chỉ hiển thị ảnh card_parrot */}
+                {/* Căn cước công dân */}
                 <Box sx={{ textAlign: "center" }}>
-                  <Typography variant="subtitle1" fontWeight="bold">🚙 CARD PARROTS</Typography>
-                  <Box sx={{
-                    overflow: "hidden",
-                    borderRadius: 2,
-                    boxShadow: 3,
-                    "& img": {
-                      width: "100%",
-                      transition: "transform 0.3s ease-in-out",
-                      "&:hover": { transform: "scale(1.05)" }
-                    }
-                  }}>
-                    <img src={selectedCitizen.card_parrot} alt="Card Parrots" />
-                  </Box>
+                  <Typography fontWeight="bold">🪪 Identity Card</Typography>
+                  {selectedCitizen.identity_card ? (
+                    <Box
+                      sx={{
+                        overflow: "hidden",
+                        borderRadius: 2,
+                        boxShadow: 3,
+                        "& img": {
+                          width: "100%",
+                          transition: "transform 0.3s ease-in-out",
+                          "&:hover": { transform: "scale(1.05)" }
+                        }
+                      }}
+                    >
+                      <img
+                        src={formatImageSrc(selectedCitizen.identity_card)}
+                        alt="Identity Card"
+                      />
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary">Not available</Typography>
+                  )}
+                </Box>
+
+                {/* Giấy tờ xe */}
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography fontWeight="bold">🚙 Vehicle Registration</Typography>
+                  {selectedCitizen.card_parrot_image ? (
+                    <Box
+                      sx={{
+                        overflow: "hidden",
+                        borderRadius: 2,
+                        boxShadow: 3,
+                        "& img": {
+                          width: "100%",
+                          transition: "transform 0.3s ease-in-out",
+                          "&:hover": { transform: "scale(1.05)" }
+                        }
+                      }}
+                    >
+                      <img
+                        src={formatImageSrc(selectedCitizen.card_parrot_image)}
+                        alt="Card Parrot"
+                      />
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary">Not available</Typography>
+                  )}
                 </Box>
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<CheckCircle />}
-                onClick={() => updateStatus("approve")}
-              >
-                Duyệt đơn
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<Cancel />}
-                onClick={() => updateStatus("reject")}
-              >
-                Từ chối
-              </Button>
-              <Button onClick={handleCloseDialog} color="secondary">
-                Đóng
-              </Button>
+              <Button onClick={handleCloseDialog} color="primary">Close</Button>
             </DialogActions>
           </>
         )}

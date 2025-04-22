@@ -28,8 +28,11 @@ import {
   ImageListItem,
 } from "@mui/material";
 import { Edit, Delete, ExpandMore } from "@mui/icons-material";
-import axios from "axios";
 import { useForm } from "react-hook-form";
+import axiosInstance from "../../../services/axiosInstance";
+import config from "../../../config";
+
+const API_BASE_URL = `${config.API_URL}`;
 
 interface Status {
   id: string;
@@ -91,7 +94,7 @@ const StatusManagement: React.FC = () => {
     setLoading(true);
     try {
       const response = await axiosInstance.get(
-        "https://hanaxuan-backend.hf.space/api/violation_status/get-all/"
+        `${API_BASE_URL}violation_status/get-all/`
       );
       const mapped = response.data.data.map((item: any) => ({
         id: String(item.id),
@@ -109,7 +112,7 @@ const StatusManagement: React.FC = () => {
   const fetchViolations = async () => {
     try {
       const response = await axiosInstance.get(
-        "https://hanaxuan-backend.hf.space/api/violations/get-all/"
+        `${API_BASE_URL}violations/get-all/`
       );
       const mappedViolations = response.data.data.map((v: any) => ({
         id: String(v.violation_id),
@@ -167,7 +170,7 @@ const StatusManagement: React.FC = () => {
     try {
       if (dialogMode === "create") {
         await axiosInstance.post(
-          "https://hanaxuan-backend.hf.space/api/violation_status/create/",
+          `${API_BASE_URL}violation_status/create/`,
           { status_name: name, description }
         );
         setSnackbar({
@@ -177,7 +180,7 @@ const StatusManagement: React.FC = () => {
         });
       } else if (dialogMode === "edit" && currentStatus) {
         await axiosInstance.patch(
-          `https://hanaxuan-backend.hf.space/api/violation_status/change-status/${currentStatus.id}`,
+          `${API_BASE_URL}violation_status/change-status/${currentStatus.id}`,
           { status_name: name, description }
         );
         setSnackbar({
@@ -214,7 +217,7 @@ const StatusManagement: React.FC = () => {
     ) {
       try {
         await axiosInstance.delete(
-          `https://hanaxuan-backend.hf.space/api/violation_status/delete/${statusId}`
+          `${API_BASE_URL}violation_status/delete/${statusId}`
         );
         setSnackbar({
           open: true,
@@ -235,18 +238,7 @@ const StatusManagement: React.FC = () => {
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
   };
-const axiosInstance = axios.create();
 
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" gutterBottom>
