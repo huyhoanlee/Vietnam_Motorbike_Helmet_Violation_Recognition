@@ -2,7 +2,7 @@ import uuid
 import time
 import asyncio
 import threading
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from typing import List, Dict
 from fastapi.encoders import jsonable_encoder
 from loguru import logger
@@ -16,7 +16,11 @@ from src.models.base_model import DeviceDetection, FrameData
 from src.config.globalVariables import capture_dict, frames, urls_camera
 from concurrent.futures import ThreadPoolExecutor
 import queue
+from src.extractors.service import InfoExtractor
+from src.extractors.model import VehicleInfo, CitizenInfo, ImageBase64Request
 
+
+extractor = InfoExtractor()
 app = FastAPI()
 
 # Global variables
@@ -108,3 +112,24 @@ async def stream_video(id: str):
 
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+
+@app.post("/extract-license-info", response_model=VehicleInfo)
+async def extract_license_info(request: ImageBase64Request):
+    try:
+        res = await extractor.ainvoke_vihicle(request.image_base64)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/extract-citizen-info", response_model=CitizenInfo)
+async def extract_license_info(request: ImageBase64Request):
+    try:
+        res = await extractor.ainvoke_citizen(request.image_base64)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app2:app", host="0.0.0.0", port=8000, reload=True)

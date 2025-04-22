@@ -10,7 +10,7 @@ from src.models.base_model import DeviceDetection, FrameData, DetectedResult, Vi
 from concurrent.futures import ThreadPoolExecutor
 from src.config.globalVariables import capture_dict, THRESHOLD_PLATE, THRESHOLD_PLATE_CERTAIN, THRESHOLD_NOHELMET_CERTAIN
 from datetime import datetime
-
+from src.models.schema import ViolationStatus
 def mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results, device="cuda:0"):
 
     """
@@ -104,10 +104,12 @@ def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="") -
             line1, line2, status = parse_and_validate_plate(plate_number)
             if status == "certain" and plate_conf > THRESHOLD_PLATE_CERTAIN and max_nohelmet_conf > THRESHOLD_NOHELMET_CERTAIN:
                 plate_number = line1 + " " + line2
+                status = ViolationStatus.AI_RELIABEL.value
             else:
+                status = ViolationStatus.AI_DETECT.value
                 status = "AI detected"
                 plate_number = plate_number.replace("\n"," ")
-                
+                logger.debug(f"Status: {status}, plate number: {plate_number}")
             output_json["detected_result"].append(DetectedResult(
             vehicle_id=f"{datetime.now().strftime('%Y-%m-%d')}_id_{vehicle_id}",
             image=encode_image_to_string(vehicle_img),
