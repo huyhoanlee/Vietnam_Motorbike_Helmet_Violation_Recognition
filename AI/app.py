@@ -1,170 +1,117 @@
-# main.py
-import asyncio
-from typing import Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, AnyUrl, validator
 import uuid
-from contextlib import asynccontextmanager
 import time
+import asyncio
+import threading
+from fastapi import FastAPI, HTTPException
+from typing import List, Dict
+from fastapi.encoders import jsonable_encoder
 from loguru import logger
-import base64
-from src.services.stream_service import StreamService
-from src.models.schema import AIResult
+
+from src.utils import get_frames, get_frame_from_url, encode_image_to_bytes
+from src.modules.ai_service import AI_Service
+from src.modules.api_process import post_process
+from src.config import AppConfig
+from starlette.responses import StreamingResponse
+from src.models.base_model import DeviceDetection, FrameData
+from src.config.globalVariables import capture_dict, frames, urls_camera
+from concurrent.futures import ThreadPoolExecutor
+import queue
 from src.extractors.service import InfoExtractor
 from src.extractors.model import VehicleInfo, CitizenInfo, ImageBase64Request
 
 
 extractor = InfoExtractor()
-class CameraInput(BaseModel):
-    camera_id: str
-    
-# Global service instances
-stream_service = None
-ai_service = None
+app = FastAPI()
 
-class CameraURL(BaseModel):
-    url: str
-    
-    @validator('url')
-    def validate_url(cls, v):
-        # Basic URL validation
-        if not v.startswith(('rtsp://', 'http://', 'https://')):
-            raise ValueError('URL must start with rtsp://, http://, or https://')
-        return v
+# Global variables
+sleep = 1
+max_workers = 4
+input_frames_queue = {}
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Setup: Initialize services
-    global stream_service
-    logger.info("Initializing services...")
-    
-    stream_service = StreamService()
-    
-    # Start background processing task
-    asyncio.create_task(stream_service.process_streams())
-    
-    yield
-    
-    # Cleanup: Release resources when application shuts down
-    logger.info("Shutting down services...")
-    await stream_service.shutdown()
+# Initialize AI service (uncomment if needed)
+# onnx, float16. triton 
 
-# Initialize FastAPI app
-app = FastAPI(lifespan=lifespan)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def ai_pipeline(AI_service, frame_data: List[FrameData]) -> List[DeviceDetection]:
+    """Process video frames using AI controllers."""
+    processed_results = []
+    result_json = AI_service.process_frame(frame_data["frame"], frame_data["frame_count"])
+    result_json.camera_id = frame_data.url
+    processed_results.append(
+        result_json
+        )
+    post_process(processed_results)
+    return processed_results
 
-@app.get("/health")
-async def health_check():
-    """API health check endpoint"""
-    return {"status": "healthy", "timestamp": time.time()}
+def process_one_url(url_input: str, stream_name):
+    """Continuously capture frames, process them, and broadcast results."""
+    global urls_camera, sleep
+    AI_service = AI_Service() 
+    while True:
+        if urls_camera:
+            input_data = get_frame_from_url(url_input)
+            input_frames_queue[stream_name] = input_data["frame"]
+            # print(input_frames_queue[stream_name].qsize())
+            try:
+                dm = ai_pipeline(AI_service, input_data)
+                pass
+            except Exception as e:
+                logger.info("Error processing URL in AI Service: ", e)
+        else:
+            time.sleep(sleep)
 
-@app.get("/result", response_model=AIResult)
-async def get_result():
-    """Get the latest AI processing results"""
-    result = stream_service.get_latest_result()
-    if not result:
-        return {"time": time.time(), "device_list": []}
-    
-    # Create a copy without frame data to reduce response size
-    serializable_result = result.copy()
-    if serializable_result.get("device_list"):
-        for device in serializable_result["device_list"]:
-            device.post_frame = base64.b64encode(device.post_frame).decode("utf-8")
-    
-    return jsonable_encoder(serializable_result)
+@app.post("/push_url")
+async def push_url(url: str):
+    """Add a new video stream URL to the list."""
+    global urls_camera
+    if url not in urls_camera:
+        stream_name = uuid.uuid5(uuid.NAMESPACE_URL, url).hex[:8]
+        urls_camera[url] = stream_name #{hanaxuan: a343sd}
+        rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
+        input_frames_queue[stream_name] = 1 #queue.Queue(maxsize=50)
+        # with ThreadPoolExecutor(max_workers=min(len(urls_camera), 10)) as executor:
+        #     while True:
+        #         # Gửi công việc inference cho luồng mới
+        #         future = executor.submit(process_one_url, url)
+        threading.Thread(target=process_one_url, args=(url, stream_name), daemon=True).start()
+        return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
+    rtsp_stream = f"{AppConfig.HOST_STREAM}{urls_camera[url]}"
+    return {"message": "URL already exists", "urls": urls_camera, "url": rtsp_stream} #f'https://hanaxuan-ai-service.hf.space/stream/{urls_camera[url]}' 
 
-@app.post("/result")
-async def get_result_by_camera_id(input: CameraInput):
-    # Kiểm tra camera_id hợp lệ
-    camera_id = input.camera_id
-    if not stream_service.is_valid_camera_id(camera_id):
-        raise HTTPException(status_code=404, detail=f"Stream ID {camera_id} not found")
-    
-    # Lấy kết quả mới nhất cho camera_id
-    result = stream_service.get_latest_result_camera_id(camera_id)
-    
-    # Nếu không có kết quả, trả về mặc định
-    if not result:
-        return {"time": time.time(), "device_list": []}
-    
-    # Tạo bản sao kết quả để xử lý dữ liệu frame
-    serializable_result = result.copy()
-    if serializable_result.get("device_list"):
-        for device in serializable_result["device_list"]:
-            # Mã hóa frame thành base64 nếu có
-            if hasattr(device, "post_frame") and device.post_frame is not None:
-                device.post_frame = base64.b64encode(device.post_frame).decode("utf-8")
-    return jsonable_encoder(serializable_result)
+@app.post("/delete_url")
+async def delete_url(url: str):
+    """Remove a URL from the list."""
+    global urls_camera
+    if url in urls_camera:
+        if url in capture_dict:
+            capture_dict[url].release()
+            del capture_dict[url]
+            
+        stream_name = urls_camera.pop(url)
+        if stream_name in frames:
+            del frames[stream_name]
+        return {"message": "URL removed", "urls": urls_camera}
+    return {"message": "URL not found", "urls": urls_camera}
 
-@app.post("/cameras", status_code=status.HTTP_201_CREATED)
-async def add_camera(
-    camera: CameraURL, 
-    background_tasks: BackgroundTasks,
-    
-):
-    """Add a new camera stream to the system"""
-    try:
-        stream_id, rtsp_stream = await stream_service.add_stream(camera.url)
-        background_tasks.add_task(stream_service.initialize_stream, camera.url)
-        
-        return {
-            "message": "Camera added successfully",
-            "camera_id": stream_id,
-            "stream_url": rtsp_stream
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/get_url")
+async def get_urls():
+    """Retrieve the list of currently tracked video stream URLs."""
+    return urls_camera
 
-@app.delete("/cameras/{camera_url:path}", status_code=status.HTTP_200_OK)
-async def remove_camera(camera_url: str):
-    """Remove a camera stream from the system"""
-    try:
-        await stream_service.remove_stream(camera_url)
-        return {"message": "Camera removed successfully"}
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Camera URL not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to remove camera: {str(e)}")
+@app.get("/stream/{id}")
+async def stream_video(id: str):
+    def generate_frames():
+        while True:
+        # print(input_frames_queue.get(id).get_nowait().shape)
+            frame = input_frames_queue.get(id)#.get_nowait()
+            frame_bytes = encode_image_to_bytes(frame)
+            if not frame_bytes:
+                break
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-@app.get("/cameras")
-async def list_cameras():
-    """List all active camera streams"""
-    cameras = stream_service.get_all_streams()
-    return {
-        "count": len(cameras),
-        "cameras": cameras
-    }
+    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
-@app.get("/stream/{stream_id}")
-async def stream_video(stream_id: str):
-    """Stream video for a specific camera"""
-    if not stream_service.is_valid_stream_id(stream_id):
-        raise HTTPException(status_code=404, detail="Stream not found")
-        
-    return StreamingResponse(
-        stream_service.generate_frames(stream_id),
-        media_type="multipart/x-mixed-replace; boundary=frame"
-    )
-
-@app.post("/ai/config")
-async def update_ai_config(config: dict):
-    """Update AI service configuration"""
-    try:
-        await ai_service.update_config(config)
-        return {"message": "AI configuration updated successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/extract-license-info", response_model=VehicleInfo)
 async def extract_license_info(request: ImageBase64Request):
@@ -182,8 +129,7 @@ async def extract_license_info(request: ImageBase64Request):
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

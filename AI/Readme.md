@@ -15,5 +15,7 @@ Run the application using uvicorn:
 
 ```
 cd AI
-uvicorn app:app
+uvicorn app:app 
+or
+python app.py
 ```
