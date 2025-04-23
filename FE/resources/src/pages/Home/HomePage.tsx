@@ -5,8 +5,9 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import config from "../../config";
 
-const API_BASE = "https://hanaxuan-backend.hf.space/api";
+const API_BASE_URL = `${config.API_URL}`;
 
 interface Violation {
   violation_id: number;
@@ -52,7 +53,7 @@ const HomePage = () => {
     setSearchResult(null);
 
     axios
-      .post(`${API_BASE}/violations/search-by-plate-number/`, {
+      .post(`${API_BASE_URL}violations/search-by-plate-number/`, {
         plate_number: plateNumber.trim()
       })
       .then((res) => {

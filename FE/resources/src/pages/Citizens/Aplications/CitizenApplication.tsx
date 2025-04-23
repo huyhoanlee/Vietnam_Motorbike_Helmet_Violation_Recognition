@@ -1,317 +1,299 @@
 import {
-  Box, Typography, Grid, TextField, Snackbar, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Card, CardContent, CardMedia, Chip, IconButton, Modal,
-  Button, Fade, Backdrop, Stack, CircularProgress
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Stack,
+  Snackbar,
+  Alert,
+  CircularProgress,
+  Paper,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
+import config from "../../../config";
 
-// 👉 Base API and axios setup
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/";
+const API_BASE_URL = config.API_URL;
 
-interface Application {
-  car_parrot_id: number;
-  plate_number: string;
-  status: "submitted" | "verified" | "rejected";
-  image: string;
-  citizen_id: number;
-}
+const OCRLicenseForm = () => {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-const CitizenApplication = () => {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Form fields
+  const [owner, setOwner] = useState("");
+  const [address, setAddress] = useState("");
+  const [modelCode, setModelCode] = useState("");
+  const [color, setColor] = useState("");
+  const [plateNumber, setPlateNumber] = useState("");
 
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  const [newPlate, setNewPlate] = useState("");
-  const [newImage, setNewImage] = useState<File | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [imgModalOpen, setImgModalOpen] = useState(false);
-  const [viewImageSrc, setViewImageSrc] = useState("");
-  const [snackbarMsg, setSnackbarMsg] = useState("");
-  const [snackbarType, setSnackbarType] = useState<"success" | "error">("success");
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
-  const [formPlate, setFormPlate] = useState("");
-  const [formImage, setFormImage] = useState<File | null>(null);
-  const [formPreview, setFormPreview] = useState<string | null>(null);
+  const handleExtract = async () => {
+    if (!imageFile) {
+      setSnackbar({ msg: "Please upload an image.", type: "error" });
+      return;
+    }
 
-  const citizenId = Number(localStorage.getItem("citizen_id") || 1); // fallback = 1
-
-  useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  const fetchApplications = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
-      console.log("🔍 Applications from API:", res.data.applications);
-      setApplications(res.data.applications || []);
-    } catch (error) {
-      console.error("Error fetching applications", error);
+      setLoading(true);
+      const base64Image = await fileToBase64(imageFile);
+      setImageBase64(base64Image);
+
+      const res = await axios.post("https://huyhoanlee-ocr-license.hf.space/extract-license-info", {
+        image_base64: base64Image,
+      });
+
+      const { owner, address, model_code, color, license_plate } = res.data;
+
+      setOwner(owner || "");
+      setAddress(address || "");
+      setModelCode(model_code || "");
+      setColor(color || "");
+      setPlateNumber(license_plate || "");
+      setShowConfirmation(true);
+
+      setSnackbar({ msg: "Information extracted successfully.", type: "success" });
+    } catch (err) {
+      console.error("OCR error:", err);
+      setSnackbar({ msg: "Failed to extract information. Please try again.", type: "error" });
     } finally {
       setLoading(false);
     }
   };
-  const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-};
-const handleCreate = async () => {
-  if (!formPlate || !formImage) {
-    setSnackbarMsg("Please enter plate number and upload image.");
-    setSnackbarType("error");
-    return;
-  }
 
-  try {
-    const base64Image = await fileToBase64(formImage);
+  const handleSave = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault(); // Prevent form submission or page reload
 
-    const payload = {
-      plate_number: formPlate,
-      image: base64Image,
-    };
+    // Log localStorage state for debugging
+    console.log("localStorage before save:", {
+      user_id: localStorage.getItem("user_id"),
+      is_citizen_authenticated: localStorage.getItem("is_citizen_authenticated"),
+      user_role: localStorage.getItem("user_role"),
+    });
 
-    const res = await axios.post(
-      `${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`,
-      payload
-    );
-
-    setSnackbarMsg(res.data.message || "Application submitted.");
-    setSnackbarType("success");
-    setFormPlate("");
-    setFormImage(null);
-    setFormPreview(null);
-    fetchApplications();
-  } catch (err: any) {
-    const msg = err.response?.data?.error || "Something went wrong.";
-    setSnackbarMsg(msg);
-    setSnackbarType("error");
-  }
-};
-
-  const handleEditClick = (app: Application) => {
-    setSelectedApp(app);
-    setNewPlate(app.plate_number);
-    setPreviewImage(app.image);
-    setNewImage(null);
-    setEditDialogOpen(true);
-  };
-  
-  const handleUpdate = async () => {
-    if (!newPlate || !previewImage || !selectedApp) {
-      setSnackbarMsg("Plate number and image are required.");
-      setSnackbarType("error");
+    if (!plateNumber || !imageBase64) {
+      setSnackbar({ msg: "Please provide a license plate number and upload an image.", type: "error" });
       return;
     }
 
-  try {
-    let imageBase64 = previewImage;
+    try {
+      setSaveLoading(true);
 
-    if (newImage) {
-      imageBase64 = await fileToBase64(newImage);
-    }
+      // Fetch car_parrot_id (placeholder; replace with actual logic)
+      const carParrotId = localStorage.getItem("car_parrot_id") || "1"; // TODO: Fetch from API
 
-    if (!imageBase64) {
-      setSnackbarMsg("Image is required.");
-      setSnackbarType("error");
-      return;
-    }
+      const payload = {
+        owner,
+        image: imageBase64,
+        address,
+        modelCode,
+        color,
+        plate_number: plateNumber,
+        status: "Verified", // Use "verified" as per input format
+      };
 
-    const payload = {
-      plate_number: newPlate,
-      image: imageBase64,
-    };
-      await axios.patch(`${API_BASE_URL}car_parrots/update/${selectedApp.car_parrot_id}/`, payload);
-      setSnackbarMsg("Application updated successfully.");
-      setSnackbarType("success");
-      fetchApplications();
+      // Update car parrot data
+      const patchResponse = await axios.patch(`${API_BASE_URL}car_parrots/update/${carParrotId}/`, payload);
+      console.log("PATCH response:", patchResponse.data);
+
+      // Fetch updated citizen data if user_id exists
+      const citizenId = localStorage.getItem("user_id");
+      if (citizenId) {
+        const getResponse = await axios.get(`${API_BASE_URL}car_parrots/get-all/`);
+        const citizens = getResponse.data; // Adjust if response is nested (e.g., res.data.data)
+        console.log("GET response:", citizens);
+
+        const userData = citizens.find((citizen: any) => citizen.citizen_id === citizenId);
+
+        if (userData) {
+          localStorage.setItem("citizen_data", JSON.stringify(userData));
+          setSnackbar({ msg: "Information saved successfully.", type: "success" });
+        } else {
+          setSnackbar({ msg: "Information saved, but no user data found.", type: "success" });
+        }
+      } else {
+        setSnackbar({ msg: "Information saved successfully.", type: "success" });
+      }
+
+      // Verify localStorage after save
+      console.log("localStorage after save:", {
+        user_id: localStorage.getItem("user_id"),
+        is_citizen_authenticated: localStorage.getItem("is_citizen_authenticated"),
+        user_role: localStorage.getItem("user_role"),
+        citizen_data: localStorage.getItem("citizen_data"),
+      });
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Update failed.";
-      setSnackbarMsg(msg);
-      setSnackbarType("error");
+      console.error("Save error:", err);
+      let errorMsg = "Failed to save information. Please try again.";
+      if (err.response?.data?.status) {
+        errorMsg = `Invalid status: ${err.response.data.status.join(", ")}`;
+      } else if (err.response?.data?.detail) {
+        errorMsg = err.response.data.detail;
+      } else if (err.response?.status === 400) {
+        errorMsg = "Invalid data provided. Please check your inputs.";
+      }
+      setSnackbar({ msg: errorMsg, type: "error" });
     } finally {
-      setEditDialogOpen(false);
+      setSaveLoading(false);
     }
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: "auto" }}>
-      <Typography variant="h4" fontWeight={700} mb={3}>
-        Vehicle Plate Applications
+    <Box
+      sx={{
+        p: { xs: 2, sm: 3, md: 4 },
+        maxWidth: 800,
+        mx: "auto",
+        bgcolor: "background.paper",
+        borderRadius: 2,
+        boxShadow: 3,
+      }}
+    >
+      <Typography variant="h5" fontWeight={700} gutterBottom color="primary.main">
+        Vehicle Registration OCR & Submission
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Upload your vehicle registration image to extract and submit details.
       </Typography>
 
-      {/* Create form */}
-      <Box sx={{ mb: 4, p: 2, border: "1px solid #ccc", borderRadius: 2, background: "#f9f9f9" }}>
-        <Typography variant="h6" mb={2}>
-          <AddCircleOutlineIcon sx={{ mr: 1 }} />
-          New Application
-        </Typography>
-        <Stack spacing={2}>
-          <TextField
-            label="Plate Number"
-            fullWidth
-            value={formPlate}
-            onChange={(e) => setFormPlate(e.target.value)}
-          />
+      <Stack spacing={3}>
+        <FormControl>
+          <InputLabel shrink sx={{ bgcolor: "background.paper", px: 1, ml: -1 }}>
+            Upload Image
+          </InputLabel>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
-                setFormImage(file);
-                setFormPreview(URL.createObjectURL(file));
+                setImageFile(file);
+                setPreview(URL.createObjectURL(file));
+                setShowConfirmation(false);
               }
             }}
+            style={{
+              padding: "10px 0",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              width: "100%",
+            }}
           />
-          {formPreview && (
-            <img
-              src={formPreview}
-              alt="Preview"
-              style={{ maxHeight: 200, borderRadius: 8 }}
-            />
-          )}
-          <Button variant="contained" color="primary" onClick={handleCreate}>
-            Submit Application
-          </Button>
-        </Stack>
-      </Box>
+        </FormControl>
 
-      {/* Application list */}
-      {loading ? (
-        <Box textAlign="center" mt={4}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {applications.map((app) => (
-            <Grid item xs={12} sm={6} md={4} key={app.car_parrot_id}>
-              <Card sx={{ borderRadius: 2, boxShadow: 3 }}>
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={app.image}
-                  alt={`Plate ${app.plate_number}`}
-                  sx={{ cursor: "pointer", objectFit: "cover" }}
-                  onClick={() => {
-                    setViewImageSrc(app.image);
-                    setImgModalOpen(true);
-                  }}
-                />
-                <CardContent>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Plate: {app.plate_number}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    ID: {app.car_parrot_id}
-                  </Typography>
-                  <Box mt={1} display="flex" justifyContent="space-between" alignItems="center">
-                    <Chip
-                      label={app.status}
-                      color={
-                        app.status.toLowerCase() === "submitted"
-                          ? "warning"
-                          : app.status === "verified"
-                          ? "success"
-                          : "error"
-                      }
-                    />
-                    {app.status.toLowerCase() === "submitted" && (
-                      <IconButton onClick={() => handleEditClick(app)} size="small" >
-                        <EditIcon />
-                      </IconButton>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+        {preview && (
+          <Paper elevation={3} sx={{ overflow: "hidden", borderRadius: 2, maxHeight: 250 }}>
+            <img src={preview} alt="License Preview" style={{ width: "100%", objectFit: "contain" }} />
+          </Paper>
+        )}
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Update Plate Information</DialogTitle>
-        <DialogContent dividers>
-          <Typography mb={2}>
-            Are you sure you want to update the plate number and image?
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleExtract}
+          disabled={loading}
+          sx={{ py: 1.5, fontWeight: 600 }}
+        >
+          {loading ? <CircularProgress size={24} color="inherit" /> : "Extract Information"}
+        </Button>
+
+        {/* Extracted Information Form */}
+        {showConfirmation && (
+          <Typography variant="body1" color="primary.main" sx={{ mt: 2, fontStyle: "italic" }}>
+            Please verify the extracted information and correct any missing or inaccurate details.
           </Typography>
-          <TextField
-            label="Plate Number"
-            fullWidth
-            value={newPlate}
-            onChange={(e) => setNewPlate(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                setNewImage(file);
-                setPreviewImage(URL.createObjectURL(file));
-              }
-            }}
-          />
-          {previewImage && (
-            <Box mt={2}>
-              <img src={previewImage} alt="Preview" style={{ maxWidth: "100%", borderRadius: 8 }} />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="primary" onClick={handleUpdate}>
-            Confirm Update
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Modal Preview Image */}
-      <Modal
-        open={imgModalOpen}
-        onClose={() => setImgModalOpen(false)}
-        closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 300 }}
-      >
-        <Fade in={imgModalOpen}>
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              bgcolor: "background.paper", borderRadius: 2,
-              boxShadow: 24, p: 1,
-              maxWidth: 600,
-            }}
-          >
-            <img
-              src={viewImageSrc}
-              alt="Car plate preview"
-              style={{ width: "100%", borderRadius: 8 }}
+        )}
+        <Box mt={3}>
+          <Typography variant="h6" fontWeight={600} mb={2}>
+            Extracted Information
+          </Typography>
+          <Stack spacing={2}>
+            <TextField
+              label="Owner Name"
+              fullWidth
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
             />
-          </Box>
-        </Fade>
-      </Modal>
+            <TextField
+              label="Address"
+              fullWidth
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Model Code"
+              fullWidth
+              value={modelCode}
+              onChange={(e) => setModelCode(e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Color"
+              fullWidth
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="License Plate"
+              fullWidth
+              value={plateNumber}
+              onChange={(e) => setPlateNumber(e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+              required
+            />
+          </Stack>
 
-      {/* Snackbar */}
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleSave}
+            disabled={saveLoading || !plateNumber}
+            sx={{ mt: 3, py: 1.5, fontWeight: 600 }}
+            type="button" // Prevent form submission
+          >
+            {saveLoading ? <CircularProgress size={24} color="inherit" /> : "Save Information"}
+          </Button>
+        </Box>
+      </Stack>
+
       <Snackbar
-        open={!!snackbarMsg}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarMsg("")}
+        open={!!snackbar}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(null)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert severity={snackbarType}>{snackbarMsg}</Alert>
+        <Alert
+          severity={snackbar?.type || "success"}
+          sx={{ width: "100%", maxWidth: 600 }}
+          onClose={() => setSnackbar(null)}
+        >
+          {snackbar?.msg}
+        </Alert>
       </Snackbar>
     </Box>
   );
 };
 
-export default CitizenApplication;
+export default OCRLicenseForm;

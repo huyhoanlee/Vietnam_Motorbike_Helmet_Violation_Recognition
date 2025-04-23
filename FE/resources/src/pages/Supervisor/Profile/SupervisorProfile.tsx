@@ -3,16 +3,11 @@ import {
   Box, Button, TextField, Typography, Dialog, DialogTitle,
   DialogContent, DialogActions, Snackbar, Alert, Paper
 } from "@mui/material";
-import axios from "axios";
+import axiosInstance from "../../../services/axiosInstance.tsx";
+import config from "../../../config";
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts/";
+const API_BASE_URL = config.API_URL;
 
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 const SupervisorProfile = () => {
   const [user, setUser] = useState({ username: "", role: "", email: "" });
@@ -29,7 +24,7 @@ const SupervisorProfile = () => {
 
   useEffect(() => {
     if (!userId) return;
-    axiosInstance.get(`${API_BASE_URL}profile/${userId}/`)
+    axiosInstance.get(`${API_BASE_URL}accounts/profile/${userId}/`)
       .then(res => setUser(res.data))
       .catch(() => setNotification({ open: true, type: "error", message: "Unable to load user information." }))
       .finally(() => setLoading(false));
@@ -49,7 +44,7 @@ const SupervisorProfile = () => {
     return;
   }
 
-  axiosInstance.patch(`${API_BASE_URL}update/${userId}/`, {
+  axiosInstance.patch(`${API_BASE_URL}accounts/update/${userId}/`, {
     email: newEmail,
     password: password,
   })
@@ -86,7 +81,7 @@ const SupervisorProfile = () => {
     return;
   }
 
-  axiosInstance.patch(`${API_BASE_URL}update/${userId}/`, {
+  axiosInstance.patch(`${API_BASE_URL}accounts/update/${userId}/`, {
     password: password,
     new_password: newPassword,
   })

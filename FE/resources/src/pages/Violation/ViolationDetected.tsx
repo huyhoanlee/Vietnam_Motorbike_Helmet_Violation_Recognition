@@ -7,26 +7,20 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
-import axios from "axios";
 import ViolationDetail from "./ViolationDetails";
 import { format } from "date-fns";
+import axiosInstance from "../../services/axiosInstance.tsx";
+import config from "../../config";
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/violations/";
-const NOTIFICATION_API_URL = "https://hanaxuan-backend.hf.space/api/notifications";
-
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+const API_BASE_URL = config.API_URL;
 
 interface Violation {
   id: number;
-  location: string;
-  camera_id: string;
+  location: string | null;
+  camera_id?: string;
   plate_number: string;
-  status: string;
+  status: string; // Will map to status_name
+  status_name: string; // Added to match API response
   detected_at: string;
   violation_image: string[];
   notified?: boolean;
@@ -52,28 +46,32 @@ const ViolationDetected: React.FC = () => {
   const [sortOrder, setSortOrder] = useState("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
-  if (data.startsWith("data:image/")) return data;
-  return `data:image/${format};base64,${data}`;
-};
+
+  const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "png") => {
+    if (!data) return "/placeholder-image.png";
+    if (data.startsWith("data:image/")) return data;
+    return `data:image/${format};base64,${data}`;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get(`${API_BASE_URL}get-all/`);
+        const response = await axiosInstance.get(`${API_BASE_URL}violations/get-all/`);
         const mappedViolations = response.data.data.map((v: any) => ({
           id: v.violation_id,
           plate_number: v.plate_number,
-          camera_id: v.camera_id,
+          camera_id: v.camera_id || "Unknown",
           detected_at: v.detected_at,
-          status: v.status,
-          location: "Unknown",
+          status: v.status_name || "Unknown", // Map status_name to status
+          status_name: v.status_name || "Unknown",
+          location: v.location || "Unknown",
           violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
         }));
+        console.log("Mapped violations:", mappedViolations);
         setViolations(mappedViolations);
 
         const citizenResponse = await axiosInstance.get(
-          "https://hanaxuan-backend.hf.space/api/car_parrots/get-all/"
+          `${API_BASE_URL}car_parrots/get-all/`
         );
         setCitizens(citizenResponse.data);
       } catch (err) {
@@ -90,7 +88,7 @@ const ViolationDetected: React.FC = () => {
       v.plate_number.toLowerCase().includes(searchPlate.toLowerCase())
     )
     .filter((v) =>
-      filterStatus === "All" ? true : v.status === filterStatus
+      filterStatus === "All" ? true : v.status_name.toLowerCase() === filterStatus.toLowerCase()
     )
     .sort((a, b) => {
       const dateA = new Date(a.detected_at).getTime();
@@ -156,7 +154,7 @@ const ViolationDetected: React.FC = () => {
           continue;
         }
 
-        await axiosInstance.post(NOTIFICATION_API_URL, {
+        await axiosInstance.post(`${API_BASE_URL}notifications`, {
           violation_id: violation.id,
           email: citizen.email,
           status: "notified",
@@ -181,6 +179,22 @@ const ViolationDetected: React.FC = () => {
     message: "",
     severity: "success" as "success" | "error",
   });
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "critical":
+      case "rejected":
+        return "red";
+      case "ai_detected":
+      case "reported":
+      case "pending":
+        return "orange";
+      case "approved":
+        return "green";
+      default:
+        return "grey";
+    }
+  };
 
   return (
     <Box sx={{ padding: 4 }}>
@@ -219,8 +233,11 @@ const ViolationDetected: React.FC = () => {
                 displayEmpty
               >
                 <MenuItem value="All">All Status</MenuItem>
-                <MenuItem value="AI detected">AI detected</MenuItem>
+                <MenuItem value="AI_detected">AI Detected</MenuItem>
+                <MenuItem value="Reported">Reported</MenuItem>
                 <MenuItem value="Approved">Approved</MenuItem>
+                <MenuItem value="Pending">Pending</MenuItem>
+                <MenuItem value="Rejected">Rejected</MenuItem>
               </Select>
             </Grid>
             <Grid item xs={6} md={4}>
@@ -235,24 +252,6 @@ const ViolationDetected: React.FC = () => {
               </Select>
             </Grid>
           </Grid>
-
-          {selectedViolations.length > 0 && (
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mb: 2, borderRadius: "20px" }}
-              onClick={handleNotifySelected}
-            >
-              Notify Selected
-            </Button>
-          )}
-          <Button
-            variant="outlined"
-            onClick={handleNotifyAll}
-            sx={{ float: "right", borderRadius: "20px" }}
-          >
-            Notify All
-          </Button>
 
           <TableContainer component={Paper} sx={{ borderRadius: 2, mt: 3 }}>
             <Table>
@@ -303,10 +302,10 @@ const ViolationDetected: React.FC = () => {
                         <TableCell>{violation.id}</TableCell>
                         <TableCell>{violation.location}</TableCell>
                         <TableCell>{violation.plate_number}</TableCell>
-                        <TableCell sx={{ color: violation.status === "Critical" ? "red" : "orange" }}>
-                          {violation.status}
+                        <TableCell sx={{ color: getStatusColor(violation.status_name) }}>
+                          {violation.status_name}
                         </TableCell>
-                        <TableCell>{format(violation.detected_at, "dd/MM/yyyy")}</TableCell>
+                        <TableCell>{format(new Date(violation.detected_at), "dd/MM/yyyy")}</TableCell>
                         <TableCell align="center">
                           <IconButton onClick={() => toggleRow(violation.id)}>
                             <ExpandMoreIcon
@@ -322,15 +321,15 @@ const ViolationDetected: React.FC = () => {
                         <TableCell colSpan={7} sx={{ padding: 0 }}>
                           <Collapse in={expandedRow === violation.id} timeout="auto" unmountOnExit>
                             <ViolationDetail 
-                            violation={violation}
-                            onStatusUpdate={(id, newStatus) => {
-                              setViolations((prev) =>
-                                prev.map((v) =>
-                                  v.id === id ? { ...v, status: newStatus } : v
-                                )
-                              );
-                            }}
-                             />
+                              violation={violation}
+                              onStatusUpdate={(id, newStatus) => {
+                                setViolations((prev) =>
+                                  prev.map((v) =>
+                                    v.id === id ? { ...v, status: newStatus, status_name: newStatus } : v
+                                  )
+                                );
+                              }}
+                            />
                           </Collapse>
                         </TableCell>
                       </TableRow>

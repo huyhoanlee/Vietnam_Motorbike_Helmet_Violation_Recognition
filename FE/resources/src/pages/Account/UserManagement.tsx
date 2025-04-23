@@ -7,8 +7,9 @@ import {
 } from "@mui/material";
 import { Add, Visibility, VisibilityOff  } from "@mui/icons-material";
 import { useForm } from "react-hook-form";
-import axios from "axios";
-// import { format } from 'date-fns';
+import axiosInstance from "../../services/axiosInstance";
+import config from "../../config";
+
 // Interface dữ liệu user
 interface User {
   user_id: number;
@@ -26,21 +27,7 @@ const roles = [
   { id: "supervisor", name: "Supervisor" },
 ];
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space/api/accounts/";
-
-// Tạo instance axios với token
-const axiosInstance = axios.create();
-
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+const API_BASE_URL = `${config.API_URL}accounts/`;
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);

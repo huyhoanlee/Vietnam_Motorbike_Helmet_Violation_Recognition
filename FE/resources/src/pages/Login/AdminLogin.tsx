@@ -2,6 +2,9 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Button, TextField, Typography, Container, Paper, Box, Alert } from '@mui/material';
+import config from "../../config";
+
+const API_BASE_URL = `${config.API_URL}`;
 
 const AdminLogin = () => {
     const [username, setUsername] = useState('');
@@ -13,7 +16,7 @@ const AdminLogin = () => {
         e.preventDefault();
 
         try {
-    const response = await axios.post('https://hanaxuan-backend.hf.space/api/accounts/login/', {
+    const response = await axios.post(`${API_BASE_URL}accounts/login/`, {
         username,
         password
             });

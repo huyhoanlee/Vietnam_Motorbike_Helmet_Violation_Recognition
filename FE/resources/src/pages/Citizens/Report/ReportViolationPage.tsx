@@ -18,9 +18,9 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { useDropzone } from 'react-dropzone';
+import config from "../../../config";
 
-const API_BASE_URL = 'https://hanaxuan-backend.hf.space/api';
-
+const API_BASE_URL = `${config.API_URL}`;
 
 interface UploadingImage {
   file: File;
@@ -123,7 +123,7 @@ const ReportViolation = () => {
         location: data.location
       };
 
-      const response = await axios.post(`${API_BASE_URL}/violations/report/`, payload);
+      const response = await axios.post(`${API_BASE_URL}violations/report/`, payload);
 
       setSnackbar({
         open: true,
