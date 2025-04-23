@@ -1,8 +1,6 @@
-// components/EmailUpdateSection.tsx
 import { Box, Grid, TextField, Typography, Button } from "@mui/material";
 import { useState } from "react";
 import axios from "axios";
-
 
 const API_BASE_URL = "https://hanaxuan-backend.hf.space";
 const axiosInstance = axios.create();
@@ -20,8 +18,8 @@ axiosInstance.interceptors.request.use(
 const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
   const [newEmail, setNewEmail] = useState("");
   const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
   const [emailStep, setEmailStep] = useState<"Input" | "Sent">("Input");
+  const [message, setMessage] = useState(""); // Để hiển thị thông báo từ API
 
   const handleRequestCode = async () => {
     try {
@@ -29,26 +27,25 @@ const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
         new_email: newEmail,
       });
       setEmailStep("Sent");
+      setMessage("Code sent to your new email. Please check and enter the confirmation code.");
     } catch (err) {
-      alert("Unable to send code.");
+      setMessage("Unable to send code.");
       console.error(err);
     }
   };
 
-  const handleVerifyEmail = async () => {
+  const handleUpdateEmail = async () => {
     try {
-      await axiosInstance.post(`${API_BASE_URL}/api/citizens/verify-code/${citizenId}`, {
-        new_email: newEmail,
-        password,
+      const response = await axiosInstance.post(`${API_BASE_URL}/api/citizens/update-email/${citizenId}`, {
+        email: newEmail, // API yêu cầu "email" thay vì "new_email"
         confirm_code: code,
       });
-      alert("Email updated successfully!");
+      setMessage(response.data.message); // Hiển thị thông báo từ API
       setEmailStep("Input");
       setNewEmail("");
       setCode("");
-      setPassword("");
     } catch (err) {
-      alert("Verification failed.");
+      setMessage("Verification failed.");
       console.error(err);
     }
   };
@@ -56,6 +53,11 @@ const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
   return (
     <Box mt={4}>
       <Typography variant="h6">Update New Email</Typography>
+      {message && (
+        <Typography color={message.includes("successfully") ? "green" : "red"} mb={2}>
+          {message}
+        </Typography>
+      )}
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
           <TextField
@@ -63,16 +65,17 @@ const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
             fullWidth
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
+            disabled={emailStep === "Sent"}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <Button onClick={handleRequestCode} variant="outlined" sx={{ mt: 1 }}>
+          <Button onClick={handleRequestCode} variant="outlined" sx={{ mt: 1 }} disabled={!newEmail}>
             Get Code
           </Button>
         </Grid>
         {emailStep === "Sent" && (
           <>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 label="Confirmation Code"
                 fullWidth
@@ -80,18 +83,9 @@ const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
                 onChange={(e) => setCode(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Password"
-                type="password"
-                fullWidth
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Button onClick={handleVerifyEmail} variant="contained" sx={{ mt: 1 }}>
-                Send
+            <Grid item xs={12} sm={6}>
+              <Button onClick={handleUpdateEmail} variant="contained" sx={{ mt: 1 }} disabled={!code}>
+                Update Email
               </Button>
             </Grid>
           </>
