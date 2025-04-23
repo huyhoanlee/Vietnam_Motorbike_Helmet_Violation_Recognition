@@ -44,11 +44,12 @@ Do not attempt to correct errors beyond recognition. If a field cannot be confid
 Maintain strict mapping between keywords and their associated values in the text.
 
 Hints to locate each field:
-- Look for lines beginning with or near the expected keywords like "Số", "Họ và tên", "Ngày, tháng, năm sinh", "Quê quán", or "Nơi thường trú".
+- Look for lines beginning with or near the expected keywords like "Số", "Họ và tên", "Ngày, tháng, năm sinh", "Quê quán", or "Nơi thường trú", "Giới tính".
 - Be aware that some fields may span across multiple lines (especially addresses).
 - Normalize whitespace and punctuation where possible without altering the meaning.
 The input may contain typos, misplaced line breaks, inconsistent formatting, or scrambled order due to imperfect OCR scanning.
 You should not infer or guess missing data—only extract what can be clearly found in the text.
+- Card number often start with 001 to 096 (E.g: 024098001212)
 </instruction>
 
 <output>
@@ -61,6 +62,8 @@ date_of_birth: The birth date in the format dd/mm/yyyy, usually near “Ngày, t
 place_of_origin: The place of origin, commonly found after “Quê quán:”.
 
 place_of_residence: The place of residence, typically found after “Nơi thường trú:”. Note that this may span multiple lines.
+
+gender: gender, typically found after “Giới tính/Sex:”.
 </output>
 """
 

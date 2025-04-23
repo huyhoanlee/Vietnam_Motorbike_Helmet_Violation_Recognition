@@ -35,6 +35,9 @@ class CitizenInfo(BaseModel):
     card_number: Optional[str] = Field(
         default=None, description="citizen identity card number"
     )
+    gender: Optional[str] = Field(
+        default=None, description= "gender of citizen identity card holder"
+    )
     
 
 class ImageBase64Request(BaseModel):
