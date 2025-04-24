@@ -1,11 +1,10 @@
 from django.db import models
-from vehicles.models import Vehicle
+from violations.models import Violation
 
 class Notification(models.Model):
-    plate_num = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
+    id = models.AutoField(primary_key=True)
     status = models.CharField(max_length=255)
-    image_url = models.TextField()
-    location = models.CharField(max_length=255)
-
-    def __str__(self):
-        return f"Notification for {self.plate_num}"
+    created_at = models.DateTimeField()
+    violation_id = models.ForeignKey(Violation, on_delete=models.deletion.CASCADE)
+    
+    

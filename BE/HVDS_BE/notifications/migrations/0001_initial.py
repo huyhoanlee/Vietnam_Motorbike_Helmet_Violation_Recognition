@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('vehicles', '0001_initial'),
+        ('violations', '0001_initial'),
     ]
 
     operations = [
@@ -17,10 +17,14 @@ class Migration(migrations.Migration):
             name='Notification',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(max_length=255)),
-                ('image_url', models.TextField()),
-                ('location', models.CharField(max_length=255)),
-                ('plate_num', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='vehicles.vehicle')),
+                ('status', models.CharField(
+                    max_length=8, 
+                    choices=[('Sent', 'Sent'), ('Replied', 'Replied')],
+                    default='Sent', 
+                    verbose_name='Status of account: [Sent, Replied]'
+                    )),
+                ('created_at', models.DateTimeField()),
+                ('violation_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='violations.violation'))
             ],
         ),
     ]

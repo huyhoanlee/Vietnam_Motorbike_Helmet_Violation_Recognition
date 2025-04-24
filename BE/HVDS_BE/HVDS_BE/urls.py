@@ -20,11 +20,18 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/accounts/', include('accounts.urls')),
     path('api/cameras/', include('cameras.urls')),
     path('api/violations/', include('violations.urls')),
     path('api/vehicles/', include('vehicles.urls')),
     path('api/notifications/', include('notifications.urls')),
+    # path('api/camera_urls/', include('camera_urls.urls')),
+    path('api/car_parrots/', include('car_parrots.urls')),
+    path('api/citizens/', include('citizens.urls')),
+    path('api/locations/', include('locations.urls')),
+    path('api/mails/', include('mails.urls')),
+    # path('api/violation_images/', include('violation_images.urls')),
+    path('api/violation_status/', include('violation_status.urls')),
 ]

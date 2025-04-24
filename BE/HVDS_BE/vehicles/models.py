@@ -1,10 +1,10 @@
 from django.db import models
+from car_parrots.models import CarParrots
 
 class Vehicle(models.Model):
-    plate_number = models.CharField(max_length=20, unique=True)
-    owner_name = models.CharField(max_length=255)
-    vehicle_type = models.CharField(max_length=50)
-    created_at = models.DateTimeField(auto_now_add=True)
+    id = models.AutoField(primary_key=True)
+    plate_number = models.CharField(max_length=255)
+    car_parrot_id = models.ForeignKey(CarParrots, on_delete=models.deletion.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.plate_number} - {self.owner_name}"
+        return self.plate_number

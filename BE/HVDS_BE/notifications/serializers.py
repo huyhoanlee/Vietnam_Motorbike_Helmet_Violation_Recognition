@@ -1,14 +1,17 @@
 from rest_framework import serializers
 from .models import Notification
-
+        
 class NotificationSerializer(serializers.ModelSerializer):
-    plate_num = serializers.CharField(source="plate_num.plate_number")
+    notification_id = serializers.IntegerField(source='id')
 
     class Meta:
         model = Notification
-        fields = ["id", "plate_num", "status", "image_url", "location"]
+        fields = ['notification_id', 'status', 'created_at']
 
-class NotificationCreateUpdateSerializer(serializers.ModelSerializer):
+class NotificationDetailSerializer(serializers.ModelSerializer):
+    notification_id = serializers.IntegerField(source='id')
+    status_id = serializers.IntegerField(source='violation_id.id')  # Lấy id của Violation
+
     class Meta:
         model = Notification
-        fields = ["plate_num", "status", "image_url", "location"]
+        fields = ['notification_id', 'status_id', 'created_at']
