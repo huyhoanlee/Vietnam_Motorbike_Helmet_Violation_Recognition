@@ -19,9 +19,9 @@ def create_violation_process(detected_result: List[DetectedResult], camera_id: s
         }
         post_be_data.append(violation_data)
     try:
-        response = requests.post(API.CREATE_VIOLATION, json=post_be_data)
-        # logger.info({"data": violation_data["violate_image"][:3], "response": response, "status_code": response.status_code}) #old
-        logger.info({"data": post_be_data, "response": response, "status_code": response.status_code})  
+        if post_be_data:
+            response = requests.post(API.CREATE_VIOLATION, json=post_be_data)
+            logger.info({"data": [x.get("status") for x in post_be_data], "response": response, "status_code": response.status_code})  
     except Exception as e:
         # logger.error({"data": violation_data["violate_image"][:3], "error": str(e)}) #old
         logger.error({"data": post_be_data, "error": str(e)})

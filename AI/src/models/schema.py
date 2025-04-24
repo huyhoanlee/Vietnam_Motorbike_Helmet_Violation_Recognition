@@ -48,5 +48,5 @@ class AIResult(BaseModel):
     device_list: List[DeviceDetection] = Field(default_factory=list)
 
 class ViolationStatus(str, Enum):
-    AI_RELIABEL = "AI-reliable"
-    AI_DETECT  = "AI-detect"
+    AI_RELIABEL = "AI reliable"
+    AI_DETECT  = "AI detect"
