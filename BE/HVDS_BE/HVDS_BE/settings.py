@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,8 +26,8 @@ SECRET_KEY = "django-insecure-tz#f_j0o%7ze@6ni-iek-q0ei56fd7p60vgf#ky=kr6*p_-%49
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
+APPEND_SLASH=False
 
 # Application definition
 
@@ -43,10 +44,17 @@ INSTALLED_APPS = [
         'django_filters',
         'corsheaders',
         'accounts',
+        'camera_urls',
+        'citizens',
         'cameras',
         'violations',
         'vehicles',
         'notifications',
+        'locations',
+        'mails',
+        'violation_images',
+        'violation_status',
+        'car_parrots'
 ]
 
 MIDDLEWARE = [
@@ -57,11 +65,19 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
+# CORS_ALLOWED_ORIGINS = [
+#     "https://localhost:5173",
+#     "http://localhost:3000",
+# ]
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://localhost:5173",
     "http://localhost:3000",
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 ROOT_URLCONF = "HVDS_BE.urls"
 
 TEMPLATES = [
@@ -111,6 +127,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+AUTH_USER_MODEL = "accounts.Account"
 # Code thêm ở đây
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -121,10 +138,10 @@ REST_FRAMEWORK = {
     ],
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # Session timeout 30 phút
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),  # Session timeout 30 phút
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
+    "BLACKLIST_AFTER_ROTATION": False,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -150,3 +167,43 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': 'redis://127.0.0.1:6379/1',
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         }
+#     }
+# }
+
+# Backend lưu session (mặc định là database, hoặc dùng cache/memory cho đơn giản)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Hoặc 'cache' nếu muốn nhanh hơn
+SESSION_COOKIE_AGE = 300  # Timeout mặc định cho session (1200 giây = 20 phút)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# settings.py
+TWILIO_ACCOUNT_SID = 'AC85189322cd8bf5c6150409cc5332730e'
+TWILIO_AUTH_TOKEN = '827b95cb1b6b1f0b921e0ba36d63dcf0'
+TWILIO_PHONE_NUMBER = '+19787338553'
+COUNTRY_CODE = '+84'  # Vietnam country code
+
+# EMAIL
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'hanaxuan1study@gmail.com'
+EMAIL_HOST_PASSWORD = 'llqw hvug zlfe tpfu'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+CSRF_COOKIE_SECURE = False
+
+# SpeedSMS Configuration
+SPEEDSMS_ACCESS_TOKEN = os.getenv('SPEEDSMS_ACCESS_TOKEN', '_T_eE0L21YIYEtif0627Pp_8-D0MyHo-')
+SPEEDSMS_API_URL = 'https://api.speedsms.vn/index.php/sms/send'
+
+# Stringee API credentials (replace with your own)
+STRINGEE_KEY_SID = "SK.0.sFAW2g7DEWTmZ04oZbQvc4ktrdMI2U" 
+STRINGEE_KEY_SECRET = "RGc0WjFHZ3FCYW02VDZGSW5BMWV2SGN4WWF2SEdEUA==" 
+STRINGEE_FROM_NUMBER = "842871029693"  # Stringee-provided number (e.g., "+842412345678")
+STRINGEE_URL = "https://api.stringee.com/v1/call2/callout"

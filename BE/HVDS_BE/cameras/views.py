@@ -1,47 +1,86 @@
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
-import requests
-import json
 from rest_framework import generics
-from .serializers import CameraSerializer
+from .serializers import CameraResponseSerializer, StreamingSerializer, CameraCreateSerializer, CameraChangeStatusSerializer, CameraUpdateSerializer, CameraInformationSerializer
 from .models import Camera
 
-class ExternalCameraDetailView(APIView):
-    def get(self, request, camera_id):
-        camera_api_url = f"https://binhdinh.ttgt.vn/api/cameras/{camera_id}"
 
-        try:
-            response = requests.get(camera_api_url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                return Response(data, status=status.HTTP_200_OK)
-
-            return Response({"error": "Camera not found"}, status=status.HTTP_404_NOT_FOUND)
-        except requests.exceptions.RequestException as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# GET: get all cameras 
-# POST: create new
-class CameraListCreateView(generics.ListCreateAPIView):
+class CreateView(generics.CreateAPIView):
     queryset = Camera.objects.all()
-    serializer_class = CameraSerializer
-    permission_classes = [permissions.IsAdminUser]
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
+    serializer_class = CameraCreateSerializer
 
-# GET: get 1 camera
-# PUT/PATCH: update
-# DELETE: delete
-class CameraRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Camera.objects.all()
-    serializer_class = CameraSerializer
-    permission_classes = [permissions.IsAdminUser]
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        camera = serializer.save()
+        return Response({
+            "message": "Camera created successfully",
+            "data": {
+                "camera_id": camera.id,
+                "output_url": getattr(serializer, 'output_url', ''),
+                "device_name": camera.device_name , 
+                "status": camera.status, 
+                "location": getattr(serializer, 'location', ''),
+                "last_active": camera.last_active
+            }
+        }, status=status.HTTP_201_CREATED)
+
     
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
+class ListView(generics.ListAPIView):
+    queryset = Camera.objects.all()
+    serializer_class = CameraInformationSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Get all Camera successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+# API POST /change-status/:id
+class StreamingView(generics.UpdateAPIView):
+    queryset = Camera.objects.all()
+    serializer_class = StreamingSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            serializer.data
+        , status=status.HTTP_200_OK)
+
+# API POST /update/:id
+class CameraUpdateView(generics.UpdateAPIView):
+    queryset = Camera.objects.all()
+    serializer_class = CameraUpdateSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        response_serializer = CameraResponseSerializer(instance)
+        return Response({
+            "message": "Camera updated successfully",
+            "data": response_serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class CameraChangeStatusView(generics.UpdateAPIView):
+    queryset = Camera.objects.all()
+    serializer_class = CameraChangeStatusSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance.status = serializer.validated_data['status']
+        instance.save()
+        return Response({
+            "message": "Changed status successfully",
+            "data": {"camera_id": instance.id, "status": instance.status}
+        }, status=status.HTTP_200_OK)

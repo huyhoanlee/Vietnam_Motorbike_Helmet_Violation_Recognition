@@ -1,105 +1,162 @@
-import requests
-import json
-from datetime import datetime
-from rest_framework import generics, permissions
+from rest_framework import generics, status
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from .models import Violation
-from vehicles.models import Vehicle
-from cameras.models import Camera
-from .serializers import ViolationSerializer, ViolationCreateUpdateSerializer
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from datetime import datetime, timedelta
+from django.utils import timezone
+from violation_status.models import ViolationStatus
+from .utils import post_process_change_status
+from .serializers import ViolationSerializer, ViolationStatusChangeSerializer, ViolationResponseSerializer, ViolationSearchSerializer, ViolationReportSerializer, ViolationByCitizenSerializer, ViolationCreateSerializer
 
-class AIViolationDetectionView(APIView):
-    def get(self, request):
-        ai_service_url = "https://hanaxuan-ai-service.hf.space/result"
+class ViolationCreateView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request, *args, **kwargs):
+        serializer = ViolationCreateSerializer(data={"violations": request.data})
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            response = requests.get(ai_service_url, timeout=5)
-            response.raise_for_status()  # Kiểm tra lỗi HTTP
-            raw_data = response.text  # Nhận dữ liệu thô
-            print("Raw API response:", raw_data)
+        results = serializer.save()
+        for result in results:
+            violation = Violation.objects.get(id=result["violation_id"])
+            if violation.violation_status_id.status_name == "AI reliable":
+                post_process_change_status(violation)
 
-            try:
-                data = response.json()
-            except json.JSONDecodeError:
-                return Response({"error": "Invalid JSON response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({
+            "message": "Violations processed successfully",
+            "data": results
+        }, status=status.HTTP_201_CREATED)
 
-            # 🛠 Nếu dữ liệu không phải là danh sách, bọc nó vào danh sách
-            if isinstance(data, dict):
-                data = [data]
-
-            if not isinstance(data, list):
-                return Response({"error": "Expected a list, got a different type"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            violations = []
-
-            for violation in data:
-                if not isinstance(violation, dict):
-                    continue
-
-                plate_number = violation.get("plate_numbers", None)
-                camera_id = violation.get("camera_id", None)
-                status_text = violation.get("violation", "Unknown")
-                image_url = violation.get("image", "")
-                location = violation.get("location", "Unknown")
-                detected_at = datetime.now()
-
-                if not plate_number or not camera_id:
-                    continue
-
-                vehicle, _ = Vehicle.objects.get_or_create(plate_number=plate_number)
-                camera, _ = Camera.objects.get_or_create(camera_id=camera_id)
-
-                obj = Violation.objects.create(
-                    plate_num=vehicle,
-                    camera_id=camera,
-                    status=status_text,
-                    image_url=image_url,
-                    location=location,
-                    detected_at=detected_at
-                )
-
-                violations.append(obj)
-
-            serialized_data = ViolationSerializer(violations, many=True).data
-            print(serialized_data)
-            return Response(serialized_data, status=status.HTTP_200_OK)
-
-        except requests.exceptions.RequestException as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# GET: get all violations 
-# POST: create new
-class ViolationListCreateView(generics.ListCreateAPIView):
+class ViolationListView(generics.ListAPIView):
     queryset = Violation.objects.all()
-    serializer_class = ViolationCreateUpdateSerializer
-    permission_classes = [permissions.IsAdminUser]
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
+    serializer_class = ViolationSearchSerializer
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        serializer = ViolationSerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Get all violations successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
-# GET: get 1 violationviolation
-# PUT/PATCH: update
-# DELETE: delete
-class ViolationRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class ViolationChangeStatusView(generics.UpdateAPIView):
     queryset = Violation.objects.all()
-    serializer_class = ViolationCreateUpdateSerializer
-    permission_classes = [permissions.IsAdminUser]
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
+    serializer_class = ViolationStatusChangeSerializer
+    lookup_field = 'id'
 
-    def retrieve(self, request, *args, **kwargs):
+    def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = ViolationSerializer(instance)
-        return Response(serializer.data)
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        status_id = serializer.validated_data['status_id']
+        new_status = ViolationStatus.objects.get(id=status_id)
+        instance.violation_status_id = new_status
+        instance.save()
+        
+        if new_status.status_name == "Verified":
+            post_process_change_status(instance)
+
+        response_serializer = ViolationResponseSerializer(instance)
+        return Response({
+            "message": "Change status successfully",
+            "data": response_serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class ViolationSearchByLocationView(generics.ListAPIView):
+    serializer_class = ViolationSerializer
+
+    def get_queryset(self):
+        location_id = self.request.query_params.get('location_id')
+        if location_id:
+            return Violation.objects.filter(camera_id__location=location_id)
+        return Violation.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Search violation by location id successfully",
+            "data": {"violations": serializer.data}
+        }, status=status.HTTP_200_OK)
+
+class ViolationSearchByTimeView(generics.ListAPIView):
+    serializer_class = ViolationSearchSerializer
+
+    def get_queryset(self):
+        start_time = self.request.query_params.get('start_time')
+        end_time = self.request.query_params.get('end_time')
+        if start_time:
+            start_dt = datetime.strptime(start_time, '%d/%m/%Y')
+            start_dt = timezone.make_aware(start_dt)  # Make timezone-aware
+        else:
+            return Violation.objects.all()
+
+        # If end_time is provided, parse it; otherwise, use end of start_time day
+        if end_time:
+            end_dt = datetime.strptime(end_time, '%d/%m/%Y')
+            end_dt = timezone.make_aware(end_dt.replace(hour=23, minute=59, second=59))
+        else:
+            end_dt = start_dt.replace(hour=23, minute=59, second=59)
+
+        if start_dt > end_dt:
+            return Violation.objects.none()
+
+        return Violation.objects.filter(detected_at__range=[start_dt, end_dt])
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Search violation by location id successfully",
+            "data": {"violations": serializer.data}
+        }, status=status.HTTP_200_OK)
+        
+class ViolationSearchByPlateNumberView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        plate_number = request.data.get('plate_number')
+        print('plate_number:', plate_number)
+        if plate_number:
+            queryset = Violation.objects.filter(vehicle_id__plate_number=plate_number)
+        else:
+            queryset = Violation.objects.none()
+        
+        serializer = ViolationSearchSerializer(queryset, many=True)
+        return Response({
+            "message": "Search violation by plate_number successfully",
+            "data": {"violations": serializer.data}
+        }, status=status.HTTP_200_OK)
+
+class ViolationReportView(generics.CreateAPIView):
+    queryset = Violation.objects.all()
+    serializer_class = ViolationReportSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(serializer.to_representation(instance), status=status.HTTP_201_CREATED)
+        
+class ViolationSearchByCitizenView(generics.ListAPIView):
+    serializer_class = ViolationSearchSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        citizen_id = self.request.query_params.get('citizen_id')
+        print(citizen_id)
+        if citizen_id:
+            return Violation.objects.filter(
+                vehicle_id__car_parrot_id__citizen_id__id=citizen_id,
+                vehicle_id__car_parrot_id__status='Verified'
+            )
+        return Violation.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Search violation by citizen id successfully",
+            "data": {"violations": serializer.data}
+        }, status=status.HTTP_200_OK)

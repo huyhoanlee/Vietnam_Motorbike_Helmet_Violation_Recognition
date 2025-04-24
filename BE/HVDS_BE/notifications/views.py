@@ -1,76 +1,69 @@
-import requests
-import json
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, generics
 from .models import Notification
 from violations.models import Violation
-from vehicles.models import Vehicle
-from .serializers import NotificationSerializer, NotificationCreateUpdateSerializer
+from .serializers import NotificationSerializer, NotificationDetailSerializer
 
-class GenerateNotificationsView(APIView):
-    def get(self, request):
-        violations_api_url = "http://127.0.0.1:8000/api/violations/ai-detect/"
+# 1. GET /view_all
+class NotificationViewAllView(generics.ListAPIView):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
 
-        try:
-            response = requests.get(violations_api_url, timeout=5)
-            if response.status_code == 200:
-                violations_data = response.json()
-                notifications = []
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Get all violation notifications successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
-                for violation in violations_data:
-                    plate_number = violation["plate_num"]
+# 2. GET /search-by-violation/
+class NotificationSearchByViolationView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
 
-                    # Đếm số vi phạm của xe này
-                    violation_count = Violation.objects.filter(plate_num__plate_number=plate_number).count()
+    def get_queryset(self):
+        violation_id = self.request.query_params.get('violation_id')
+        violation = Violation.objects.get(id=violation_id)
+        if violation:
+            return Notification.objects.filter(violation_id=violation)
+        return Notification.objects.none()
 
-                    # Chỉ gửi Notification nếu có >=1 vi phạm
-                    if violation_count > 0:
-                        vehicle = Vehicle.objects.get(plate_number=plate_number)
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Get all violation notifications successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
-                        # Lấy vi phạm gần nhất
-                        latest_violation = Violation.objects.filter(plate_num=vehicle).latest('detected_at')
+# 3. GET /search-by-status/
+class NotificationSearchByStatusView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
 
-                        # Lưu Notification vào DB
-                        notification = Notification.objects.create(
-                            plate_num=vehicle,
-                            status=f"{violation_count} violations detected",
-                            image_url=latest_violation.image_url,
-                            location=latest_violation.location
-                        )
+    def get_queryset(self):
+        status = self.request.query_params.get('status')  # Dùng status thay vì status_id vì trường là CharField
+        if status:
+            return Notification.objects.filter(status=status)
+        return Notification.objects.none()
 
-                        notifications.append(notification)
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "message": "Get all violation notifications successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
-                # Serialize dữ liệu
-                serialized_data = NotificationSerializer(notifications, many=True).data
+# 4. GET /:id
+class NotificationDetailView(generics.RetrieveAPIView):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationDetailSerializer
+    lookup_field = 'id'
 
-                return Response(serialized_data, status=status.HTTP_200_OK)
-
-            return Response({"error": "Failed to fetch violations"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        except requests.exceptions.RequestException as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# GET: get all violations 
-# POST: create new
-class NotificationListCreateView(generics.ListCreateAPIView):
-    queryset = Violation.objects.all()
-    serializer_class = NotificationCreateUpdateSerializer
-    permission_classes = [permissions.IsAdminUser]
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
-
-# GET: get 1 violationviolation
-# PUT/PATCH: update
-# DELETE: delete
-class NotificationRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Violation.objects.all()
-    serializer_class = NotificationCreateUpdateSerializer
-    permission_classes = [permissions.IsAdminUser]
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permission() for permission in self.permission_classes]
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            "message": "Get information of notification successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
