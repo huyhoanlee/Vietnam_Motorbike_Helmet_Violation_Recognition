@@ -191,7 +191,8 @@ def visualize_detections(frame_ori, detections):
                 cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
 
             elif obj_class == 3 and "plate_number" in obj:  # If license plate, display plate number
-                label = f"{obj['plate_number']} ({obj['plate_conf']:.2f})"
+                dump_plate = obj["plate_number"].replace("\n", " ")
+                label = f"{dump_plate} ({obj['plate_conf']:.2f})"
                 cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[obj_class], 2)
             # else:
             #     label = f"Class {obj_class} ({conf:.2f})"

@@ -91,7 +91,6 @@ class AI_Service:
                 logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
                 logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")  
                 logger.info(f"---Total time---: {total_time:.3f} seconds")  
-                return output_json, detect_time, track_time,mapping_time, palate_time, visualize_detections_time, process_to_output_json_time
             return output_json
         else:
             output_json = process_to_output_json(grouped_json, frame, frame)
@@ -103,7 +102,6 @@ class AI_Service:
                 logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
                 logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")
                 logger.info(f"---Total time---: {total_time:.3f} seconds")  
-                return output_json, detect_time, track_time, mapping_time, palate_time, visualize_detections_time, process_to_output_json_time
             return output_json
     
 
@@ -167,7 +165,7 @@ class AI_Service:
         mapping_start = time.time()
         # Group objects with vehicles   
         # grouped_json = mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
-        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data)
+        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data, device)
         mapping_time = time.time() - mapping_start
         # grouped_json = self.mapping_vehicles_no_tracked(detection_results[0].boxes.data)
         
