@@ -22,11 +22,13 @@ import { ExpandMore } from "@mui/icons-material";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+
+
 const API_BASE_URL = `${config.API_URL}`;
 const statusColors: any = {
-  submit: { label: "Pending", color: "warning" },
-  approve: { label: "Approved", color: "success" },
-  reject: { label: "Rejected", color: "error" }
+  Submitted: { label: "Submitted", color: "warning" },
+  Verified: { label: "Verified", color: "success" },
+  Created: { label: "Created", color: "error" }
 };
 
 // Format ảnh base64 hoặc url
@@ -56,7 +58,7 @@ const CitizenManagement: React.FC = () => {
             ...citizen,
             card_parrot_image: firstCar?.image || null,
             plate_number: firstCar?.plate_number || "Unknown",
-            status: citizen.status || "submit"
+            status: citizen.status || "Submitted"
           };
         });
 

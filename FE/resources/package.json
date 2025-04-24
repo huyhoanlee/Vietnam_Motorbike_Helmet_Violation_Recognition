@@ -21,6 +21,7 @@
     "@shadcn/ui": "^0.0.4",
     "apexcharts": "^4.4.0",
     "axios": "^1.8.4",
+    "chartjs-plugin-datalabels": "^2.2.0",
     "dayjs": "^1.11.13",
     "formik": "^2.4.6",
     "framer-motion": "^12.6.3",

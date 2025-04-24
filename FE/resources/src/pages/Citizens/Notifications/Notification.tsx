@@ -10,8 +10,9 @@ import {
   DialogContent,
 } from "@mui/material";
 import axios from "axios";
+import config from "../../../config";
 
-const API_BASE = "https://hanaxuan-backend.hf.space/api";
+const API_BASE_URL = config.API_URL;
 
 interface Application {
   car_parrot_id: number;
@@ -37,14 +38,14 @@ const CitizenNotification = () => {
     severity: "info" as "success" | "error" | "info",
   });
   const [imageViewer, setImageViewer] = useState<string | null>(null);
-  const citizenId = Number(localStorage.getItem("citizen_id") || 1);
+  const citizenId = Number(localStorage.getItem("user_id") || 1);
   const toBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") =>
   `data:image/${format};base64,${data}`;
   useEffect(() => {
     const fetchApplicationsAndVehicles = async () => {
       try {
         const appRes = await axios.get(
-          `${API_BASE}/citizens/get-applications/${citizenId}/`
+          `${API_BASE_URL}citizens/get-applications/${citizenId}/`
         );
         const appData: Application[] = appRes.data.applications;
         setApplications(appData);
@@ -60,7 +61,7 @@ const CitizenNotification = () => {
           });
         } else {
           const vehicleRes = await axios.post(
-            `${API_BASE}/vehicles/search-by-citizen/`,
+            `${API_BASE_URL}vehicles/search-by-citizen/`,
             { citizen_id: citizenId }
           );
           setVehicles(vehicleRes.data.data);
@@ -108,7 +109,7 @@ const CitizenNotification = () => {
     ))}
   </Box>
 )}
-      {loading ? (
+      {/* {loading ? (
         <CircularProgress />
       ) : vehicles.length > 0 ? (
         <Box>
@@ -141,7 +142,7 @@ const CitizenNotification = () => {
         <Alert severity="info" sx={{ mt: 3 }}>
           Không có biển số nào được hiển thị vì bạn chưa có giấy tờ xe được duyệt.
         </Alert>
-      )}
+      )} */}
 
       <Snackbar
         open={notification.open}

@@ -1,30 +1,20 @@
 import { Box, Grid, TextField, Typography, Button } from "@mui/material";
 import { useState } from "react";
+import config from "../../../config";
 import axios from "axios";
+const API_BASE_URL = config.API_URL;
 
-const API_BASE_URL = "https://hanaxuan-backend.hf.space";
-const axiosInstance = axios.create();
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
   const [newEmail, setNewEmail] = useState("");
   const [code, setCode] = useState("");
   const [emailStep, setEmailStep] = useState<"Input" | "Sent">("Input");
-  const [message, setMessage] = useState(""); // Để hiển thị thông báo từ API
+  const [message, setMessage] = useState(""); 
 
   const handleRequestCode = async () => {
     try {
-      await axiosInstance.post(`${API_BASE_URL}/api/citizens/request-code/${citizenId}`, {
-        new_email: newEmail,
+      await axios.post(`${API_BASE_URL}citizens/change-email/${citizenId}/`, {
+        email: newEmail,
       });
       setEmailStep("Sent");
       setMessage("Code sent to your new email. Please check and enter the confirmation code.");
@@ -36,11 +26,11 @@ const EmailUpdateSection = ({ citizenId }: { citizenId: number }) => {
 
   const handleUpdateEmail = async () => {
     try {
-      const response = await axiosInstance.post(`${API_BASE_URL}/api/citizens/update-email/${citizenId}`, {
-        email: newEmail, // API yêu cầu "email" thay vì "new_email"
-        confirm_code: code,
+      const response = await axios.post(`${API_BASE_URL}citizens/change-email/${citizenId}/`, {
+        email: newEmail, 
+        code_authen: code,
       });
-      setMessage(response.data.message); // Hiển thị thông báo từ API
+      setMessage(response.data.message); 
       setEmailStep("Input");
       setNewEmail("");
       setCode("");

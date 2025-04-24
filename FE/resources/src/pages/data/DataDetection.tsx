@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -18,12 +18,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import config from "../../config";
 import axiosInstance from "../../services/axiosInstance";
+import MJPEGStreamViewer from "./MJPEGStreamViewer";
 
 const API_BASE_URL = `${config.API_URL}cameras/`;
 
@@ -41,13 +40,7 @@ const DataDetection: React.FC = () => {
   const [data, setData] = useState<CameraData[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedStream, setSelectedStream] = useState<string | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const lastFrameRef = useRef<string | null>(null); // Store last frame URL for pause
 
-  // Fetch camera data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -55,124 +48,27 @@ const DataDetection: React.FC = () => {
         setData(res.data.data);
       } catch (err) {
         console.error("Error fetching cameras:", err);
-        setError("Failed to load camera data. Please try again.");
       }
     };
     fetchData();
   }, []);
 
-  // Handle MJPEG stream
-  useEffect(() => {
-    if (!selectedStream || !openDialog) {
-      setError(null);
-      setIsPaused(false);
-      setIsLoading(true);
-      lastFrameRef.current = null;
-      return;
+  const handleOpenDialog = async (camera_id: string) => {
+    try {
+      // await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
+      const fixedStreamUrl = "https://huyhoanlee-ai-service.hf.space/stream/a32be6e7";
+      setSelectedStream(fixedStreamUrl);
+      setOpenDialog(true);
+    } catch (error) {
+      console.error("Failed to load stream:", error);
+      setSelectedStream(null);
+      setOpenDialog(true);
     }
-
-    const img = imgRef.current;
-    if (!img) return;
-
-    const handleLoad = () => {
-      setIsLoading(false);
-      setError(null);
-    };
-
-    const handleError = () => {
-      setIsLoading(false);
-      setError("Unable to load stream. Please check the connection or try again.");
-    };
-
-    if (!isPaused) {
-      // Only update src if not paused
-      const streamUrl = `${selectedStream}?t=${Date.now()}`;
-      img.src = streamUrl;
-      lastFrameRef.current = streamUrl; // Store last frame URL
-      img.onload = handleLoad;
-      img.onerror = handleError;
-    }
-
-    return () => {
-      if (img) {
-        img.onload = null;
-        img.onerror = null;
-        img.src = ""; // Clean up on unmount
-      }
-    };
-  }, [selectedStream, openDialog, isPaused]);
-
-  // Handle pause/resume
-  const handlePauseResume = () => {
-    setIsPaused((prev) => {
-      const newPausedState = !prev;
-      const img = imgRef.current;
-      if (newPausedState && img) {
-        // Pause: Keep last frame
-        img.src = lastFrameRef.current || ""; // Preserve last frame
-      } else if (!newPausedState && img && selectedStream) {
-        // Resume: Reload stream
-        img.src = `${selectedStream}?t=${Date.now()}`;
-      }
-      return newPausedState;
-    });
   };
-
-  // const handleOpenDialog = async (camera_id: string) => {
-  //   try {
-  //     setIsLoading(true);
-  //     const res = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
-  //     console.log("API Response:", res.data);
-  //     if (!res.data.output_url) {
-  //       throw new Error("No output_url in API response");
-  //     }
-  //     const correctedStreamUrl = res.data.output_url.replace(/\/stream\/[^/]+$/, "/video");
-  //     setSelectedStream(correctedStreamUrl);
-  //     setIsPaused(false);
-  //     setError(null);
-  //     setOpenDialog(true);
-  //   } catch (error) {
-  //     console.error("Failed to load stream:", error);
-  //     setSelectedStream(null);
-  //     setOpenDialog(true);
-  //     setError(
-  //       error.response?.data?.message ||
-  //       "Unable to load stream. Please check the connection or try again."
-  //     );
-  //     setIsLoading(false);
-  //   }
-  // };
-const handleOpenDialog = async (camera_id: string) => {
-  try {
-    setIsLoading(true);
-    // Có thể giữ lại call API nếu bạn cần logging hoặc kiểm tra trạng thái camera
-    await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
-
-    // Bỏ qua output_url trả về từ API, fix cứng URL luôn
-    const fixedStreamUrl = "https://huyhoanlee-ai-service.hf.space/stream/a32be6e7";
-    setSelectedStream(fixedStreamUrl);
-    setIsPaused(false);
-    setError(null);
-    setOpenDialog(true);
-  } catch (error) {
-    console.error("Failed to load stream:", error);
-    setSelectedStream(null);
-    setOpenDialog(true);
-    setError(
-      error.response?.data?.message ||
-      "Unable to load stream. Please check the connection or try again."
-    );
-    setIsLoading(false);
-  }
-};
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedStream(null);
-    setIsPaused(false);
-    setError(null);
-    setIsLoading(true);
-    lastFrameRef.current = null;
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,66 +145,7 @@ const handleOpenDialog = async (camera_id: string) => {
         <DialogTitle>Phát trực tiếp</DialogTitle>
         <DialogContent>
           {selectedStream ? (
-            <Box sx={{ position: "relative", textAlign: "center" }}>
-              {isLoading && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 2,
-                  }}
-                >
-                  <CircularProgress />
-                </Box>
-              )}
-              <Box sx={{ width: "100%", maxWidth: "1280px", margin: "auto" }}>
-                <img
-                  ref={imgRef}
-                  alt="MJPEG Stream"
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    maxHeight: "640px",
-                    borderRadius: 8,
-                    objectFit: "contain",
-                    opacity: isLoading ? 0.5 : 1,
-                    transition: "opacity 0.2s ease-in-out",
-                  }}
-                />
-              </Box>
-              {error && (
-                <Typography color="error" sx={{ mt: 2 }}>
-                  {error}
-                </Typography>
-              )}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  background: "rgba(0,0,0,0.4)",
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  color: "#fff",
-                }}
-              >
-                <FiberManualRecordIcon sx={{ color: isPaused ? "gray" : "red" }} />
-                <Typography variant="body2">{isPaused ? "Tạm dừng" : "Trực tiếp"}</Typography>
-              </Box>
-              <Button
-                variant="contained"
-                color={isPaused ? "success" : "secondary"}
-                onClick={handlePauseResume}
-                sx={{ position: "absolute", top: 10, left: 10 }}
-              >
-                {isPaused ? "Resume" : "Pause"}
-              </Button>
-            </Box>
+            <MJPEGStreamViewer streamUrl={selectedStream} />
           ) : (
             <Typography>Không thể hiển thị luồng</Typography>
           )}

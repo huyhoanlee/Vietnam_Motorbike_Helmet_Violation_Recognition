@@ -24,12 +24,11 @@ import axiosInstance from "../../services/axiosInstance";
 const API_BASE_URL = `${config.API_URL}violations/search-by-time/`;
 
 interface Violation {
-  id: number;
+  violation_id: number;
   location: string;
   plate_number: string;
-  status: string;
+  status_name: string;
   detected_at: string;
-  description: string;
 }
 
 
@@ -81,14 +80,13 @@ const ReportPage: React.FC = () => {
     const doc = new jsPDF();
     doc.text("Violation Report", 14, 20);
     autoTable(doc, {
-      head: [["ID", "Location", "License Plate", "Status", "Date", "Description"]],
+      head: [["ID", "Location", "License Plate", "Status", "Date"]],
       body: violations.map((v) => [
-        v.id,
+        v.violation_id,
         v.location,
         v.plate_number,
-        v.status,
-        format(parseISO(v.detected_at), "dd/MM/yyyy"),
-        v.description,
+        v.status_name,
+        format(parseISO(v.detected_at), "dd/MM/yyyy")
       ]),
       startY: 30,
     });
@@ -145,22 +143,20 @@ const ReportPage: React.FC = () => {
                   <TableCell>License Plate</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Date</TableCell>
-                  <TableCell>Description</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {violations.map((violation) => (
-                  <TableRow key={violation.id}>
-                    <TableCell>{violation.id}</TableCell>
+                  <TableRow key={violation.violation_id}>
+                    <TableCell>{violation.violation_id}</TableCell>
                     <TableCell>{violation.location}</TableCell>
                     <TableCell>{violation.plate_number}</TableCell>
-                    <TableCell sx={{ color: violation.status === "Critical" ? "red" : "orange" }}>
-                      {violation.status}
+                    <TableCell sx={{ color: violation.status_name === "Verified" ? "blue" : violation.status_name === "Reported" ? "orange" : "default" }}>
+                      {violation.status_name}
                     </TableCell>
                     <TableCell>
                       {format(parseISO(violation.detected_at), "dd/MM/yyyy")}
                     </TableCell>
-                    <TableCell>{violation.description}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
