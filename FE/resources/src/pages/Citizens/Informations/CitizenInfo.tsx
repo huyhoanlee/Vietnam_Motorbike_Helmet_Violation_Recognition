@@ -24,7 +24,6 @@ import config from "../../../config";
 import EmailUpdateSection from "./EmailUpdateSection";
 
 const API_BASE_URL = config.API_URL;
-const accessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ1NDk5OTU2LCJpYXQiOjE3NDU0MTM1NTYsImp0aSI6IjA1YTM3MjU1MGRhZTRmYWI4YTQ3MThkZTBhN2NkYTBkIiwidXNlcl9pZCI6M30.FDlOTWQmVVQ9Zhnyz0spBaMe2nb_pAKMLzBKlS8tFm4";
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -82,11 +81,7 @@ const CitizenInfoForm = () => {
   useEffect(() => {
     const fetchCitizenInfo = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const response = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`);
         const data = response.data;
 
         if (data) {
@@ -259,19 +254,11 @@ const CitizenInfoForm = () => {
       };
 
       // Gửi dữ liệu qua API PATCH
-      const updateResponse = await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const updateResponse = await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload);
       console.log("Update response:", updateResponse.data);
 
       // Lấy thông tin đã gửi qua API GET
-      const getResponse = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const getResponse = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`);
       const data = getResponse.data;
 
       // Cập nhật form với dữ liệu từ API
@@ -474,7 +461,7 @@ const CitizenInfoForm = () => {
         )}
       </Paper>
 
-      {isVerified && <EmailUpdateSection citizenId={citizenId} />}
+      {isVerified && <EmailUpdateSection citizenId={citizenId}/>}
 
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Extracted Information</DialogTitle>

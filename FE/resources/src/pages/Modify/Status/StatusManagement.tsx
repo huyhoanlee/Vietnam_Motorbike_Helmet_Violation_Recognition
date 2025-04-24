@@ -217,7 +217,7 @@ const StatusManagement: React.FC = () => {
     ) {
       try {
         await axiosInstance.delete(
-          `${API_BASE_URL}violation_status/delete/${statusId}`
+          `${API_BASE_URL}violation_status/delete/${statusId}/`
         );
         setSnackbar({
           open: true,

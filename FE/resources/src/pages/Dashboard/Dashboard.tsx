@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Grid,
   Paper,
@@ -15,6 +15,11 @@ import {
   Box,
   Dialog,
   DialogContent,
+  DialogTitle,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import ReportIcon from "@mui/icons-material/Report";
@@ -32,6 +37,7 @@ import {
   Legend,
   TimeScale,
 } from "chart.js";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import axiosInstance from "../../services/axiosInstance.tsx";
 import config from "../../config";
 
@@ -46,7 +52,8 @@ ChartJS.register(
   PointElement,
   Tooltip,
   Legend,
-  TimeScale
+  TimeScale,
+  ChartDataLabels
 );
 
 interface Violation {
@@ -82,6 +89,7 @@ interface Notification {
   notification_id: number;
   status: string;
   created_at: string;
+  message?: string; // Add message field for details
 }
 
 interface ViolationByDate {
@@ -101,11 +109,17 @@ const Dashboard: React.FC = () => {
   const [notification, setNotification] = useState({
     open: false,
     type: "info",
-    message: ""
+    message: "",
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [imageViewer, setImageViewer] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<string>("all"); // Time filter for Violations Over Time
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [selectedViolation, setSelectedViolation] = useState<Violation | null>(null);
+
+  const pieChartHeight = 200;
+  const barLineChartHeight = 250;
 
   const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
     if (data.startsWith("data:image/")) {
@@ -118,34 +132,50 @@ const Dashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  useEffect(() => {
-    console.log("Citizens state:", citizens);
-  }, [citizens]);
-
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      
-      const [violationsRes, camerasRes, citizensRes, locationViolationsRes, notificationsRes, timelineRes] = await Promise.all([
+
+      const [
+        violationsRes,
+        camerasRes,
+        citizensRes,
+        locationViolationsRes,
+        notificationsRes,
+        timelineRes,
+      ] = await Promise.all([
         axiosInstance.get(`${API_BASE_URL}violations/get-all/`),
         axiosInstance.get(`${API_BASE_URL}cameras/get-all/`),
         axiosInstance.get(`${API_BASE_URL}citizens/get-all/`),
         axiosInstance.get(`${API_BASE_URL}violations/get-all/`),
         axiosInstance.get(`${API_BASE_URL}notifications/view_all/`),
-        axiosInstance.get(`${API_BASE_URL}violations/get-all/`)
+        axiosInstance.get(`${API_BASE_URL}violations/get-all/`),
       ]);
-
-      console.log("Citizens API response:", citizensRes.data);
 
       setViolations(violationsRes.data?.data || []);
       setCameras(camerasRes.data?.data || []);
-      setCitizens(Array.isArray(citizensRes.data) ? citizensRes.data : citizensRes.data?.data || []);
-      setLocationViolations(locationViolationsRes.data?.data || []);
-      setNotifications(notificationsRes.data?.data || []);
+      setCitizens(
+        Array.isArray(citizensRes.data)
+          ? citizensRes.data
+          : citizensRes.data?.data || []
+      );
+
+      // Sort locationViolations by detected_at (newest first)
+      const sortedLocationViolations = (locationViolationsRes.data?.data || []).sort(
+        (a: Violation, b: Violation) =>
+          new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+      );
+      setLocationViolations(sortedLocationViolations);
+
+      // Sort notifications by created_at (newest first)
+      const sortedNotifications = (notificationsRes.data?.data || []).sort(
+        (a: Notification, b: Notification) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setNotifications(sortedNotifications);
 
       const timelineData = processTimelineData(timelineRes.data?.data || []);
       setViolationByDate(timelineData);
-
     } catch (err) {
       console.error("Fetch error:", err);
       showAlert("error", "Failed to load data from the system");
@@ -156,18 +186,35 @@ const Dashboard: React.FC = () => {
 
   const processTimelineData = (violations: Violation[]): ViolationByDate[] => {
     const dateCounts: { [key: string]: number } = {};
-    
-    violations.forEach(v => {
+
+    // Filter violations based on timeFilter
+    const filteredViolations = violations.filter((v) => {
+      if (!v.detected_at) return false;
+      const violationDate = new Date(v.detected_at);
+      const now = new Date();
+      if (timeFilter === "7days") {
+        const sevenDaysAgo = new Date(now.setDate(now.getDate() - 7));
+        return violationDate >= sevenDaysAgo;
+      } else if (timeFilter === "30days") {
+        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+        return violationDate >= thirtyDaysAgo;
+      }
+      return true; // "all"
+    });
+
+    filteredViolations.forEach((v) => {
       if (v.detected_at) {
-        const date = new Date(v.detected_at).toISOString().split('T')[0];
+        const date = new Date(v.detected_at).toISOString().split("T")[0];
         dateCounts[date] = (dateCounts[date] || 0) + 1;
       }
     });
 
-    return Object.entries(dateCounts).map(([date, count]) => ({
-      date,
-      count
-    }));
+    return Object.entries(dateCounts)
+      .map(([date, count]) => ({
+        date,
+        count,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
   const showAlert = (type: any, message: string) => {
@@ -180,24 +227,30 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-     setSearchLoading(true);
+    setSearchLoading(true);
     setSearchResult(null);
 
     try {
-      const res = await axiosInstance.post(`${API_BASE_URL}violations/search-by-plate-number/`, {
-        plate_number: plateNumber.trim()
-      });
+      const res = await axiosInstance.post(
+        `${API_BASE_URL}violations/search-by-plate-number/`,
+        {
+          plate_number: plateNumber.trim(),
+        }
+      );
       const data: Violation[] = res.data?.data?.violations || [];
       setSearchResult(data);
       showAlert("success", "Search successful!");
     } catch (err: any) {
-      showAlert("error", err?.response?.data?.message || "Plate not found or server error!");
+      showAlert(
+        "error",
+        err?.response?.data?.message || "Plate not found or server error!"
+      );
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const getViolationStatusPie = () => {
+  const getViolationStatusPie = useMemo(() => {
     const statusCounts = violations.reduce((acc: { [key: string]: number }, v) => {
       if (v.status_name) {
         acc[v.status_name] = (acc[v.status_name] || 0) + 1;
@@ -205,43 +258,103 @@ const Dashboard: React.FC = () => {
       return acc;
     }, {});
 
-    return {
-      labels: Object.keys(statusCounts),
-      datasets: [
-        {
-          data: Object.values(statusCounts),
-          backgroundColor: [
-            "#FF6384",
-            "#36A2EB",
-            "#FFCE56",
-            "#4BC0C0",
-            "#9966FF",
-            "#FF9F40",
-            "#8BC34A",
-            "#00ACC1",
-          ],
-        },
-      ],
-    };
-  };
+    const total = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
 
-  const getCameraStatusPie = () => {
-    const active = cameras.filter((cam) => cam.status.toLowerCase() === "active").length;
+    return {
+      total,
+      chartData: {
+        labels: Object.keys(statusCounts),
+        datasets: [
+          {
+            data: Object.values(statusCounts),
+            backgroundColor: [
+              "#FF6384",
+              "#36A2EB",
+              "#FFCE56",
+              "#4BC0C0",
+              "#9966FF",
+              "#FF9F40",
+              "#8BC34A",
+              "#00ACC1",
+            ],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom" as const,
+          },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => {
+                const value = context.raw;
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${context.label}: ${value} (${percentage}%)`;
+              },
+            },
+          },
+          datalabels: {
+            formatter: (value: number) => value, // Display count
+            color: "#fff",
+            font: {
+              weight: "bold" as const,
+            },
+          },
+        },
+      },
+    };
+  }, [violations]);
+
+  const getCameraStatusPie = useMemo(() => {
+    const active = cameras.filter(
+      (cam) => cam.status.toLowerCase() === "active"
+    ).length;
     const deactive = cameras.length - active;
+    const total = cameras.length;
 
     return {
-      labels: ["Active", "Deactivated"],
-      datasets: [
-        {
-          data: [active, deactive],
-          backgroundColor: ["#4caf50", "#f44336"],
+      total,
+      chartData: {
+        labels: ["Active", "Deactivated"],
+        datasets: [
+          {
+            data: [active, deactive],
+            backgroundColor: ["#4caf50", "#f44336"],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom" as const,
+          },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => {
+                const value = context.raw;
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${context.label}: ${value} (${percentage}%)`;
+              },
+            },
+          },
+          datalabels: {
+            formatter: (value: number) => value, // Display count
+            color: "#fff",
+            font: {
+              weight: "bold" as const,
+            },
+          },
         },
-      ],
+      },
     };
-  };
+  }, [cameras]);
 
-  const getCitizenStatusPie = () => {
-    console.log("Generating citizen pie chart, citizens:", citizens);
+  const getCitizenStatusPie = useMemo(() => {
     const statusCounts = citizens.reduce((acc: { [key: string]: number }, c) => {
       if (c.status) {
         acc[c.status] = (acc[c.status] || 0) + 1;
@@ -249,20 +362,52 @@ const Dashboard: React.FC = () => {
       return acc;
     }, {});
 
-    console.log("Citizen status counts:", statusCounts);
+    const total = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
 
     return {
-      labels: Object.keys(statusCounts).length ? Object.keys(statusCounts) : ["No Data"],
-      datasets: [
-        {
-          data: Object.values(statusCounts).length ? Object.values(statusCounts) : [1],
-          backgroundColor: ["#2196f3", "#ff9800", "#4caf50", "#f44336"],
+      total,
+      chartData: {
+        labels: Object.keys(statusCounts).length
+          ? Object.keys(statusCounts)
+          : ["No Data"],
+        datasets: [
+          {
+            data: Object.values(statusCounts).length
+              ? Object.values(statusCounts)
+              : [1],
+            backgroundColor: ["#2196f3", "#ff9800", "#4caf50", "#f44336"],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom" as const,
+          },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => {
+                const value = context.raw;
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return `${context.label}: ${value} (${percentage}%)`;
+              },
+            },
+          },
+          datalabels: {
+            formatter: (value: number) => (total > 0 ? value : ""), // Display count
+            color: "#fff",
+            font: {
+              weight: "bold" as const,
+            },
+          },
         },
-      ],
+      },
     };
-  };
+  }, [citizens]);
 
-  const locationChartData = () => {
+  const locationChartData = useMemo(() => {
     const counts: { [key: string]: number } = {};
     locationViolations.forEach((v) => {
       const location = v.location || "Unknown";
@@ -279,9 +424,9 @@ const Dashboard: React.FC = () => {
         },
       ],
     };
-  };
+  }, [locationViolations]);
 
-  const lineChartData = {
+  const lineChartData = useMemo(() => ({
     labels: violationByDate.map((item) => item.date),
     datasets: [
       {
@@ -293,7 +438,13 @@ const Dashboard: React.FC = () => {
         fill: true,
       },
     ],
-  };
+  }), [violationByDate]);
+
+  useEffect(() => {
+    // Update violationByDate when timeFilter changes
+    const timelineData = processTimelineData(violations);
+    setViolationByDate(timelineData);
+  }, [timeFilter, violations]);
 
   if (loading) {
     return (
@@ -341,7 +492,9 @@ const Dashboard: React.FC = () => {
                   <Paper key={idx} sx={{ p: 2, mt: 2 }}>
                     <Typography>Violation ID: {item.violation_id}</Typography>
                     <Typography>Location: {item.location || "Unknown"}</Typography>
-                    <Typography>Time: {new Date(item.detected_at).toLocaleString()}</Typography>
+                    <Typography>
+                      Time: {new Date(item.detected_at).toLocaleString()}
+                    </Typography>
                     <Typography>Status: {item.status_name}</Typography>
                     <Typography>Images:</Typography>
                     {item.violation_image?.map((img: string, i: number) => (
@@ -354,7 +507,7 @@ const Dashboard: React.FC = () => {
                           width: "100%",
                           borderRadius: 6,
                           marginTop: 8,
-                          cursor: "pointer"
+                          cursor: "pointer",
                         }}
                         onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
                       />
@@ -371,27 +524,54 @@ const Dashboard: React.FC = () => {
       <Grid item xs={12} md={4}>
         <Paper sx={{ p: 2, textAlign: "center" }}>
           <Typography variant="h6" gutterBottom>
-            <ReportIcon color="error" sx={{ verticalAlign: "middle" }} /> Violations by Status
+            <ReportIcon color="error" sx={{ verticalAlign: "middle", mr: 1 }} />
+            Violations by Status
           </Typography>
-          <Pie data={getViolationStatusPie()} />
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            Total: {getViolationStatusPie.total}
+          </Typography>
+          <Box sx={{ height: pieChartHeight }}>
+            <Pie
+              data={getViolationStatusPie.chartData}
+              options={getViolationStatusPie.options}
+            />
+          </Box>
         </Paper>
       </Grid>
 
       <Grid item xs={12} md={4}>
         <Paper sx={{ p: 2, textAlign: "center" }}>
           <Typography variant="h6" gutterBottom>
-            <CameraAltIcon color="action" sx={{ verticalAlign: "middle" }} /> Cameras by Status
+            <CameraAltIcon color="action" sx={{ verticalAlign: "middle", mr: 1 }} />
+            Cameras by Status
           </Typography>
-          <Pie data={getCameraStatusPie()} />
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            Total: {getCameraStatusPie.total}
+          </Typography>
+          <Box sx={{ height: pieChartHeight }}>
+            <Pie
+              data={getCameraStatusPie.chartData}
+              options={getCameraStatusPie.options}
+            />
+          </Box>
         </Paper>
       </Grid>
 
       <Grid item xs={12} md={4}>
         <Paper sx={{ p: 2, textAlign: "center" }}>
           <Typography variant="h6" gutterBottom>
-            <PeopleIcon color="primary" sx={{ verticalAlign: "middle" }} /> Citizens by Status
+            <PeopleIcon color="primary" sx={{ verticalAlign: "middle", mr: 1 }} />
+            Citizens by Status
           </Typography>
-          <Pie data={getCitizenStatusPie()} />
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            Total: {getCitizenStatusPie.total}
+          </Typography>
+          <Box sx={{ height: pieChartHeight }}>
+            <Pie
+              data={getCitizenStatusPie.chartData}
+              options={getCitizenStatusPie.options}
+            />
+          </Box>
         </Paper>
       </Grid>
 
@@ -399,14 +579,35 @@ const Dashboard: React.FC = () => {
       <Grid item xs={12} md={6}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Violations by Location</Typography>
-          <Bar data={locationChartData()} options={{ responsive: true, plugins: { legend: { display: false } } }} />
+          <Box sx={{ height: barLineChartHeight }}>
+            <Bar
+              data={locationChartData}
+              options={{ responsive: true, plugins: { legend: { display: false } }, maintainAspectRatio: false, }}
+            />
+          </Box>
         </Paper>
       </Grid>
 
       <Grid item xs={12} md={6}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Violations Over Time</Typography>
-          <Line data={lineChartData} />
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Violations Over Time</Typography>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Time Range</InputLabel>
+              <Select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value as string)}
+                label="Time Range"
+              >
+                <MenuItem value="7days">Last 7 Days</MenuItem>
+                <MenuItem value="30days">Last 30 Days</MenuItem>
+                <MenuItem value="all">All Time</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ height: barLineChartHeight }}>
+            <Line data={lineChartData} options={{ responsive: true, maintainAspectRatio: false, }} />
+          </Box>
         </Paper>
       </Grid>
 
@@ -416,7 +617,14 @@ const Dashboard: React.FC = () => {
           <Typography variant="h6">Recent Notifications</Typography>
           <List dense>
             {notifications.slice(0, 5).map((n) => (
-              <ListItem key={n.notification_id}>
+              <ListItem
+                key={n.notification_id}
+                button
+                onClick={() => setSelectedNotification(n)}
+                sx={{
+                  "&:hover": { backgroundColor: "#f5f5f5", cursor: "pointer" },
+                }}
+              >
                 <ListItemText
                   primary={`ID: ${n.notification_id}`}
                   secondary={`At: ${new Date(n.created_at).toLocaleString()} | Status: ${n.status}`}
@@ -432,7 +640,14 @@ const Dashboard: React.FC = () => {
           <Typography variant="h6">Violation Location Details</Typography>
           <List dense>
             {locationViolations.slice(0, 5).map((v) => (
-              <ListItem key={v.violation_id}>
+              <ListItem
+                key={v.violation_id}
+                button
+                onClick={() => setSelectedViolation(v)}
+                sx={{
+                  "&:hover": { backgroundColor: "#f5f5f5", cursor: "pointer" },
+                }}
+              >
                 <ListItemText
                   primary={<Typography fontWeight={500}>{v.location || "Unknown"}</Typography>}
                   secondary={`At: ${new Date(v.detected_at).toLocaleString()} | Status: ${v.status_name}`}
@@ -442,6 +657,69 @@ const Dashboard: React.FC = () => {
           </List>
         </Paper>
       </Grid>
+
+      {/* Notification Detail Dialog */}
+      <Dialog
+        open={!!selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Notification Details</DialogTitle>
+        <DialogContent>
+          {selectedNotification && (
+            <>
+              <Typography>ID: {selectedNotification.notification_id}</Typography>
+              <Typography>
+                Time: {new Date(selectedNotification.created_at).toLocaleString()}
+              </Typography>
+              <Typography>Status: {selectedNotification.status}</Typography>
+              <Typography>
+                Message: {selectedNotification.message || "No message available"}
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Violation Detail Dialog */}
+      <Dialog
+        open={!!selectedViolation}
+        onClose={() => setSelectedViolation(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Violation Details</DialogTitle>
+        <DialogContent>
+          {selectedViolation && (
+            <>
+              <Typography>ID: {selectedViolation.violation_id}</Typography>
+              <Typography>Location: {selectedViolation.location || "Unknown"}</Typography>
+              <Typography>
+                Time: {new Date(selectedViolation.detected_at).toLocaleString()}
+              </Typography>
+              <Typography>Status: {selectedViolation.status_name}</Typography>
+              <Typography>Plate Number: {selectedViolation.plate_number}</Typography>
+              <Typography>Images:</Typography>
+              {selectedViolation.violation_image?.map((img: string, i: number) => (
+                <img
+                  key={i}
+                  src={normalizeBase64Image(img, "png")}
+                  alt={`violation-${i}`}
+                  style={{
+                    maxWidth: "100px",
+                    width: "100%",
+                    borderRadius: 6,
+                    marginTop: 8,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setImageViewer(normalizeBase64Image(img, "png"))}
+                />
+              ))}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Snackbar Notifications */}
       <Snackbar
