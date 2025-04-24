@@ -1,0 +1,9 @@
+django
+django-filter
+djangorestframework-simplejwt
+djangorestframework
+django-cors-headers
+uvicorn>=0.17.0
+asgiref>=3.5.0
+requests
+django-redis
