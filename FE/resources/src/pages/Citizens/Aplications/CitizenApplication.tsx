@@ -11,7 +11,7 @@ import {
   InputLabel,
   FormControl,
 } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import config from "../../../config";
 
@@ -25,8 +25,8 @@ const OCRLicenseForm = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Form fields
   const [owner, setOwner] = useState("");
   const [address, setAddress] = useState("");
   const [modelCode, setModelCode] = useState("");
@@ -53,7 +53,7 @@ const OCRLicenseForm = () => {
       const base64Image = await fileToBase64(imageFile);
       setImageBase64(base64Image);
 
-      const res = await axios.post("https://huyhoanlee-ocr-license.hf.space/extract-license-info", {
+      const res = await axios.post("https://huyhoanlee-ai-service.hf.space/extract-license-info", {
         image_base64: base64Image,
       });
 
@@ -69,33 +69,28 @@ const OCRLicenseForm = () => {
       setSnackbar({ msg: "Information extracted successfully.", type: "success" });
     } catch (err) {
       console.error("OCR error:", err);
-      setSnackbar({ msg: "Failed to extract information. Please try again.", type: "error" });
+      setSnackbar({ msg: "Failed to extract information. Please try again later.", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault(); // Prevent form submission or page reload
-
-    // Log localStorage state for debugging
-    console.log("localStorage before save:", {
-      user_id: localStorage.getItem("user_id"),
-      is_citizen_authenticated: localStorage.getItem("is_citizen_authenticated"),
-      user_role: localStorage.getItem("user_role"),
-    });
-
+  const handleSave = async () => {
     if (!plateNumber || !imageBase64) {
       setSnackbar({ msg: "Please provide a license plate number and upload an image.", type: "error" });
       return;
     }
 
+    const carParrotId = localStorage.getItem("car_parrot_id") || "1";
+    const citizenId = localStorage.getItem("user_id");
+
+    if (!citizenId) {
+      setSnackbar({ msg: "User ID not found. Please log in again.", type: "error" });
+      return;
+    }
+
     try {
       setSaveLoading(true);
-
-      // Fetch car_parrot_id (placeholder; replace with actual logic)
-      const carParrotId = localStorage.getItem("car_parrot_id") || "1"; // TODO: Fetch from API
-
       const payload = {
         owner,
         image: imageBase64,
@@ -103,54 +98,67 @@ const OCRLicenseForm = () => {
         modelCode,
         color,
         plate_number: plateNumber,
-        status: "Verified", // Use "verified" as per input format
+        status: "Verified",
+        citizen_id: Number(citizenId),
       };
 
-      // Update car parrot data
-      const patchResponse = await axios.patch(`${API_BASE_URL}car_parrots/update/${carParrotId}/`, payload);
-      console.log("PATCH response:", patchResponse.data);
+      await axios.patch(`${API_BASE_URL}car_parrots/update/${carParrotId}/`, payload);
 
-      // Fetch updated citizen data if user_id exists
-      const citizenId = localStorage.getItem("user_id");
-      if (citizenId) {
-        const getResponse = await axios.get(`${API_BASE_URL}car_parrots/get-all/`);
-        const citizens = getResponse.data; // Adjust if response is nested (e.g., res.data.data)
-        console.log("GET response:", citizens);
+      const getResponse = await axios.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
 
-        const userData = citizens.find((citizen: any) => citizen.citizen_id === citizenId);
+      const applications = getResponse.data?.applications || [];
+      const matchedApplication = applications.find((app: any) => `${app.car_parrot_id}` === `${carParrotId}`);
 
-        if (userData) {
-          localStorage.setItem("citizen_data", JSON.stringify(userData));
-          setSnackbar({ msg: "Information saved successfully.", type: "success" });
-        } else {
-          setSnackbar({ msg: "Information saved, but no user data found.", type: "success" });
-        }
-      } else {
-        setSnackbar({ msg: "Information saved successfully.", type: "success" });
+      if (!matchedApplication) {
+        throw new Error("Submitted data not found in system.");
       }
 
-      // Verify localStorage after save
-      console.log("localStorage after save:", {
-        user_id: localStorage.getItem("user_id"),
-        is_citizen_authenticated: localStorage.getItem("is_citizen_authenticated"),
-        user_role: localStorage.getItem("user_role"),
-        citizen_data: localStorage.getItem("citizen_data"),
-      });
+      const userData = {
+        owner,
+        address,
+        modelCode,
+        color,
+        plate_number: matchedApplication.plate_number,
+      };
+
+      localStorage.setItem("citizen_data", JSON.stringify(userData));
+
+      setOwner(userData.owner);
+      setAddress(userData.address);
+      setModelCode(userData.modelCode);
+      setColor(userData.color);
+      setPlateNumber(userData.plate_number);
+
+      setIsSubmitted(true);
+      setSnackbar({ msg: "Information saved and locked for review.", type: "success" });
     } catch (err: any) {
       console.error("Save error:", err);
-      let errorMsg = "Failed to save information. Please try again.";
-      if (err.response?.data?.status) {
-        errorMsg = `Invalid status: ${err.response.data.status.join(", ")}`;
-      } else if (err.response?.data?.detail) {
-        errorMsg = err.response.data.detail;
-      } else if (err.response?.status === 400) {
-        errorMsg = "Invalid data provided. Please check your inputs.";
-      }
+      let errorMsg = "An error occurred. Please try again.";
+      if (err.response?.data?.detail) errorMsg = err.response.data.detail;
+      else if (err.message) errorMsg = err.message;
       setSnackbar({ msg: errorMsg, type: "error" });
     } finally {
       setSaveLoading(false);
     }
   };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("citizen_data");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setOwner(parsed.owner || "");
+        setAddress(parsed.address || "");
+        setModelCode(parsed.modelCode || "");
+        setColor(parsed.color || "");
+        setPlateNumber(parsed.plate_number || "");
+        setIsSubmitted(true);
+        setShowConfirmation(true);
+      } catch (e) {
+        console.error("Parse saved data error", e);
+      }
+    }
+  }, []);
 
   return (
     <Box
@@ -167,115 +175,78 @@ const OCRLicenseForm = () => {
         Vehicle Registration OCR & Submission
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={3}>
-        Upload your vehicle registration image to extract and submit details.
+        {isSubmitted
+          ? "Your registration information has been submitted and locked for review."
+          : "Upload your vehicle registration image to extract and submit details."}
       </Typography>
 
       <Stack spacing={3}>
-        <FormControl>
-          <InputLabel shrink sx={{ bgcolor: "background.paper", px: 1, ml: -1 }}>
-            Upload Image
-          </InputLabel>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                setImageFile(file);
-                setPreview(URL.createObjectURL(file));
-                setShowConfirmation(false);
-              }
-            }}
-            style={{
-              padding: "10px 0",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              width: "100%",
-            }}
-          />
-        </FormControl>
+        {!isSubmitted && (
+          <>
+            <FormControl>
+              <InputLabel shrink sx={{ bgcolor: "background.paper", px: 1, ml: -1 }}>
+                Upload Image
+              </InputLabel>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setImageFile(file);
+                    setPreview(URL.createObjectURL(file));
+                    setShowConfirmation(false);
+                  }
+                }}
+                style={{ padding: "10px 0", border: "1px solid #ccc", borderRadius: "4px", width: "100%" }}
+              />
+            </FormControl>
 
-        {preview && (
-          <Paper elevation={3} sx={{ overflow: "hidden", borderRadius: 2, maxHeight: 250 }}>
-            <img src={preview} alt="License Preview" style={{ width: "100%", objectFit: "contain" }} />
-          </Paper>
+            {preview && (
+              <Paper elevation={3} sx={{ overflow: "hidden", borderRadius: 2, maxHeight: 250 }}>
+                <img src={preview} alt="License Preview" style={{ width: "100%", objectFit: "contain" }} />
+              </Paper>
+            )}
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleExtract}
+              disabled={loading}
+              sx={{ py: 1.5, fontWeight: 600 }}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Extract Information"}
+            </Button>
+          </>
         )}
 
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleExtract}
-          disabled={loading}
-          sx={{ py: 1.5, fontWeight: 600 }}
-        >
-          {loading ? <CircularProgress size={24} color="inherit" /> : "Extract Information"}
-        </Button>
-
-        {/* Extracted Information Form */}
         {showConfirmation && (
-          <Typography variant="body1" color="primary.main" sx={{ mt: 2, fontStyle: "italic" }}>
-            Please verify the extracted information and correct any missing or inaccurate details.
-          </Typography>
-        )}
-        <Box mt={3}>
-          <Typography variant="h6" fontWeight={600} mb={2}>
-            Extracted Information
-          </Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Owner Name"
-              fullWidth
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Address"
-              fullWidth
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Model Code"
-              fullWidth
-              value={modelCode}
-              onChange={(e) => setModelCode(e.target.value)}
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Color"
-              fullWidth
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="License Plate"
-              fullWidth
-              value={plateNumber}
-              onChange={(e) => setPlateNumber(e.target.value)}
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              required
-            />
-          </Stack>
+          <>
+            <Typography variant="h6" fontWeight={600}>
+              {isSubmitted ? "Submitted Information" : "Extracted Information"}
+            </Typography>
 
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleSave}
-            disabled={saveLoading || !plateNumber}
-            sx={{ mt: 3, py: 1.5, fontWeight: 600 }}
-            type="button" // Prevent form submission
-          >
-            {saveLoading ? <CircularProgress size={24} color="inherit" /> : "Save Information"}
-          </Button>
-        </Box>
+            <Stack spacing={2} sx={{ opacity: isSubmitted ? 0.8 : 1 }}>
+              <TextField label="Owner Name" fullWidth value={owner} disabled />
+              <TextField label="Address" fullWidth value={address} disabled />
+              <TextField label="Model Code" fullWidth value={modelCode} disabled />
+              <TextField label="Color" fullWidth value={color} disabled />
+              <TextField label="License Plate" fullWidth value={plateNumber} disabled />
+            </Stack>
+
+            {!isSubmitted && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleSave}
+                disabled={saveLoading || !plateNumber}
+                sx={{ mt: 3, py: 1.5, fontWeight: 600 }}
+              >
+                {saveLoading ? <CircularProgress size={24} color="inherit" /> : "Save Information"}
+              </Button>
+            )}
+          </>
+        )}
       </Stack>
 
       <Snackbar

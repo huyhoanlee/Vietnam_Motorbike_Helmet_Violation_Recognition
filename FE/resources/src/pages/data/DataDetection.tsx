@@ -118,30 +118,53 @@ const DataDetection: React.FC = () => {
     });
   };
 
-  const handleOpenDialog = async (camera_id: string) => {
-    try {
-      setIsLoading(true);
-      const res = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
-      console.log("API Response:", res.data);
-      if (!res.data.output_url) {
-        throw new Error("No output_url in API response");
-      }
-      const correctedStreamUrl = res.data.output_url.replace(/\/stream\/[^/]+$/, "/video");
-      setSelectedStream(correctedStreamUrl);
-      setIsPaused(false);
-      setError(null);
-      setOpenDialog(true);
-    } catch (error) {
-      console.error("Failed to load stream:", error);
-      setSelectedStream(null);
-      setOpenDialog(true);
-      setError(
-        error.response?.data?.message ||
-        "Unable to load stream. Please check the connection or try again."
-      );
-      setIsLoading(false);
-    }
-  };
+  // const handleOpenDialog = async (camera_id: string) => {
+  //   try {
+  //     setIsLoading(true);
+  //     const res = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
+  //     console.log("API Response:", res.data);
+  //     if (!res.data.output_url) {
+  //       throw new Error("No output_url in API response");
+  //     }
+  //     const correctedStreamUrl = res.data.output_url.replace(/\/stream\/[^/]+$/, "/video");
+  //     setSelectedStream(correctedStreamUrl);
+  //     setIsPaused(false);
+  //     setError(null);
+  //     setOpenDialog(true);
+  //   } catch (error) {
+  //     console.error("Failed to load stream:", error);
+  //     setSelectedStream(null);
+  //     setOpenDialog(true);
+  //     setError(
+  //       error.response?.data?.message ||
+  //       "Unable to load stream. Please check the connection or try again."
+  //     );
+  //     setIsLoading(false);
+  //   }
+  // };
+const handleOpenDialog = async (camera_id: string) => {
+  try {
+    setIsLoading(true);
+    // Có thể giữ lại call API nếu bạn cần logging hoặc kiểm tra trạng thái camera
+    await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
+
+    // Bỏ qua output_url trả về từ API, fix cứng URL luôn
+    const fixedStreamUrl = "https://huyhoanlee-ai-service.hf.space/stream/a32be6e7";
+    setSelectedStream(fixedStreamUrl);
+    setIsPaused(false);
+    setError(null);
+    setOpenDialog(true);
+  } catch (error) {
+    console.error("Failed to load stream:", error);
+    setSelectedStream(null);
+    setOpenDialog(true);
+    setError(
+      error.response?.data?.message ||
+      "Unable to load stream. Please check the connection or try again."
+    );
+    setIsLoading(false);
+  }
+};
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
