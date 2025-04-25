@@ -36,8 +36,20 @@ class AI_Service:
             self.CLASS_DICT[id] = self.vehicle_detector.model.names[id]
         self.data_tracker =  {}
         
-    def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str="") -> DeviceDetection:
-        """Process a single frame and return annotated frame"""
+    def process_frame(self, frame: np.ndarray, frame_count: int, verbose: bool = False, camera_id: str = "") -> DeviceDetection:
+        """Process a single frame and return annotated frame with vehicle detections, tracking, and license plate recognition.
+        
+        Args:
+            frame: Input frame to process
+            frame_count: Current frame count
+            verbose: Whether to log processing times
+            camera_id: Camera identifier
+            
+        Returns:
+            DeviceDetection object with detection results
+        """
+        # Start timing overall process
+        total_start = time.time()
         
         # Vehicle detection
         detect_start = time.time()
@@ -46,63 +58,74 @@ class AI_Service:
         
         # Object tracking
         track_start = time.time()
-        vehicle_track_dets, track_confs, track_classes, vehicle_track_ids, mask = self.object_tracker.track(detection_results, frame)
+        vehicle_track_dets, vehicle_track_ids = self.object_tracker.bytetrack(detection_results, frame)
         track_time = time.time() - track_start
         
+        # Group objects with vehicles
         mapping_start = time.time()
-        # Group objects with vehicles   
-        grouped_json = fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_ids, detection_results[0].boxes.data, device)
+        grouped_json = fully_optimized_mapping_tracked_vehicles(
+            vehicle_track_dets, 
+            vehicle_track_ids, 
+            detection_results[0].boxes.data, 
+            device  # Assuming 'device' should be a class attribute
+        )
         mapping_time = time.time() - mapping_start
         
-        
-        palate_start = time.time()
-        # License plate recognition 
+        # License plate recognition
+        plate_start = time.time()
         if len(vehicle_track_dets) > 0:
             for vehicle in grouped_json:
+                # Check if this is a vehicle with license plate (class 2 indicates vehicle)
                 if any(obj["class"] == 2 for obj in vehicle["objects"]):
                     for obj in vehicle["objects"]:
+                        # Process license plates (class 3)
                         if obj["class"] == 3:
                             x_min, y_min, x_max, y_max = map(int, obj["bbox"])
-                            plate_frame = frame[y_min:y_max, x_min:x_max]  # Crop license plate region
+                            # Ensure coordinates are within frame boundaries
+                            x_min = max(0, x_min)
+                            y_min = max(0, y_min)
+                            x_max = min(frame.shape[1], x_max)
+                            y_max = min(frame.shape[0], y_max)
+                            
+                            # Skip if plate region is too small
+                            if x_max <= x_min or y_max <= y_min:
+                                continue
+                                
+                            # Crop license plate region
+                            plate_frame = frame[y_min:y_max, x_min:x_max]
                             plate_frame = cv2.resize(plate_frame, (320, 320), interpolation=cv2.INTER_LANCZOS4)
+                            
+                            # Recognize plate
                             plate_number, plate_conf = self.plate_recognizer.recognize(plate_frame)
                             if plate_number is not None:
                                 obj["plate_number"] = plate_number
                                 obj["plate_conf"] = plate_conf
-            
-            palate_time = time.time() - palate_start
-            
-            vis_start = time.time()
-            # Visualization
-            post_frame = visualize_detections(frame, grouped_json)
-            # post_frame = frame
-            visualize_detections_time = time.time() - vis_start
-            
-            process_to_output_json_time = time.time()
-            # Process to output JSON
-            output_json = process_to_output_json(grouped_json, frame, post_frame, camera_id=camera_id)
-            process_to_output_json_time = time.time() - process_to_output_json_time
-            total_time = time.time() - detect_start
-            if verbose:
-                logger.info(f"Vehicle detection time: {detect_time:.3f} seconds")
-                logger.info(f"Object tracking time: {track_time:.3f} seconds")
-                logger.info(f"Mapping tracking time: {mapping_time:.3f} seconds")
-                logger.info(f"License plate recognition time: {palate_time:.3f} seconds")
-                logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
-                logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")  
-                logger.info(f"---Total time---: {total_time:.3f} seconds")  
-            return output_json
-        else:
-            output_json = process_to_output_json(grouped_json, frame, frame)
-            if verbose:
-                logger.info(f"Vehicle detection time: {detect_time:.3f} seconds")
-                logger.info(f"Object tracking time: {track_time:.3f} seconds")
-                logger.info(f"Mapping tracking time: {mapping_time:.3f} seconds")
-                logger.info(f"License plate recognition time: {palate_time:.3f} seconds")
-                logger.info(f"Visualization time: {visualize_detections_time:.3f} seconds") 
-                logger.info(f"Process to output JSON time: {process_to_output_json_time:.3f} seconds")
-                logger.info(f"---Total time---: {total_time:.3f} seconds")  
-            return output_json
+        plate_time = time.time() - plate_start
+        
+        # Visualization
+        vis_start = time.time()
+        post_frame = visualize_detections(frame, grouped_json)
+        vis_time = time.time() - vis_start
+        
+        # Process to output JSON
+        json_start = time.time()
+        output_json = process_to_output_json(grouped_json, frame, post_frame, camera_id=camera_id)
+        json_time = time.time() - json_start
+        
+        # Calculate total processing time
+        total_time = time.time() - total_start
+        
+        # Log timing information if verbose is enabled
+        if verbose:
+            logger.info(f"Vehicle detection time: {detect_time:.3f} seconds")
+            logger.info(f"Object tracking time: {track_time:.3f} seconds")
+            logger.info(f"Mapping tracking time: {mapping_time:.3f} seconds")
+            logger.info(f"License plate recognition time: {plate_time:.3f} seconds")
+            logger.info(f"Visualization time: {vis_time:.3f} seconds")
+            logger.info(f"Process to output JSON time: {json_time:.3f} seconds")
+            logger.info(f"---Total time---: {total_time:.3f} seconds")
+        
+        return output_json
     
 
     def mapping_vehicles_no_tracked(self, detection_results, device="cuda:0"):
@@ -289,7 +312,7 @@ class AIService:
             
             # Object tracking
             track_start = time.time()
-            vehicle_track_dets, track_confs, track_classes, vehicle_track_ids, mask = self.object_tracker.track(detection_results, frame)
+            vehicle_track_dets, vehicle_track_ids = self.object_tracker.bytetrack(detection_results, frame)
             track_time = time.time() - track_start
             
             mapping_start = time.time()
