@@ -2,6 +2,7 @@ import jwt
 import time
 import requests
 from django.conf import settings
+from django.core.mail import send_mail
 
 def get_access_token(exp):
     now = int(time.time())
@@ -34,7 +35,7 @@ def call_api(to_number: str, exp, code_authen):
         "actions": [
             {
                 "action": "talk",
-                "text": f'Mã xác thực của bạn là {str(",".join(code_authen))}. Vui lòng nhập mã xác thực.',
+                "text": f'Mã xác thực của bạn là {str(".".join(code_authen))}. Vui lòng nhập mã xác thực.',
                 "speed": -1
             }
         ]
@@ -51,3 +52,10 @@ def call_api(to_number: str, exp, code_authen):
 
     except Exception as e:
         return e
+
+def email_api(email, exp, generated_authen):
+    subject = 'OTP Verify to change email'
+    message = f'''
+            This is your code OTP: {generated_authen}
+            '''
+    send_mail(subject, message, settings.EMAIL_HOST_USER, [email])

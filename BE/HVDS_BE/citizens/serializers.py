@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from car_parrots.models import CarParrots
+from vehicles.models import Vehicle
 from .models import Citizen
 import random
 from django.utils import timezone
@@ -7,7 +8,7 @@ from django.utils import timezone
 class CarParrotRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarParrots
-        fields = ['id', 'plate_number', 'image', 'citizen_id']
+        fields = '__all__'
 
     def validate_plate_number(self, value):
         if CarParrots.objects.filter(plate_number=value, status="Verified").exists():
@@ -15,12 +16,8 @@ class CarParrotRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        car_parrot = CarParrots.objects.create(
-            plate_number=validated_data['plate_number'],
-            image=validated_data['image'],
-            citizen_id=validated_data['citizen_id'],
-            status='Submitted'  # Mặc định status
-        )
+        validated_data['status'] = 'Verified'
+        car_parrot = CarParrots.objects.create(**validated_data)
         return car_parrot
 
 class CarParrotResponseSerializer(serializers.ModelSerializer):
@@ -28,8 +25,8 @@ class CarParrotResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CarParrots
-        fields = ['car_parrot_id', 'plate_number', 'status', 'image', 'citizen_id']
-        
+        fields = '__all__'
+
 class CarParrotSerializer(serializers.ModelSerializer):
     car_parrot_id = serializers.IntegerField(source='id')
 
@@ -38,23 +35,66 @@ class CarParrotSerializer(serializers.ModelSerializer):
         fields = ['car_parrot_id', 'plate_number', 'status', 'image']
 
 class CitizenApplicationsSerializer(serializers.ModelSerializer):
-    applications = CarParrotSerializer(many=True, source='carparrots_set')  # Quan hệ ngược từ Citizen
+    applications = CarParrotSerializer(many=True, source='carparrots_set')
 
     class Meta:
         model = Citizen
         fields = ['id', 'applications']
         extra_kwargs = {'id': {'read_only': True}}
+        
+class CitizenChangeEmailSerializer(serializers.Serializer):
+    email = serializers.CharField(required=True)
+    code_authen = serializers.CharField(max_length=6, required=False)
+    generated_authen = serializers.CharField(max_length=6, required=False)
+    exp = serializers.DateTimeField(required=False)
+    phone_number = serializers.CharField(max_length=10, required=True)
+    
+    def validate(self, data):
+        phone_number = data.get('phone_number')
+        code_authen = data.get('code_authen')
+
+        if not code_authen:
+            otp = str(random.randint(100000, 999999))
+            data['generated_authen'] = otp
+            expires_at = timezone.now() + timezone.timedelta(seconds=300)
+            data['exp'] = expires_at
+            
+            citizen = Citizen.objects.get(phone_number=phone_number)
+            citizen.otp = otp
+            citizen.expires_at = expires_at
+            citizen.save()
+            
+            print(f"Sending OTP '{otp}' to '{data.get('email')}'")
+            return data
+
+        citizen = Citizen.objects.get(phone_number=phone_number)
+
+        if not citizen.otp or not citizen.expires_at:
+            raise serializers.ValidationError("No OTP found")
+
+        if timezone.now() > citizen.expires_at:
+            raise serializers.ValidationError("Expired OTP")
+
+        if citizen.otp != code_authen:
+            raise serializers.ValidationError("Invalid OTP")
+
+        citizen.otp = None
+        citizen.expires_at = None
+        citizen.email = data.get('email')
+        citizen.save()
+
+        return data
+    
+    def create(self, validated_data):
+        citizen = Citizen.objects.get(phone_number=validated_data["phone_number"])
+        return citizen
+    
 
 class CitizenAuthSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=10, required=True)
     code_authen = serializers.CharField(max_length=6, required=False)
     generated_authen = serializers.CharField(max_length=6, required=False)
     exp = serializers.DateTimeField(required=False)
-
-    def validate_phone_number(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("Phone number must contain only digits")
-        return value
 
     def validate(self, data):
         phone_number = data.get('phone_number')

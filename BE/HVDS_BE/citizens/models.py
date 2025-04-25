@@ -11,6 +11,8 @@ class Citizen(models.Model):
     status = models.CharField(max_length=255)
     otp = models.CharField(max_length=6, null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
+    otp_email = models.CharField(max_length=6, null=True, blank=True)
+    expires_at_email = models.DateTimeField(null=True, blank=True)
     dob = models.DateField(null=True, blank=True)  # Date of birth
     place_of_birth = models.CharField(max_length=255, null=True, blank=True)
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')], null=True, blank=True)
@@ -18,6 +20,4 @@ class Citizen(models.Model):
     place_of_issue = models.CharField(max_length=255, null=True, blank=True)
     nationality = models.CharField(max_length=100)
 
-    def __str__(self):
-        return self.id
     

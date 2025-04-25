@@ -19,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Account
-        fields = ['id', 'username', 'email', 'role', 'created_at']
+        fields = ['id', 'username', 'email', 'role']
         
 class ListSerializer(serializers.ModelSerializer):
     role = serializers.CharField(source="role_id.role_name", read_only=True)
