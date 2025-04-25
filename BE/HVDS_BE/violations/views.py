@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.core.paginator import Paginator
+from django.db import connection
 from violation_status.models import ViolationStatus
 from .utils import post_process_change_status
 from .serializers import ViolationSerializer, ViolationStatusChangeSerializer, ViolationResponseSerializer, ViolationSearchSerializer, ViolationReportSerializer, ViolationByCitizenSerializer, ViolationCreateSerializer
@@ -25,16 +27,38 @@ class ViolationCreateView(APIView):
             "message": "Violations processed successfully",
             "data": results
         }, status=status.HTTP_201_CREATED)
+        
+queryset = Violation.objects.order_by('-detected_at')
+paginator = Paginator(queryset, per_page=1)
 
 class ViolationListView(generics.ListAPIView):
-    queryset = Violation.objects.all()
     serializer_class = ViolationSearchSerializer
+
+    def get_queryset(self):
+        per_page = max(1, int(self.request.query_params.get('per_page', 50)))
+        page_number = max(1, int(self.request.query_params.get('page_number', 1)))
+        offset = (page_number - 1) * per_page
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT * FROM {Violation._meta.db_table}
+                ORDER BY detected_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                [per_page, offset]
+            )
+            if cursor.description:
+                columns = [col[0] for col in cursor.description]
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return [Violation(**row) for row in results]
+            return []
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response({
-            "message": "Get all violations successfully",
+            "message": "Get violations successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 

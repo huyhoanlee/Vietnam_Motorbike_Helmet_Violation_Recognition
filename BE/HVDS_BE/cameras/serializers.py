@@ -4,7 +4,7 @@ from camera_urls.models import CameraUrl
 from locations.models import Location
 import requests
 
-URL = "https://huyhoanlee-ai-service.hf.space"
+URL = "http://58.8.184.170:55143"
 class CameraSerializer(serializers.ModelSerializer):
     class Meta:
         model = Camera

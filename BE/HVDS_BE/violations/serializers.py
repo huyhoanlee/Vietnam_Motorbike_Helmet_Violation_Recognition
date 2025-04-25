@@ -133,6 +133,7 @@ class ViolationItemSerializer(serializers.Serializer):
         confidence = validated_data['confidence']
         tracking_id = validated_data['tracking_id']
         tracked_time = validated_data['time']
+        status = validated_data['status']
 
         with transaction.atomic():
 
@@ -143,7 +144,7 @@ class ViolationItemSerializer(serializers.Serializer):
             if not camera:
                 raise serializers.ValidationError("No camera linked to this URL")
 
-            status_obj, _ = ViolationStatus.objects.get_or_create(status_name="AI detected")
+            status_obj, _ = ViolationStatus.objects.get_or_create(status_name=status)
             violation = Violation.objects.filter(tracking_id=tracking_id).first()
 
             if not violation:

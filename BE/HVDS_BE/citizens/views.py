@@ -1,12 +1,14 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from .serializers import CitizenSerializer, CarParrotRegisterSerializer, CarParrotResponseSerializer, CitizenApplicationsSerializer, CitizenUpdateSerializer, CitizenResponseSerializer
+from .serializers import CitizenSerializer, CitizenChangeEmailSerializer, CarParrotRegisterSerializer, CarParrotResponseSerializer, CitizenApplicationsSerializer, CitizenUpdateSerializer, CitizenResponseSerializer
 from .models import Citizen
 from rest_framework.views import APIView
 from rest_framework import status
 from .serializers import CitizenAuthSerializer
 from rest_framework.permissions import AllowAny
-from .utils import call_api
+from car_parrots.models import CarParrots
+from vehicles.models import Vehicle
+from .utils import call_api, email_api
 
 class CitizenGetAllSubmittedView(generics.ListAPIView):
     serializer_class = CitizenSerializer
@@ -27,6 +29,19 @@ class CitizenVerifyView(generics.UpdateAPIView):
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class CitizenCheckCarParrotView(generics.UpdateAPIView):
+    queryset = Citizen.objects.all()
+    permission_classes = [AllowAny]
+
+    def update(self, request, *args, **kwargs):
+        if CarParrots.objects.filter(plate_number=request.data["plate_number"], status="Verified").exists():
+            return Response({
+                "is_owned": True
+                }, status=status.HTTP_201_CREATED)
+        return Response({
+            "is_owned": False
+        }, status=status.HTTP_201_CREATED)
 
 class CarParrotRegisterView(generics.CreateAPIView):
     queryset = Citizen.objects.all()
@@ -35,17 +50,33 @@ class CarParrotRegisterView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
-        citizen = self.get_object() 
-        data = request.data.copy()
-        data['citizen_id'] = citizen.id
-
+        citizen = self.get_object()
+        if CarParrots.objects.filter(plate_number=request.data["plate_number"], status="Verified").exists():
+            all_car_parrots = CarParrots.objects.filter(citizen_id=citizen)
+            response_serializer = CarParrotResponseSerializer(all_car_parrots, many=True)
+            return Response({
+            "message": "Plate number already registered.",
+            "car_parrot": response_serializer.data,
+            "is_owned": True,
+        }, status=status.HTTP_201_CREATED)
+ 
+        data = request.data.copy() 
+        data['citizen_id'] = citizen.id 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
-        response_serializer = CarParrotResponseSerializer(instance)
+        
+        vehicle, _ = Vehicle.objects.get_or_create(plate_number=instance.plate_number)
+        vehicle.car_parrot_id = instance
+        vehicle.save()
+        
+        all_car_parrots = CarParrots.objects.filter(citizen_id=citizen)
+        response_serializer = CarParrotResponseSerializer(all_car_parrots, many=True)
         return Response({
             "message": "Car plate registered successfully.",
-            "car_parrot": response_serializer.data
+            "car_parrot": response_serializer.data,
+            "is_owned": False,
+            "id": instance.id
         }, status=status.HTTP_201_CREATED)
             
 class CitizenApplicationsView(generics.RetrieveAPIView):
@@ -58,9 +89,11 @@ class CitizenApplicationsView(generics.RetrieveAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
+        application = CarParrots.objects.filter(citizen_id=instance)
+        response_serializer = CarParrotResponseSerializer(application, many=True)
         return Response({
             "citizen_id": data['id'],
-            "applications": data['applications']
+            "applications": response_serializer.data
         }, status=status.HTTP_200_OK)
 
 class CitizenAuthView(APIView):
@@ -90,6 +123,38 @@ class CitizenAuthView(APIView):
                 }
         }, status=status.HTTP_201_CREATED)
         
+class CitizenChangeEmailView(generics.UpdateAPIView):
+    permission_classes = [AllowAny]
+    queryset = Citizen.objects.all()
+    serializer_class = CitizenSerializer
+    lookup_field = 'id'
+    
+    def post(self, request, *args, **kwargs):
+        instance = self.get_object()
+        request.data["phone_number"] = instance.phone_number
+        serializer = CitizenChangeEmailSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get('email')
+        code_authen = serializer.validated_data.get('code_authen')
+
+        if not code_authen:
+            generated_authen = serializer.validated_data.get('generated_authen')
+            exp = serializer.validated_data.get('exp')
+            output = email_api(email, exp, generated_authen)
+            return Response({
+                "message": "OTP sent to email successfully."
+            }, status=status.HTTP_200_OK)
+
+        citizen = serializer.save()
+        return Response({
+            "message": "Citizen Change email successfully.",
+            "data": {
+                "id": citizen.id,
+                "email": citizen.email
+                }
+        }, status=status.HTTP_201_CREATED)
+        
 class CitizenUpdateView(generics.UpdateAPIView):
     queryset = Citizen.objects.all()
     serializer_class = CitizenUpdateSerializer
@@ -111,3 +176,4 @@ class CitizenInformationView(generics.RetrieveAPIView):
     queryset = Citizen.objects.all()
     serializer_class = CitizenSerializer
     lookup_field = 'id'
+    permission_classes = [AllowAny]

@@ -5,6 +5,7 @@ from .serializers import UserSerializer, AccountSerializer, ListSerializer, Role
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -185,3 +186,20 @@ class AccountProfileView(generics.RetrieveAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class CitizenForgetPasswordView(generics.RetrieveAPIView):
+    queryset = Account.objects.all()
+    # serializer_class = CitizenApplicationsSerializer
+    lookup_field = 'id'
+    permission_classes = [AllowAny]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        application = CarParrots.objects.filter(citizen_id=instance)
+        response_serializer = CarParrotResponseSerializer(application, many=True)
+        return Response({
+            "citizen_id": data['id'],
+            "applications": response_serializer.data
+        }, status=status.HTTP_200_OK)
