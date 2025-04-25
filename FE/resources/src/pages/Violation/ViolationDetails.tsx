@@ -52,6 +52,8 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
   const [editing, setEditing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [openImageDialog, setOpenImageDialog] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -198,10 +200,15 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
           height: 150, 
           borderRadius: 2, 
           border: "1px solid #ddd",
-          objectFit: "cover"
+          objectFit: "cover",
+          cursor: "pointer"
         }}
         image={normalizeBase64Image(violation.violation_image?.[0])}
         alt="Violation Image"
+        onClick={() => {
+        setSelectedImage(normalizeBase64Image(violation.violation_image?.[0]));
+        setOpenImageDialog(true);
+      }}
         onError={(e) => {
           (e.target as HTMLImageElement).src = "/placeholder-image.png";
         }}
@@ -281,6 +288,10 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
                       objectFit: "cover",
                       cursor: "pointer"
                     }}
+                    onClick={() => {
+                    setSelectedImage(normalizeBase64Image(img));
+                    setOpenImageDialog(true);
+                  }}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "/placeholder-image.png";
                     }}
@@ -377,6 +388,14 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Dialog open={openImageDialog} onClose={() => setOpenImageDialog(false)} maxWidth="lg">
+      <img 
+        src={selectedImage || "/placeholder-image.png"} 
+        alt="Zoomed Image"
+        style={{ maxWidth: "100%", height: "auto" }}
+      />
+    </Dialog>
     </Card>
   );
 };

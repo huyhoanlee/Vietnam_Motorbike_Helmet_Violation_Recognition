@@ -114,7 +114,7 @@ const ReportViolation = () => {
         simulateProgress(i);
         const base64 = await convertToBase64(uploadingImages[i].file);
         base64Images.push(base64);
-        await new Promise(resolve => setTimeout(resolve, 400)); // giả lập chờ upload
+        await new Promise(resolve => setTimeout(resolve, 400)); 
       }
 
       const payload = {

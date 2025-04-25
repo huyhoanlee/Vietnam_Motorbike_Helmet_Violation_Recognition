@@ -131,16 +131,7 @@ const OCRLicenseForm = () => {
       const applications = getResponse.data?.applications || [];
       const carParrotId = response.data?.id || null;
 
-      const userData = {
-        owner,
-        address,
-        modelCode,
-        color,
-        plate_number: plateNumber
-      };
-
-      localStorage.setItem("citizen_data", JSON.stringify(userData));
-
+    
       setUploadedVehicles((prev) => [
         ...prev,
         {

@@ -128,6 +128,10 @@ const Dashboard: React.FC = () => {
     return `data:image/${format};base64,${data}`;
   };
 
+  const normalizePlateNumber = (plate: string) => {
+  return plate.toLowerCase().replace(/[\s\-.]/g, ""); 
+};
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -226,15 +230,16 @@ const Dashboard: React.FC = () => {
       showAlert("warning", "Please enter a plate number!");
       return;
     }
-
+    
     setSearchLoading(true);
     setSearchResult(null);
-
+    
+    const normalizedPlate = normalizePlateNumber(plateNumber);
     try {
       const res = await axiosInstance.post(
         `${API_BASE_URL}violations/search-by-plate-number/`,
         {
-          plate_number: plateNumber.trim(),
+          plate_number: normalizedPlate.trim(),
         }
       );
       const data: Violation[] = res.data?.data?.violations || [];

@@ -55,9 +55,9 @@ const DataDetection: React.FC = () => {
 
   const handleOpenDialog = async (camera_id: string) => {
     try {
-      // await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
-      const fixedStreamUrl = "https://huyhoanlee-ai-service.hf.space/stream/a32be6e7";
-      setSelectedStream(fixedStreamUrl);
+      const fixedStreamUrl = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera_id}/`);
+      // const fixedStreamUrl = "https://huyhoanlee-ai-service.hf.space/stream/a32be6e7";
+      setSelectedStream(fixedStreamUrl.data.output_url);
       setOpenDialog(true);
     } catch (error) {
       console.error("Failed to load stream:", error);
@@ -88,7 +88,7 @@ const DataDetection: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>
-        Phát hiện dữ liệu camera
+        Camera data detection
       </Typography>
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
@@ -100,7 +100,7 @@ const DataDetection: React.FC = () => {
           sx={{ flex: 1 }}
         />
         <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel>Bộ lọc</InputLabel>
+          <InputLabel>Filter</InputLabel>
           <Select value={filter} onChange={handleFilterChange}>
             <MenuItem value="All">All</MenuItem>
             {data.map((camera) => (
@@ -116,9 +116,9 @@ const DataDetection: React.FC = () => {
           <TableHead>
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell><b>ID</b></TableCell>
-              <TableCell><b>Thiết bị</b></TableCell>
-              <TableCell><b>Vị trí</b></TableCell>
-              <TableCell align="center"><b>Hành động</b></TableCell>
+              <TableCell><b>Devices</b></TableCell>
+              <TableCell><b>Locations</b></TableCell>
+              <TableCell align="center"><b>Actions</b></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -133,7 +133,7 @@ const DataDetection: React.FC = () => {
                     color="primary"
                     onClick={() => handleOpenDialog(row.camera_id)}
                   >
-                    Luồng xem
+                    Streaming view
                   </Button>
                 </TableCell>
               </TableRow>
@@ -142,12 +142,12 @@ const DataDetection: React.FC = () => {
         </Table>
       </TableContainer>
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
-        <DialogTitle>Phát trực tiếp</DialogTitle>
+        <DialogTitle>Streaming</DialogTitle>
         <DialogContent>
           {selectedStream ? (
             <MJPEGStreamViewer streamUrl={selectedStream} />
           ) : (
-            <Typography>Không thể hiển thị luồng</Typography>
+            <Typography>Cannot streaming!</Typography>
           )}
         </DialogContent>
       </Dialog>

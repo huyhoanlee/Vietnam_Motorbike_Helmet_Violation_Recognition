@@ -84,7 +84,7 @@ const handleOpenDialog = (device: Device | null = null) => {
     reset({
       url_input: "",
       device_name: "",
-      location: "",
+      location: "Location",
       status: "active",
       note: "",
       camera_id: "", 
