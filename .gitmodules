@@ -1,0 +1,3 @@
+[submodule "AI/AI/ByteTrack"]
+	path = AI/AI/ByteTrack
+	url = https://github.com/ifzhang/ByteTrack
