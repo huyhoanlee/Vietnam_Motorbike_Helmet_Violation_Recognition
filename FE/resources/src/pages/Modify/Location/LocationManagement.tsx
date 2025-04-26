@@ -63,7 +63,7 @@ useEffect(() => {
       setCities(res.data.cities);
     })
     .catch((err) => {
-      console.error("Không thể tải danh sách thành phố", err);
+      console.error("Unable to load city list", err);
     });
 }, []);
 
@@ -76,7 +76,7 @@ useEffect(() => {
         setDistricts(res.data.districts);
       })
       .catch((err) => {
-        console.error("Lỗi khi fetch districts:", err);
+        console.error("Error fetch districts:", err);
         setDistricts([]);
       });
   }
@@ -92,7 +92,7 @@ useEffect(() => {
         setRoads(res.data.roads || res.data); // tùy thuộc vào format của response
       })
       .catch((err) => {
-        console.error("Lỗi khi fetch roads:", err.response?.data || err);
+        console.error("Error fetch roads:", err.response?.data || err);
         setRoads([]);
       });
   }
@@ -100,8 +100,8 @@ useEffect(() => {
 
 const handleCreate = async () => {
   if (!name || !selectedCity || !selectedDistrict || !selectedRoad) {
-    console.warn("Thông tin chưa đầy đủ:", { name, selectedCity, selectedDistrict, selectedRoad });
-    setSnackbar({ open: true, message: "Vui lòng nhập đầy đủ thông tin", severity: "error" });
+    console.warn("Incomplete information:", { name, selectedCity, selectedDistrict, selectedRoad });
+    setSnackbar({ open: true, message: "Please enter complete information", severity: "error" });
     return;
   }
 
@@ -117,15 +117,15 @@ const handleCreate = async () => {
     try {
       const res = await axiosInstance.post(`${API_BASE_URL}locations/create/`, payload);
       console.log("Create response:", res.data);
-      setSnackbar({ open: true, message: "Tạo địa điểm thành công!", severity: "success" });
+      setSnackbar({ open: true, message: "Create a successful location!", severity: "success" });
       setName("");
       setSelectedCity("");
       setSelectedDistrict("");
       setSelectedRoad("");
       setMarkerPos(DEFAULT_POSITION);
     } catch (err) {
-      console.error("Lỗi khi tạo địa điểm:", err);
-      setSnackbar({ open: true, message: "Tạo thất bại. Kiểm tra dữ liệu!", severity: "error" });
+      console.error("Error creating location:", err);
+      setSnackbar({ open: true, message: "Create failed. Check data!", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -134,13 +134,13 @@ const handleCreate = async () => {
   return (
     <Paper sx={{ p: 4, maxWidth: 800, mx: "auto", mt: 5, borderRadius: 3, boxShadow: 5 }}>
       <Typography variant="h5" fontWeight="bold" gutterBottom>
-        Tạo mới địa điểm (Supervisor)
+        Create new location (Supervisor)
       </Typography>
 
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <TextField
-            label="Tên địa điểm"
+            label="Location Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             fullWidth
@@ -150,7 +150,7 @@ const handleCreate = async () => {
 
         <Grid item xs={12} sm={4}>
           <TextField
-            label="Thành phố"
+            label="City"
             select
             value={selectedCity}
             onChange={(e) => setSelectedCity(e.target.value)}
@@ -165,7 +165,7 @@ const handleCreate = async () => {
 
         <Grid item xs={12} sm={4}>
           <TextField
-            label="Quận/Huyện"
+            label="District"
             select
             value={selectedDistrict}
             onChange={(e) => setSelectedDistrict(e.target.value)}
@@ -181,7 +181,7 @@ const handleCreate = async () => {
 
         <Grid item xs={12} sm={4}>
           <TextField
-            label="Tên đường"
+            label="Road"
             select
             value={selectedRoad}
             onChange={(e) => setSelectedRoad(e.target.value)}
@@ -207,7 +207,7 @@ const handleCreate = async () => {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <Marker position={markerPos}>
-              <Popup>Vị trí bạn chọn</Popup>
+              <Popup>The location you choose</Popup>
             </Marker>
             <ClickHandler onClick={(pos) => setMarkerPos(pos)} />
           </MapContainer>
@@ -221,7 +221,7 @@ const handleCreate = async () => {
             disabled={loading}
             sx={{ minWidth: 160, fontWeight: "bold", borderRadius: 2 }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : "Tạo địa điểm"}
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Create a location"}
           </Button>
         </Grid>
       </Grid>

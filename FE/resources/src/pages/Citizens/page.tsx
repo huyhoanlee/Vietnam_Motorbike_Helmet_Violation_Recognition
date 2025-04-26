@@ -10,7 +10,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import CenterFocusWeakIcon from '@mui/icons-material/CenterFocusWeak';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import DownloadDoneIcon from '@mui/icons-material/DownloadDone';
 import { useNavigate } from "react-router-dom";
 
 const boxStyles = {
@@ -52,10 +52,10 @@ const CitizenManager: React.FC = () => {
           >
             <PersonIcon sx={{ fontSize: 50, color: "#4a148c", mb: 1 }} />
             <Typography variant="h6" fontWeight={600}>
-              Personal Information
+               Information
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              View or update personal data
+              Personal 
             </Typography>
           </Paper>
         </Grid>
@@ -69,10 +69,10 @@ const CitizenManager: React.FC = () => {
           >
             <AssignmentIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
             <Typography variant="h6" fontWeight={600}>
-              Application Requests
+              Application
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Review and process vehicle card parrot
+              Process vehicle card parrot
             </Typography>
           </Paper>
         </Grid>
@@ -89,7 +89,7 @@ const CitizenManager: React.FC = () => {
               Violation History
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Look up exist violation by plate number
+              Exist Violation by Plate Number
             </Typography>
           </Paper>
         </Grid>
@@ -104,10 +104,10 @@ const CitizenManager: React.FC = () => {
           >
             <CenterFocusWeakIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
             <Typography variant="h6" fontWeight={600}>
-              Violation Proofs
+              Violation Reports
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Upload violations detected
+              Upload Violations Detected
             </Typography>
           </Paper>
         </Grid>
@@ -119,12 +119,12 @@ const CitizenManager: React.FC = () => {
             onClick={() => navigate("/notificattions")}
             elevation={4}
           >
-            <NotificationsActiveIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
+            <DownloadDoneIcon sx={{ fontSize: 50, color: "#1565c0", mb: 1 }} />
             <Typography variant="h6" fontWeight={600}>
-              Notifications
+              Vehicle Owner
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Check out violation notify and more
+              Plate Number
             </Typography>
           </Paper>
         </Grid>

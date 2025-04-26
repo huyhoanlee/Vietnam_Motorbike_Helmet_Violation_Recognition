@@ -84,7 +84,7 @@ const UserManagement: React.FC = () => {
     // Xử lý mở popup thêm/sửa user
   const handleOpenDialog = (user?: User) => {
     console.log("Opening dialog with user:", user);
-    reset(user || { username: "", email: "", password: "", confirm_password: "", role: "" });
+    reset(user || { username: "", email: "", password: "", confirm_password: "", role: "Supervisor" });
     setOpenDialog(true);
   };
 

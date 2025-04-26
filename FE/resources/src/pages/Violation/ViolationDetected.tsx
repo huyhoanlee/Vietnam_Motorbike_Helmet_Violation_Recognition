@@ -3,7 +3,8 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Checkbox, IconButton, Typography, Box, Button, Collapse, CircularProgress,
   Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText,
-  DialogTitle, TextField, InputAdornment, Select, MenuItem, Grid, Pagination
+  DialogTitle, TextField, InputAdornment, Select, MenuItem, Grid, Pagination,
+  FormControl,InputLabel,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
@@ -13,6 +14,7 @@ import axiosInstance from "../../services/axiosInstance.tsx";
 import config from "../../config";
 
 const API_BASE_URL = config.API_URL;
+const STATUS_API_URL = `${config.API_URL}violation_status/get-all/`;
 
 interface Violation {
   id: number;
@@ -30,7 +32,49 @@ interface Citizen {
   plate_number: string;
   email?: string;
 }
+interface Status {
+  description: string;
+  id: number; 
+  status_name: string;
+}
 
+interface StatusSelectProps {
+  filterStatus: string;
+  setFilterStatus: (value: string) => void;
+}
+
+const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStatus }) => {
+  const [statuses, setStatuses] = useState<Status[]>([]);
+
+  useEffect(() => {
+    axiosInstance
+      .get(STATUS_API_URL)
+      .then((response) => {
+        setStatuses(response.data.data);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch statuses:", error);
+      });
+  }, []);
+
+  return (
+    <FormControl size="small" sx={{ minWidth: 120 }}>
+      <InputLabel>Filter Status</InputLabel>
+      <Select
+        value={filterStatus}
+        onChange={(e) => setFilterStatus(e.target.value as string)}
+        label="Filter Status"
+      >
+        <MenuItem value="All">All Status</MenuItem>
+        {statuses.map((status, index) => (
+          <MenuItem key={index} value={status.status_name}>
+            {status.status_name}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+};
 const ViolationDetected: React.FC = () => {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +106,7 @@ const ViolationDetected: React.FC = () => {
           plate_number: v.plate_number,
           camera_id: v.camera_id || "Unknown",
           detected_at: v.detected_at,
-          status: v.status_name || "Unknown", // Map status_name to status
+          status: v.status_name || "Unknown", 
           status_name: v.status_name || "Unknown",
           location: v.location || "Unknown",
           violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
@@ -123,15 +167,15 @@ const ViolationDetected: React.FC = () => {
     }
   };
 
-  const handleNotifyAll = () => {
-    setActionType("notifyAll");
-    setConfirmDialogOpen(true);
-  };
+  // const handleNotifyAll = () => {
+  //   setActionType("notifyAll");
+  //   setConfirmDialogOpen(true);
+  // };
 
-  const handleNotifySelected = () => {
-    setActionType("notifySelected");
-    setConfirmDialogOpen(true);
-  };
+  // const handleNotifySelected = () => {
+  //   setActionType("notifySelected");
+  //   setConfirmDialogOpen(true);
+  // };
 
   const handleConfirmAction = async () => {
     setConfirmDialogOpen(false);
@@ -226,19 +270,7 @@ const ViolationDetected: React.FC = () => {
               />
             </Grid>
             <Grid item xs={6} md={4}>
-              <Select
-                fullWidth
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                displayEmpty
-              >
-                <MenuItem value="All">All Status</MenuItem>
-                <MenuItem value="AI_detected">AI Detected</MenuItem>
-                <MenuItem value="Reported">Reported</MenuItem>
-                <MenuItem value="Approved">Approved</MenuItem>
-                <MenuItem value="Pending">Pending</MenuItem>
-                <MenuItem value="Rejected">Rejected</MenuItem>
-              </Select>
+              <StatusSelect filterStatus={filterStatus} setFilterStatus={setFilterStatus} />
             </Grid>
             <Grid item xs={6} md={4}>
               <Select

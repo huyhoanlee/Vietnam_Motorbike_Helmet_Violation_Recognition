@@ -180,7 +180,7 @@ const StatusManagement: React.FC = () => {
         });
       } else if (dialogMode === "edit" && currentStatus) {
         await axiosInstance.patch(
-          `${API_BASE_URL}violation_status/change-status/${currentStatus.id}`,
+          `${API_BASE_URL}violation_status/change-status/${currentStatus.id}/`,
           { status_name: name, description }
         );
         setSnackbar({
@@ -246,7 +246,7 @@ const StatusManagement: React.FC = () => {
       </Typography>
       <Tabs value={tabIndex} onChange={handleTabChange}>
         <Tab label="Status Management" />
-        <Tab label="Violation by Status" />
+        {/* <Tab label="Violation by Status" /> */}
      
       </Tabs>
 

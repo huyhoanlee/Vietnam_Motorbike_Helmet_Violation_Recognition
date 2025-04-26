@@ -19,6 +19,9 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople';
 import HomeIcon from '@mui/icons-material/Home';
+import PermContactCalendarIcon from '@mui/icons-material/PermContactCalendar';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import CameraEnhanceIcon from '@mui/icons-material/CameraEnhance';
 
 
 const Sidebar: React.FC = () => {
@@ -49,6 +52,9 @@ const Sidebar: React.FC = () => {
     { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection", roles: ["Supervisor"] },
     { text: "Reports", icon: <DescriptionIcon />, path: "/reports", roles: ["Supervisor"] },
     { text: "Citizen Home", icon: <HomeIcon />, path: "/citizen", roles: ["Citizen"] },
+    { text: "My Infomation", icon: <PermContactCalendarIcon />, path: "/citizen-info", roles: ["Citizen"] },
+    { text: "Card Parrot", icon: <TwoWheelerIcon />, path: "/citizen-applications", roles: ["Citizen"] },
+    { text: "Citizen Reports", icon: <CameraEnhanceIcon />, path: "/report-proofs", roles: ["Citizen"] },
   ];
 
   // Lọc các menu item phù hợp với role người dùng
@@ -65,7 +71,9 @@ const Sidebar: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        paddingTop: "20px",
+        paddingTop: "30px",
+        paddingLeft: "16px",
+        paddingRight: "16px",
       }}
     >
       {/* Avatar + Thông tin */}
@@ -86,7 +94,7 @@ const Sidebar: React.FC = () => {
       </Box>
 
       {/* Danh sách Menu */}
-      <List component="nav" sx={{ width: "100%", marginTop: "20px" }}>
+      <List component="nav" sx={{ width: "100%", marginTop: "30px" }}>
         {filteredMenuItems.map((item, index) => (
           <React.Fragment key={item.text}>
             <ListItemButton
@@ -104,6 +112,7 @@ const Sidebar: React.FC = () => {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontWeight: selected === item.path ? "bold" : "normal",
+                  fontSize: "15px",
                   color: selected === item.path ? "#5c47d2" : "#333",
                 }}
               />

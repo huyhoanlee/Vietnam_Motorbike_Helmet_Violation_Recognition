@@ -56,7 +56,7 @@ const CitizenNotification = () => {
           setNotification({
             open: true,
             message:
-              "Bạn chưa đăng ký giấy tờ xe hoặc bạn còn giấy tờ xe đang chờ kiểm duyệt.",
+              "You have not registered your vehicle documents or you have vehicle documents waiting for approval.",
             severity: "info",
           });
         } else {
@@ -69,7 +69,7 @@ const CitizenNotification = () => {
       } catch (err) {
         setNotification({
           open: true,
-          message: "Không thể tải dữ liệu. Vui lòng thử lại sau.",
+          message: "Unable to load data. Please try again later.",
           severity: "error",
         });
       } finally {
