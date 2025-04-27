@@ -182,7 +182,7 @@ const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => 
       {/* Section 2 - Registered Document Violations */}
       <Paper elevation={3} sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Check Violations from Registered Card Parrot
+          Check Violations from Vehicle Registration
         </Typography>
         {loadCitizen ? (
           <Typography color="text.secondary">

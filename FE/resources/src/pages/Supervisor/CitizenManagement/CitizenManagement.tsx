@@ -191,7 +191,7 @@ const CitizenManagement: React.FC = () => {
                     >
                       <img
                         src={formatImageSrc(selectedCitizen.card_parrot_image)}
-                        alt="Card Parrot"
+                        alt="Vehicle Registration"
                       />
                     </Box>
                   ) : (
