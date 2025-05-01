@@ -69,7 +69,7 @@ const App = () => {
         {/* <Route path="/status-hard-code" element={<MainLayout><HardCodeStatus /></MainLayout>} /> */}
         <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationCreator /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/reports" element={<PrivateRoute element={<MainLayout><ReportPage /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole={["Supervisor", "Admin"]} />} />
         <Route path="/manage-notifications" element={<PrivateRoute element={<MainLayout><NotificationManager /></MainLayout>} requiredRole="Supervisor"/>} />
 
 

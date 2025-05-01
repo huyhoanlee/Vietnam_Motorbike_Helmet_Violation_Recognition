@@ -21,7 +21,7 @@ import {
 import { useState, useEffect } from "react";
 import axios from "axios";
 import config from "../../../config";
-import EmailUpdateSection from "./EmailUpdateSection";
+import EmailUpdateSection from "./EmailUpdateSection"; // Thêm lại import
 
 const API_BASE_URL = config.API_URL;
 
@@ -40,7 +40,7 @@ const CitizenInfoForm = () => {
     phone: "",
     dob: "",
     birthPlace: "",
-    gender: "Male",
+    gender: "",
     address: "",
     citizen_identity_id: "",
     issueDate: "",
@@ -54,7 +54,7 @@ const CitizenInfoForm = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
+  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft"); // Giữ Verified để tương thích với API
   const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
   const [isOcrConfirmed, setIsOcrConfirmed] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -62,8 +62,10 @@ const CitizenInfoForm = () => {
   const [showFormFields, setShowFormFields] = useState(false);
 
   const citizenId = Number(localStorage.getItem("user_id") || 1);
-  const isVerified = status === "Verified";
-  const today = new Date().toISOString().split("T")[0];
+  const isVerified = status === "Verified"; // Khôi phục logic cũ
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const todayISO = today.toISOString().split("T")[0];
 
   const formatDateToISO = (dateStr: string): string => {
     if (!dateStr) return "";
@@ -88,10 +90,10 @@ const CitizenInfoForm = () => {
           setForm({
             full_name: data.full_name || "",
             email: data.email || "",
-            phone: data.phone_number || "", // API trả về phone_number
-            dob: data.dob || "", // Đã ở định dạng YYYY-MM-DD
+            phone: data.phone_number || "",
+            dob: data.dob || "",
             birthPlace: data.place_of_birth || "",
-            gender: data.gender || "Male",
+            gender: data.gender || "",
             address: data.address || "",
             citizen_identity_id: data.citizen_identity_id || "",
             issueDate: data.issue_date || "",
@@ -100,13 +102,14 @@ const CitizenInfoForm = () => {
           });
 
           setImagePreview(data.identity_card || null);
+          // API trả về status có thể là Verified, nhưng frontend chỉ xử lý Draft/Submitted
           setStatus(data.status || "Draft");
           setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
           setShowFormFields(true);
         }
       } catch (error) {
         console.error("Failed to fetch citizen info:", error);
-        setSnackbar({ msg: "Không thể lấy thông tin công dân.", type: "error" });
+        setSnackbar({ msg: "Unable to get citizen information.", type: "error" });
       }
     };
 
@@ -174,6 +177,8 @@ const CitizenInfoForm = () => {
       "address",
       "citizen_identity_id",
       "gender",
+      "issueDate",
+      "issuePlace",
     ];
 
     requiredFields.forEach((field) => {
@@ -182,30 +187,59 @@ const CitizenInfoForm = () => {
       }
     });
 
-    if (form.full_name && /\d/.test(form.full_name)) {
-      newErrors.full_name = "Name cannot contain numbers";
+    if (form.full_name) {
+      if (/\d/.test(form.full_name)) {
+        newErrors.full_name = "Name cannot contain numbers";
+      }
+      if (!/^[a-zA-Z\sÀ-ỹ]+$/u.test(form.full_name)) {
+        newErrors.full_name = "Name can only contain letters and spaces";
+      }
+      if (form.full_name.length < 2 || form.full_name.length > 50) {
+        newErrors.full_name = "Name must be between 2 and 50 characters";
+      }
     }
 
     if (form.email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(form.email)) {
-      newErrors.email = "Invalid email";
+      newErrors.email = "Invalid email format";
     }
 
     if (form.phone && !/^\d{10}$/.test(form.phone)) {
-      newErrors.phone = "Phone number must be 10 digits";
+      newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (form.citizen_identity_id && !/^(\d{9}|\d{12})$/.test(form.citizen_identity_id)) {
-      newErrors.citizen_identity_id = "The ID number must consist of 9 or 12 digits.";
+      newErrors.citizen_identity_id = "ID number must be 9 or 12 digits";
     }
 
-    const dobDate = new Date(form.dob);
-    const age = new Date().getFullYear() - dobDate.getFullYear();
-    if (form.dob && age < 18) {
-      newErrors.dob = "You must be over 18 to register";
+    if (form.dob) {
+      const dobDate = new Date(form.dob);
+      const age = currentYear - dobDate.getFullYear();
+      if (isNaN(dobDate.getTime())) {
+        newErrors.full_name = "Invalid date of birth";
+      } else if (age < 18) {
+        newErrors.dob = "You must be over 18 to register";
+      } else if (dobDate > today) {
+        newErrors.dob = "Date of birth cannot be in the future";
+      }
     }
 
-    if (form.issueDate && new Date(form.issueDate) > new Date()) {
-      newErrors.issueDate = "Invalid issue date";
+    if (form.issueDate) {
+      const issueDate = new Date(form.issueDate);
+      if (isNaN(issueDate.getTime())) {
+        newErrors.issueDate = "Invalid issue date";
+      } else if (issueDate > today) {
+        newErrors.issueDate = "Issue date cannot be in the future";
+      }
+    }
+
+    if (form.birthPlace && !/^[a-zA-Z\sÀ-ỹ,.]+$/u.test(form.birthPlace)) {
+      newErrors.birthPlace = "Place of birth can only contain letters, spaces, commas, and periods";
+    }
+    if (form.address && !/^[a-zA-Z0-9\sÀ-ỹ,.]+$/u.test(form.address)) {
+      newErrors.address = "Address can only contain letters, numbers, spaces, commas, and periods";
+    }
+    if (form.issuePlace && !/^[a-zA-Z\sÀ-ỹ,.]+$/u.test(form.issuePlace)) {
+      newErrors.issuePlace = "Place of issue can only contain letters, spaces, commas, and periods";
     }
 
     setErrors(newErrors);
@@ -222,8 +256,6 @@ const CitizenInfoForm = () => {
       setSnackbar({ msg: "Please upload ID photo.", type: "error" });
       return;
     }
-
-    if (isVerified) return;
 
     if (status === "Submitted" && !awaitingConfirmEdit) {
       setSnackbar({
@@ -248,27 +280,39 @@ const CitizenInfoForm = () => {
         Object.entries(form).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])
       );
 
+      // Đảm bảo key trong payload khớp với API
       const payload = {
-        ...trimmedForm,
+        full_name: trimmedForm.full_name,
+        email: trimmedForm.email,
+        phone_number: trimmedForm.phone, // API yêu cầu phone_number
+        dob: trimmedForm.dob,
+        place_of_birth: trimmedForm.birthPlace, // API yêu cầu place_of_birth
+        gender: trimmedForm.gender,
+        address: trimmedForm.address,
+        citizen_identity_id: trimmedForm.citizen_identity_id,
+        issue_date: trimmedForm.issueDate, // API yêu cầu issue_date
+        place_of_issue: trimmedForm.issuePlace, // API yêu cầu place_of_issue
+        nationality: trimmedForm.nationality,
         identity_card: base64Image,
+        status: "Submitted", // Gửi status là Submitted
       };
 
-      // Gửi dữ liệu qua API PATCH
+      // Log payload để kiểm tra
+      console.log("Payload gửi lên API:", payload);
+
       const updateResponse = await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload);
       console.log("Update response:", updateResponse.data);
 
-      // Lấy thông tin đã gửi qua API GET
       const getResponse = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`);
       const data = getResponse.data;
 
-      // Cập nhật form với dữ liệu từ API
       setForm({
         full_name: data.full_name || "",
         email: data.email || "",
-        phone: data.phone_number || "", // API trả về phone_number
-        dob: data.dob || "", // Đã ở định dạng YYYY-MM-DD
+        phone: data.phone_number || "",
+        dob: data.dob || "",
         birthPlace: data.place_of_birth || "",
-        gender: data.gender || "Male",
+        gender: data.gender || "",
         address: data.address || "",
         citizen_identity_id: data.citizen_identity_id || "",
         issueDate: data.issue_date || "",
@@ -277,13 +321,13 @@ const CitizenInfoForm = () => {
       });
 
       setImagePreview(data.identity_card || null);
-      setStatus(data.status || "Draft");
-      setIsSubmitted(true);
+      setStatus(data.status || "Draft"); // API có thể trả về Verified, nhưng frontend sẽ xử lý
+      setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
       setAwaitingConfirmEdit(false);
 
-      setSnackbar({ msg: "Information sent successfully!", type: "success" });
+      setSnackbar({ msg: "Information submitted successfully!", type: "success" });
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Failed to send information.";
+      const msg = err.response?.data?.error || "Failed to submit information.";
       setSnackbar({ msg, type: "error" });
     } finally {
       setLoading(false);
@@ -300,7 +344,7 @@ const CitizenInfoForm = () => {
       phone: "",
       dob: "",
       birthPlace: "",
-      gender: "Male",
+      gender: "",
       address: "",
       citizen_identity_id: "",
       issueDate: "",
@@ -318,7 +362,7 @@ const CitizenInfoForm = () => {
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1000, mx: "auto" }}>
       <Typography variant="h4" fontWeight={700} mb={3}>
-        Thông tin công dân
+        Citizen Information
       </Typography>
 
       <Paper sx={{ p: 3 }}>
@@ -328,7 +372,7 @@ const CitizenInfoForm = () => {
         <input
           type="file"
           accept="image/*"
-          disabled={isVerified || isSubmitted}
+          disabled={isSubmitted}
           onChange={handleImageChange}
         />
         {imagePreview && (
@@ -355,7 +399,7 @@ const CitizenInfoForm = () => {
                   value={form[name as keyof typeof form]}
                   onChange={handleChange}
                   fullWidth
-                  disabled={isVerified || isSubmitted}
+                  disabled={isSubmitted}
                   error={!!errors[name]}
                   helperText={errors[name]}
                 />
@@ -370,9 +414,9 @@ const CitizenInfoForm = () => {
                 InputLabelProps={{ shrink: true }}
                 value={form.dob}
                 onChange={handleChange}
-                inputProps={{ max: today }}
+                inputProps={{ max: todayISO }}
                 fullWidth
-                disabled={isVerified || isSubmitted}
+                disabled={isSubmitted}
                 error={!!errors.dob}
                 helperText={errors.dob}
               />
@@ -386,9 +430,9 @@ const CitizenInfoForm = () => {
                 InputLabelProps={{ shrink: true }}
                 value={form.issueDate}
                 onChange={handleChange}
-                inputProps={{ max: today }}
+                inputProps={{ max: todayISO }}
                 fullWidth
-                disabled={isVerified || isSubmitted}
+                disabled={isSubmitted}
                 error={!!errors.issueDate}
                 helperText={errors.issueDate}
               />
@@ -400,15 +444,20 @@ const CitizenInfoForm = () => {
                   value="Male"
                   control={<Radio />}
                   label="Male"
-                  disabled={isVerified || isSubmitted}
+                  disabled={isSubmitted}
                 />
                 <FormControlLabel
                   value="Female"
                   control={<Radio />}
                   label="Female"
-                  disabled={isVerified || isSubmitted}
+                  disabled={isSubmitted}
                 />
               </RadioGroup>
+              {errors.gender && (
+                <Typography variant="caption" color="error">
+                  {errors.gender}
+                </Typography>
+              )}
             </Grid>
 
             <Grid item xs={12} sm={6}>
@@ -419,7 +468,7 @@ const CitizenInfoForm = () => {
                 onChange={handleChange}
                 select
                 fullWidth
-                disabled={isVerified || isSubmitted}
+                disabled={isSubmitted}
               >
                 <MenuItem value="Vietnam">Vietnam</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
@@ -428,40 +477,37 @@ const CitizenInfoForm = () => {
 
             <Grid item xs={12}>
               <Typography>
-                Status:{" "}
-                <strong style={{ color: status === "Verified" ? "green" : "orange" }}>{status}</strong>
+                Status: <strong style={{ color: isVerified ? "green" : "orange" }}>{status}</strong>
               </Typography>
             </Grid>
 
-            {!isVerified && (
-              <Grid item xs={12}>
-                {isSubmitted ? (
-                  <Button
-                    onClick={handleBack}
-                    variant="contained"
-                    fullWidth
-                    sx={{ bgcolor: "primary.main" }}
-                  >
-                    Back to Edit
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmit}
-                    variant="contained"
-                    fullWidth
-                    disabled={loading}
-                    startIcon={loading && <CircularProgress size={20} />}
-                  >
-                    {loading ? "Sending..." : awaitingConfirmEdit ? "Confirm Resend" : "Submit Information"}
-                  </Button>
-                )}
-              </Grid>
-            )}
+            <Grid item xs={12}>
+              {isSubmitted ? (
+                <Button
+                  onClick={handleBack}
+                  variant="contained"
+                  fullWidth
+                  sx={{ bgcolor: "primary.main" }}
+                >
+                  Back to Edit
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  variant="contained"
+                  fullWidth
+                  disabled={loading}
+                  startIcon={loading && <CircularProgress size={20} />}
+                >
+                  {loading ? "Sending..." : awaitingConfirmEdit ? "Confirm Resend" : "Submit Information"}
+                </Button>
+              )}
+            </Grid>
           </Grid>
         )}
       </Paper>
 
-      {isVerified && <EmailUpdateSection citizenId={citizenId}/>}
+      {isVerified && <EmailUpdateSection citizenId={citizenId} />} {/* Khôi phục EmailUpdateSection */}
 
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Extracted Information</DialogTitle>

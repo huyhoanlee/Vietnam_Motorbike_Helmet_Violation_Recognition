@@ -40,7 +40,7 @@ const CitizenLogin = () => {
     } else if (countdown === 0) {
       setNotification({
         open: true,
-        message: "OTP đã hết hạn. Vui lòng gửi lại!",
+        message: "OTP has expired. Please resend!",
         type: "warning",
       });
     }
@@ -52,7 +52,7 @@ const CitizenLogin = () => {
     if (!phone.match(/^[0-9]{10,11}$/)) {
       setNotification({
         open: true,
-        message: "Số điện thoại không hợp lệ!",
+        message: "Invalid phone number!",
         type: "error",
       });
       return;
@@ -64,7 +64,7 @@ const CitizenLogin = () => {
 
       setNotification({
         open: true,
-        message: res.data.message || "OTP đã được gửi!",
+        message: res.data.message || "OTP has been sent!",
         type: "success",
       });
 
@@ -74,7 +74,7 @@ const CitizenLogin = () => {
     } catch (err: any) {
       setNotification({
         open: true,
-        message: err?.response?.data?.message || "Không thể gửi OTP!",
+        message: err?.response?.data?.message || "Unable to send OTP!",
         type: "error",
       });
     } finally {
@@ -86,7 +86,7 @@ const CitizenLogin = () => {
     if (!otp) {
       setNotification({
         open: true,
-        message: "Vui lòng nhập mã OTP!",
+        message: "Please enter OTP code!",
         type: "warning",
       });
       return;
@@ -107,7 +107,7 @@ const CitizenLogin = () => {
 
       setNotification({
         open: true,
-        message: res.data.message || "Đăng nhập thành công!",
+        message: res.data.message || "Login successful!",
         type: "success",
       });
       
@@ -119,7 +119,7 @@ const CitizenLogin = () => {
         message:
           error?.non_field_errors?.[0] ||
           error?.message ||
-          "Xác thực OTP thất bại!",
+          "OTP authentication failed!",
         type: "error",
       });
     } finally {
@@ -139,12 +139,12 @@ const CitizenLogin = () => {
       }}
     >
       <Typography variant="h5" gutterBottom>
-        Đăng nhập công dân
+        Citizen Login
       </Typography>
 
       <TextField
         fullWidth
-        label="Số điện thoại"
+        label="Phone number"
         variant="outlined"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
@@ -158,7 +158,7 @@ const CitizenLogin = () => {
           onClick={handleSendOtp}
           disabled={loading}
         >
-          {loading ? <CircularProgress size={24} /> : "Gửi OTP"}
+          {loading ? <CircularProgress size={24} /> : "Send OTP"}
         </Button>
       )}
 
@@ -166,7 +166,7 @@ const CitizenLogin = () => {
         <>
           <TextField
             fullWidth
-            label="Nhập mã OTP"
+            label="Enter OTP code"
             variant="outlined"
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
@@ -179,14 +179,14 @@ const CitizenLogin = () => {
             onClick={handleVerify}
             disabled={loading || verifyDisabled || countdown === 0}
           >
-            {loading ? <CircularProgress size={24} /> : "Xác thực & Đăng nhập"}
+            {loading ? <CircularProgress size={24} /> : "Authentication & Login"}
           </Button>
 
           <Typography align="center" sx={{ mt: 2 }}>
             {countdown !== null &&
               (countdown > 0
-                ? `Mã OTP còn hiệu lực trong ${countdown} giây`
-                : `Mã OTP đã hết hạn!`)}
+                ? `OTP code is still valid ${countdown} second`
+                : `OTP code has expired!`)}
           </Typography>
 
           <Button
@@ -196,7 +196,7 @@ const CitizenLogin = () => {
             disabled={loading}
             sx={{ mt: 1 }}
           >
-            Gửi lại OTP
+            Resend OTP
           </Button>
         </>
       )}

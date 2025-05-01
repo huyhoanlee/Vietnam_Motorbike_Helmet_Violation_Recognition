@@ -72,7 +72,7 @@ const CitizenManager: React.FC = () => {
               Application
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Process vehicle card parrot
+              Process Vehicle Card Parrot
             </Typography>
           </Paper>
         </Grid>

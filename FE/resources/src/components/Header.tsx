@@ -16,7 +16,10 @@ import {
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../services/axiosInstance";
+import config from "../config";
+import axios from "axios";
+
+const API_BASE_URL = config.API_URL;
 
 interface Notification {
   id: number;
@@ -47,7 +50,7 @@ const Header: React.FC = () => {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const response = await axiosInstance.get("https://hanaxuan-ai-service.hf.space/result");
+        const response = await axios.get(`${API_BASE_URL}result`);
         const formattedData: Notification[] = response.data.device_list.flatMap(
           (device: any) =>
             device.detected_result.map((detection: any) => ({
@@ -86,7 +89,7 @@ const Header: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await axiosInstance.post("https://hanaxuan-backend.hf.space/api/accounts/logout/");
+      await axios.post(`${API_BASE_URL}accounts/logout/`);
     } catch (error) {
       console.error("Error logging out:", error);
     }

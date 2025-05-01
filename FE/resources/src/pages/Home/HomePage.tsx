@@ -74,15 +74,15 @@ const HomePage = () => {
   return (
     <Box sx={{ p: 4, maxWidth: 1000, mx: "auto" }}>
       <Typography variant="h4" textAlign="center" fontWeight="bold" mb={4}>
-         Violation lookup & System login
+         Violation Lookup & System Login
       </Typography>
 
       <Box display="flex" justifyContent="center" gap={3} mb={5} flexWrap="wrap">
         <Button variant="contained" color="primary" size="large" onClick={() => navigate('/admin/login')}>
-          Log in as Administrator
+          Log In as Administrator
         </Button>
         <Button variant="outlined" color="secondary" size="large" onClick={() => navigate('/citizen/login')}>
-          Log in as Citizen
+          Log In as Citizen
         </Button>
       </Box>
 

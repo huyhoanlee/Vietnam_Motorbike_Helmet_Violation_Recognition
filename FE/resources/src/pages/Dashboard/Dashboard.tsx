@@ -243,7 +243,10 @@ const Dashboard: React.FC = () => {
         }
       );
       const data: Violation[] = res.data?.data?.violations || [];
-      setSearchResult(data);
+      const sortedData = data.sort(
+        (a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+      );
+      setSearchResult(sortedData);
       showAlert("success", "Search successful!");
     } catch (err: any) {
       showAlert(
