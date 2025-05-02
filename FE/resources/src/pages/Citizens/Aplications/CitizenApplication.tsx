@@ -20,7 +20,8 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid
+  Grid,
+  useTheme
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -43,6 +44,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const OCRLicenseForm = () => {
+  const theme = useTheme();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -304,7 +306,17 @@ const OCRLicenseForm = () => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1000, mx: "auto" }}>
-      <Typography variant="h4" fontWeight={700} mb={3}>
+      <Typography variant="h4" 
+          component="h1" 
+          gutterBottom
+          sx={{ 
+            fontWeight: 'bold',
+            color: theme.palette.primary.main,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
         Registration of Vehicle Applications
       </Typography>
 
@@ -453,7 +465,7 @@ const OCRLicenseForm = () => {
                       <Box>
                         <Chip 
                           icon={isVerifiedVehicle ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
-                          label={isVerifiedVehicle ? "Đã xác thực" : "Đang xử lý"} 
+                          label={isVerifiedVehicle ? "Verified" : "Processing"} 
                           color={isVerifiedVehicle ? "success" : "warning"}
                           size="small"
                           sx={{ mr: 1 }}
