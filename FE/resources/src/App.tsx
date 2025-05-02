@@ -28,12 +28,7 @@ import SupervisorProfile from "./pages/Supervisor/Profile/SupervisorProfile";
 import NotificationManager from "./pages/Modify/Notify/NotificationManager";
 import Violation from "./pages/Violation/ViolationModify";
 import CitizenVerification from "./pages/Supervisor/CitizenManagement/CitizenVerification";
-// import StreamingImage from "./pages/Streaming/StreamingImage";
-// import Violation from "./pages/Violation/ViolationModify";
-// import HardCodeStatus from "./pages/Modify/Status/harcode";
-// import CitizenInfoFormHardCode from "./pages/Citizens/Informations/CitizenInfo-hard-code";
-// import CarApplicationsHardCode from "./pages/Citizens/Aplications/CitizenApplication-hard-code";
-// import ViolationLookupPageHardCode from "./pages/Citizens/View/ViolationSearchHardCode";
+import Unauthorized from "./stores/Unauthorized";
 
 
 
@@ -69,7 +64,7 @@ const App = () => {
         {/* <Route path="/status-hard-code" element={<MainLayout><HardCodeStatus /></MainLayout>} /> */}
         <Route path="/manage-location" element={<PrivateRoute element={<MainLayout><LocationCreator /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/reports" element={<PrivateRoute element={<MainLayout><ReportPage /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole="Supervisor"/>} />
+        <Route path="/profile" element={<PrivateRoute element={<MainLayout><SupervisorProfile /></MainLayout>} requiredRole={["Supervisor", "Admin"]} />} />
         <Route path="/manage-notifications" element={<PrivateRoute element={<MainLayout><NotificationManager /></MainLayout>} requiredRole="Supervisor"/>} />
 
 
@@ -84,6 +79,7 @@ const App = () => {
         <Route path="/notificattions" element={<MainLayout><Notification /></MainLayout>} />
 
         <Route path="*" element={<NotFound />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
       </Routes>
     </Router>
   );

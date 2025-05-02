@@ -101,7 +101,7 @@ const SupervisorProfile = () => {
   return (
     <Box maxWidth="600px" mx="auto" mt={5}>
       <Typography variant="h5" gutterBottom fontWeight="bold">
-        Thông tin Supervisor
+        Account Profile
       </Typography>
       <Paper elevation={3} sx={{ p: 3 }}>
         <TextField fullWidth label="Username" value={user.username} disabled margin="normal" />

@@ -17,11 +17,22 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Fade,
+  Stepper,
+  Step,
+  StepLabel,
+  Chip,
+  Card,
+  CardContent,
 } from "@mui/material";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import config from "../../../config";
 import EmailUpdateSection from "./EmailUpdateSection";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import PersonIcon from '@mui/icons-material/Person';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 
 const API_BASE_URL = config.API_URL;
 
@@ -40,7 +51,7 @@ const CitizenInfoForm = () => {
     phone: "",
     dob: "",
     birthPlace: "",
-    gender: "Male",
+    gender: "",
     address: "",
     citizen_identity_id: "",
     issueDate: "",
@@ -52,18 +63,25 @@ const CitizenInfoForm = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" });
+  const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" | "warning" });
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
+  const [displayStatus, setDisplayStatus] = useState<string>("Draft"); // Trạng thái hiển thị ở FE
+  const [editCount, setEditCount] = useState<number>(0); // Đếm số lần chỉnh sửa
   const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
   const [isOcrConfirmed, setIsOcrConfirmed] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSubmitConfirmDialog, setShowSubmitConfirmDialog] = useState(false); // Dialog xác nhận trước khi Submit
   const [showFormFields, setShowFormFields] = useState(false);
+  const [openImageDialog, setOpenImageDialog] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
 
   const citizenId = Number(localStorage.getItem("user_id") || 1);
   const isVerified = status === "Verified";
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const todayISO = today.toISOString().split("T")[0];
 
   const formatDateToISO = (dateStr: string): string => {
     if (!dateStr) return "";
@@ -81,6 +99,7 @@ const CitizenInfoForm = () => {
   useEffect(() => {
     const fetchCitizenInfo = async () => {
       try {
+        setFetchingData(true);
         const response = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`);
         const data = response.data;
 
@@ -88,10 +107,10 @@ const CitizenInfoForm = () => {
           setForm({
             full_name: data.full_name || "",
             email: data.email || "",
-            phone: data.phone_number || "", // API trả về phone_number
-            dob: data.dob || "", // Đã ở định dạng YYYY-MM-DD
+            phone: data.phone_number || "",
+            dob: data.dob || "",
             birthPlace: data.place_of_birth || "",
-            gender: data.gender || "Male",
+            gender: data.gender || "",
             address: data.address || "",
             citizen_identity_id: data.citizen_identity_id || "",
             issueDate: data.issue_date || "",
@@ -101,12 +120,15 @@ const CitizenInfoForm = () => {
 
           setImagePreview(data.identity_card || null);
           setStatus(data.status || "Draft");
+          setDisplayStatus(data.status || "Draft");
           setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
           setShowFormFields(true);
         }
       } catch (error) {
         console.error("Failed to fetch citizen info:", error);
-        setSnackbar({ msg: "Không thể lấy thông tin công dân.", type: "error" });
+        setSnackbar({ msg: "Unable to get citizen information.", type: "error" });
+      } finally {
+        setFetchingData(false);
       }
     };
 
@@ -174,6 +196,8 @@ const CitizenInfoForm = () => {
       "address",
       "citizen_identity_id",
       "gender",
+      "issueDate",
+      "issuePlace",
     ];
 
     requiredFields.forEach((field) => {
@@ -182,30 +206,59 @@ const CitizenInfoForm = () => {
       }
     });
 
-    if (form.full_name && /\d/.test(form.full_name)) {
-      newErrors.full_name = "Name cannot contain numbers";
+    if (form.full_name) {
+      if (/\d/.test(form.full_name)) {
+        newErrors.full_name = "Name cannot contain numbers";
+      }
+      if (!/^[a-zA-Z\sÀ-ỹ]+$/u.test(form.full_name)) {
+        newErrors.full_name = "Name can only contain letters and spaces";
+      }
+      if (form.full_name.length < 2 || form.full_name.length > 50) {
+        newErrors.full_name = "Name must be between 2 and 50 characters";
+      }
     }
 
     if (form.email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(form.email)) {
-      newErrors.email = "Invalid email";
+      newErrors.email = "Invalid email format";
     }
 
     if (form.phone && !/^\d{10}$/.test(form.phone)) {
-      newErrors.phone = "Phone number must be 10 digits";
+      newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (form.citizen_identity_id && !/^(\d{9}|\d{12})$/.test(form.citizen_identity_id)) {
-      newErrors.citizen_identity_id = "The ID number must consist of 9 or 12 digits.";
+      newErrors.citizen_identity_id = "ID number must be 9 or 12 digits";
     }
 
-    const dobDate = new Date(form.dob);
-    const age = new Date().getFullYear() - dobDate.getFullYear();
-    if (form.dob && age < 18) {
-      newErrors.dob = "You must be over 18 to register";
+    if (form.dob) {
+      const dobDate = new Date(form.dob);
+      const age = currentYear - dobDate.getFullYear();
+      if (isNaN(dobDate.getTime())) {
+        newErrors.full_name = "Invalid date of birth";
+      } else if (age < 18) {
+        newErrors.dob = "You must be over 18 to register";
+      } else if (dobDate > today) {
+        newErrors.dob = "Date of birth cannot be in the future";
+      }
     }
 
-    if (form.issueDate && new Date(form.issueDate) > new Date()) {
-      newErrors.issueDate = "Invalid issue date";
+    if (form.issueDate) {
+      const issueDate = new Date(form.issueDate);
+      if (isNaN(issueDate.getTime())) {
+        newErrors.issueDate = "Invalid issue date";
+      } else if (issueDate > today) {
+        newErrors.issueDate = "Issue date cannot be in the future";
+      }
+    }
+
+    if (form.birthPlace && !/^[a-zA-Z\sÀ-ỹ,.]+$/u.test(form.birthPlace)) {
+      newErrors.birthPlace = "Place of birth can only contain letters, spaces, commas, and periods";
+    }
+    if (form.address && !/^[a-zA-Z0-9\sÀ-ỹ,.]+$/u.test(form.address)) {
+      newErrors.address = "Address can only contain letters, numbers, spaces, commas, and periods";
+    }
+    if (form.issuePlace && !/^[a-zA-Z\sÀ-ỹ,.]+$/u.test(form.issuePlace)) {
+      newErrors.issuePlace = "Place of issue can only contain letters, spaces, commas, and periods";
     }
 
     setErrors(newErrors);
@@ -218,19 +271,8 @@ const CitizenInfoForm = () => {
       return;
     }
 
-    if (!imageFile) {
+    if (!imageFile && !imagePreview) {
       setSnackbar({ msg: "Please upload ID photo.", type: "error" });
-      return;
-    }
-
-    if (isVerified) return;
-
-    if (status === "Submitted" && !awaitingConfirmEdit) {
-      setSnackbar({
-        msg: "You have already submitted. Click 'Confirm Resend' if you want to edit the information.",
-        type: "error",
-      });
-      setAwaitingConfirmEdit(true);
       return;
     }
 
@@ -239,36 +281,53 @@ const CitizenInfoForm = () => {
       return;
     }
 
+    if (displayStatus === "Change Information") {
+      setShowSubmitConfirmDialog(true); // Hiển thị dialog xác nhận trước khi Submit
+      return;
+    }
+
+    await handleFinalSubmit();
+  };
+
+  const handleFinalSubmit = async () => {
     setLoading(true);
 
     try {
-      const base64Image = await fileToBase64(imageFile);
+      const base64Image = imageFile ? await fileToBase64(imageFile) : imageBase64;
 
       const trimmedForm = Object.fromEntries(
         Object.entries(form).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])
       );
 
       const payload = {
-        ...trimmedForm,
+        full_name: trimmedForm.full_name,
+        email: trimmedForm.email,
+        phone_number: trimmedForm.phone,
+        dob: trimmedForm.dob,
+        place_of_birth: trimmedForm.birthPlace,
+        gender: trimmedForm.gender,
+        address: trimmedForm.address,
+        citizen_identity_id: trimmedForm.citizen_identity_id,
+        issue_date: trimmedForm.issueDate,
+        place_of_issue: trimmedForm.issuePlace,
+        nationality: trimmedForm.nationality,
         identity_card: base64Image,
+        status: "Submitted", // Gửi status là Submitted lên BE
       };
 
-      // Gửi dữ liệu qua API PATCH
       const updateResponse = await axios.patch(`${API_BASE_URL}citizens/update-info/${citizenId}/`, payload);
       console.log("Update response:", updateResponse.data);
 
-      // Lấy thông tin đã gửi qua API GET
       const getResponse = await axios.get(`${API_BASE_URL}citizens/information/${citizenId}/`);
       const data = getResponse.data;
 
-      // Cập nhật form với dữ liệu từ API
       setForm({
         full_name: data.full_name || "",
         email: data.email || "",
-        phone: data.phone_number || "", // API trả về phone_number
-        dob: data.dob || "", // Đã ở định dạng YYYY-MM-DD
+        phone: data.phone_number || "",
+        dob: data.dob || "",
         birthPlace: data.place_of_birth || "",
-        gender: data.gender || "Male",
+        gender: data.gender || "",
         address: data.address || "",
         citizen_identity_id: data.citizen_identity_id || "",
         issueDate: data.issue_date || "",
@@ -278,195 +337,376 @@ const CitizenInfoForm = () => {
 
       setImagePreview(data.identity_card || null);
       setStatus(data.status || "Draft");
-      setIsSubmitted(true);
+      
+      // Cập nhật trạng thái hiển thị ở FE
+      if (displayStatus === "Change Information") {
+        const newEditCount = editCount + 1;
+        setEditCount(newEditCount);
+        setDisplayStatus(`Submit again [${newEditCount.toString().padStart(2, "0")}]`);
+      } else {
+        setDisplayStatus(data.status || "Draft");
+      }
+      
+      setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
       setAwaitingConfirmEdit(false);
 
-      setSnackbar({ msg: "Information sent successfully!", type: "success" });
+      setSnackbar({ msg: "Information submitted successfully!", type: "success" });
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Failed to send information.";
+      const msg = err.response?.data?.error || "Failed to submit information.";
       setSnackbar({ msg, type: "error" });
     } finally {
       setLoading(false);
+      setShowSubmitConfirmDialog(false);
     }
   };
 
   const handleBack = () => {
+    if (isVerified) {
+      setSnackbar({ msg: "Your information is verified and cannot be edited.", type: "warning" });
+      return;
+    }
+
     setImageFile(null);
-    setImagePreview(null);
-    setImageBase64(null);
-    setForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      dob: "",
-      birthPlace: "",
-      gender: "Male",
-      address: "",
-      citizen_identity_id: "",
-      issueDate: "",
-      issuePlace: "",
-      nationality: "Vietnam",
-    });
-    setStatus("Draft");
     setIsSubmitted(false);
     setIsOcrConfirmed(false);
     setShowConfirmDialog(false);
     setAwaitingConfirmEdit(false);
-    setShowFormFields(false);
+    setDisplayStatus("Change Information"); // Trạng thái hiển thị ở FE
+  };
+
+  const renderStatusStepper = () => {
+    const steps = ["Upload ID", "Submit Information", "Verification"];
+    const activeStep = displayStatus === "Draft" || displayStatus === "Change Information" ? 0 :
+      displayStatus.startsWith("Submit again") || status === "Submitted" ? 1 : 2;
+
+    return (
+      <Fade in={!fetchingData}>
+        <Card sx={{ mb: 3, border: isVerified ? '1px solid #4caf50' : '1px solid #ff9800' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              {isVerified ? (
+                <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 28 }} />
+              ) : (
+                <ErrorOutlineIcon color="warning" sx={{ mr: 1, fontSize: 28 }} />
+              )}
+              <Typography variant="h6">
+                {isVerified ? "Citizen Verified" : displayStatus === "Change Information" ? "Editing Information" : displayStatus.startsWith("Submit again") ? "Verification Pending" : status === "Submitted" ? "Verification Pending" : "Upload Your Information"}
+              </Typography>
+            </Box>
+
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {steps.map((label, index) => (
+                <Step key={label}>
+                  <StepLabel StepIconComponent={() => (
+                    index === 0 ? <PersonIcon color={activeStep >= 0 ? "primary" : "disabled"} /> :
+                    index === 1 ? <VerifiedUserIcon color={activeStep >= 1 ? "primary" : "disabled"} /> :
+                    <CheckCircleIcon color={activeStep >= 2 ? "success" : "disabled"} />
+                  )}>
+                    {label}
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+
+            {form.full_name && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  <strong>Full Name:</strong> {form.full_name}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Citizen ID:</strong> {form.citizen_identity_id}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Date of Birth:</strong> {form.dob ? new Date(form.dob).toLocaleDateString('vi-VN') : ""}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Status:</strong>
+                  <Chip
+                    icon={isVerified ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
+                    label={displayStatus}
+                    color={isVerified ? "success" : displayStatus === "Change Information" || displayStatus.startsWith("Submit again") || status === "Submitted" ? "warning" : "default"}
+                    size="small"
+                    sx={{ ml: 1 }}
+                  />
+                </Typography>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Fade>
+    );
   };
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1000, mx: "auto" }}>
-      <Typography variant="h4" fontWeight={700} mb={3}>
-        Thông tin công dân
+      <Typography variant="h4" fontWeight={700} mb={3} color="primary.main">
+        Citizen Information
       </Typography>
 
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="body1" mb={1}>
-          Upload ID photo
-        </Typography>
-        <input
-          type="file"
-          accept="image/*"
-          disabled={isVerified || isSubmitted}
-          onChange={handleImageChange}
-        />
-        {imagePreview && (
-          <Box mt={2}>
-            <Avatar src={imagePreview} variant="rounded" sx={{ width: 160, height: 100 }} />
-          </Box>
-        )}
+      {fetchingData ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {renderStatusStepper()}
 
-        {showFormFields && (
-          <Grid container spacing={2} mt={2} sx={{ opacity: isSubmitted ? 0.6 : 1 }}>
-            {[
-              { label: "Full name", name: "full_name" },
-              { label: "Email", name: "email" },
-              { label: "Phone number", name: "phone" },
-              { label: "Place of birth", name: "birthPlace" },
-              { label: "Permanent address", name: "address" },
-              { label: "Citizen ID number", name: "citizen_identity_id" },
-              { label: "Place of issue of citizen ID card", name: "issuePlace" },
-            ].map(({ label, name }) => (
-              <Grid item xs={12} sm={6} key={name}>
-                <TextField
-                  label={label}
-                  name={name}
-                  value={form[name as keyof typeof form]}
-                  onChange={handleChange}
-                  fullWidth
-                  disabled={isVerified || isSubmitted}
-                  error={!!errors[name]}
-                  helperText={errors[name]}
-                />
-              </Grid>
-            ))}
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Date of birth"
-                name="dob"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={form.dob}
-                onChange={handleChange}
-                inputProps={{ max: today }}
-                fullWidth
-                disabled={isVerified || isSubmitted}
-                error={!!errors.dob}
-                helperText={errors.dob}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Date of issue"
-                name="issueDate"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={form.issueDate}
-                onChange={handleChange}
-                inputProps={{ max: today }}
-                fullWidth
-                disabled={isVerified || isSubmitted}
-                error={!!errors.issueDate}
-                helperText={errors.issueDate}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <RadioGroup row name="gender" value={form.gender} onChange={handleChange}>
-                <FormControlLabel
-                  value="Male"
-                  control={<Radio />}
-                  label="Male"
-                  disabled={isVerified || isSubmitted}
-                />
-                <FormControlLabel
-                  value="Female"
-                  control={<Radio />}
-                  label="Female"
-                  disabled={isVerified || isSubmitted}
-                />
-              </RadioGroup>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Nationality"
-                name="nationality"
-                value={form.nationality}
-                onChange={handleChange}
-                select
-                fullWidth
-                disabled={isVerified || isSubmitted}
-              >
-                <MenuItem value="Vietnam">Vietnam</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography>
-                Status:{" "}
-                <strong style={{ color: status === "Verified" ? "green" : "orange" }}>{status}</strong>
+          <Fade in={!fetchingData}>
+            <Paper sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, boxShadow: 3 }}>
+              <Typography variant="body1" mb={1} fontWeight={500}>
+                Upload ID Photo
               </Typography>
-            </Grid>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={isSubmitted || isVerified}
+                onChange={handleImageChange}
+                style={{
+                  padding: "10px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "4px",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  backgroundColor: isVerified ? "#f5f5f5" : "white",
+                }}
+              />
+              {imagePreview && (
+                <Box mt={2}>
+                  <Avatar
+                    src={imagePreview}
+                    variant="rounded"
+                    sx={{ width: 160, height: 100, cursor: "pointer", transition: "transform 0.3s" }}
+                    onClick={() => setOpenImageDialog(true)}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                  />
+                </Box>
+              )}
 
-            {!isVerified && (
-              <Grid item xs={12}>
-                {isSubmitted ? (
-                  <Button
-                    onClick={handleBack}
-                    variant="contained"
-                    fullWidth
-                    sx={{ bgcolor: "primary.main" }}
-                  >
-                    Back to Edit
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmit}
-                    variant="contained"
-                    fullWidth
-                    disabled={loading}
-                    startIcon={loading && <CircularProgress size={20} />}
-                  >
-                    {loading ? "Sending..." : awaitingConfirmEdit ? "Confirm Resend" : "Submit Information"}
-                  </Button>
-                )}
-              </Grid>
-            )}
-          </Grid>
-        )}
-      </Paper>
+              {showFormFields && (
+                <Grid container spacing={2} mt={2} sx={{ opacity: isVerified ? 0.6 : isSubmitted ? 0.8 : 1 }}>
+                  {[
+                    { label: "Full Name", name: "full_name" },
+                    { label: "Email", name: "email" },
+                    { label: "Phone Number", name: "phone" },
+                    { label: "Place of Birth", name: "birthPlace" },
+                    { label: "Permanent Address", name: "address" },
+                    { label: "Citizen ID Number", name: "citizen_identity_id" },
+                    { label: "Place of Issue of Citizen ID Card", name: "issuePlace" },
+                  ].map(({ label, name }) => (
+                    <Grid item xs={12} sm={6} key={name}>
+                      <TextField
+                        label={label}
+                        name={name}
+                        value={form[name as keyof typeof form]}
+                        onChange={handleChange}
+                        fullWidth
+                        disabled={isSubmitted || isVerified}
+                        error={!!errors[name]}
+                        helperText={errors[name]}
+                        variant="outlined"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "&:hover fieldset": {
+                              borderColor: isVerified ? "inherit" : "primary.main",
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: isVerified ? "inherit" : "primary.main",
+                            },
+                            "&.Mui-disabled fieldset": {
+                              borderColor: isVerified ? "rgba(0, 0, 0, 0.12)" : "inherit",
+                            },
+                          },
+                          "& .MuiInputBase-root.Mui-disabled": {
+                            backgroundColor: isVerified ? "#f5f5f5" : "inherit",
+                          },
+                        }}
+                      />
+                    </Grid>
+                  ))}
 
-      {isVerified && <EmailUpdateSection citizenId={citizenId}/>}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Date of Birth"
+                      name="dob"
+                      type="date"
+                      InputLabelProps={{ shrink: true }}
+                      value={form.dob}
+                      onChange={handleChange}
+                      inputProps={{ max: todayISO }}
+                      fullWidth
+                      disabled={isSubmitted || isVerified}
+                      error={!!errors.dob}
+                      helperText={errors.dob}
+                      variant="outlined"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "&:hover fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-disabled fieldset": {
+                            borderColor: isVerified ? "rgba(0, 0, 0, 0.12)" : "inherit",
+                          },
+                        },
+                        "& .MuiInputBase-root.Mui-disabled": {
+                          backgroundColor: isVerified ? "#f5f5f5" : "inherit",
+                        },
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Date of Issue"
+                      name="issueDate"
+                      type="date"
+                      InputLabelProps={{ shrink: true }}
+                      value={form.issueDate}
+                      onChange={handleChange}
+                      inputProps={{ max: todayISO }}
+                      fullWidth
+                      disabled={isSubmitted || isVerified}
+                      error={!!errors.issueDate}
+                      helperText={errors.issueDate}
+                      variant="outlined"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "&:hover fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-disabled fieldset": {
+                            borderColor: isVerified ? "rgba(0, 0, 0, 0.12)" : "inherit",
+                          },
+                        },
+                        "& .MuiInputBase-root.Mui-disabled": {
+                          backgroundColor: isVerified ? "#f5f5f5" : "inherit",
+                        },
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" mb={1}>Gender</Typography>
+                    <RadioGroup row name="gender" value={form.gender} onChange={handleChange}>
+                      <FormControlLabel
+                        value="Male"
+                        control={<Radio />}
+                        label="Male"
+                        disabled={isSubmitted || isVerified}
+                      />
+                      <FormControlLabel
+                        value="Female"
+                        control={<Radio />}
+                        label="Female"
+                        disabled={isSubmitted || isVerified}
+                      />
+                    </RadioGroup>
+                    {errors.gender && (
+                      <Typography variant="caption" color="error">
+                        {errors.gender}
+                      </Typography>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Nationality"
+                      name="nationality"
+                      value={form.nationality}
+                      onChange={handleChange}
+                      select
+                      fullWidth
+                      disabled={isSubmitted || isVerified}
+                      variant="outlined"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "&:hover fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: isVerified ? "inherit" : "primary.main",
+                          },
+                          "&.Mui-disabled fieldset": {
+                            borderColor: isVerified ? "rgba(0, 0, 0, 0.12)" : "inherit",
+                          },
+                        },
+                        "& .MuiInputBase-root.Mui-disabled": {
+                          backgroundColor: isVerified ? "#f5f5f5" : "inherit",
+                        },
+                      }}
+                    >
+                      <MenuItem value="Vietnam">Vietnam</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </TextField>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    {isSubmitted && !isVerified ? (
+                      <Button
+                        onClick={handleBack}
+                        variant="contained"
+                        color="secondary"
+                        fullWidth
+                        sx={{
+                          py: 1.5,
+                          transition: "all 0.3s",
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow: 6,
+                          },
+                        }}
+                      >
+                        Back to Edit
+                      </Button>
+                    ) : (
+                      !isVerified && (
+                        <Button
+                          onClick={handleSubmit}
+                          variant="contained"
+                          color="primary"
+                          fullWidth
+                          disabled={loading}
+                          startIcon={loading && <CircularProgress size={20} />}
+                          sx={{
+                            py: 1.5,
+                            transition: "all 0.3s",
+                            "&:hover": {
+                              transform: "translateY(-2px)",
+                              boxShadow: 6,
+                            },
+                          }}
+                        >
+                          {loading ? "Sending..." : awaitingConfirmEdit ? "Confirm Resend" : "Submit Information"}
+                        </Button>
+                      )
+                    )}
+                  </Grid>
+                </Grid>
+              )}
+            </Paper>
+          </Fade>
+
+          {isVerified && (
+            <Fade in={isVerified}>
+              <Box mt={4}>
+                <EmailUpdateSection citizenId={citizenId} />
+              </Box>
+            </Fade>
+          )}
+        </>
+      )}
 
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Extracted Information</DialogTitle>
         <DialogContent>
-          <Box mt={2}>
+          <Typography mb={2}>Please review the information below. Are you sure it is correct?</Typography>
+          <Box>
             <Typography><strong>Full Name:</strong> {form.full_name}</Typography>
             <Typography><strong>Citizen ID:</strong> {form.citizen_identity_id}</Typography>
             <Typography><strong>Date of Birth:</strong> {form.dob}</Typography>
@@ -476,17 +716,69 @@ const CitizenInfoForm = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowConfirmDialog(false)} color="secondary">Cancel</Button>
-          <Button onClick={handleConfirmOcr} color="primary">Confirm</Button>
+          <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmOcr} color="primary">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={showSubmitConfirmDialog} onClose={() => setShowSubmitConfirmDialog(false)}>
+        <DialogTitle>Confirm Your Submission</DialogTitle>
+        <DialogContent>
+          <Typography mb={2}>
+            You've Edited Your Information. Please Confirm that your Information is CORRECT and COMPLETE before submitting for review.
+          </Typography>
+          <Box>
+            <Typography><strong>Full Name:</strong> {form.full_name}</Typography>
+            <Typography><strong>Citizen ID:</strong> {form.citizen_identity_id}</Typography>
+            <Typography><strong>Date of Birth:</strong> {form.dob}</Typography>
+            <Typography><strong>Place of Birth:</strong> {form.birthPlace}</Typography>
+            <Typography><strong>Gender:</strong> {form.gender}</Typography>
+            <Typography><strong>Address:</strong> {form.address}</Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowSubmitConfirmDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleFinalSubmit} color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={20} /> : "Confirm and Submit"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openImageDialog} onClose={() => setOpenImageDialog(false)} maxWidth="md">
+        <DialogTitle>Image Preview</DialogTitle>
+        <DialogContent>
+          <img
+            src={imagePreview}
+            alt="ID Preview"
+            style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenImageDialog(false)} color="primary">
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar
         open={!!snackbar.msg}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, msg: "" })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert severity={snackbar.type}>{snackbar.msg}</Alert>
+        <Alert
+          severity={snackbar.type}
+          variant="filled"
+          onClose={() => setSnackbar({ ...snackbar, msg: "" })}
+        >
+          {snackbar.msg}
+        </Alert>
       </Snackbar>
     </Box>
   );

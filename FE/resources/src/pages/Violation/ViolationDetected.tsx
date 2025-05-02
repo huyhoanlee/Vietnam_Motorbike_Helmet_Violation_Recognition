@@ -58,7 +58,7 @@ const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStat
   }, []);
 
   return (
-    <FormControl size="small" sx={{ minWidth: 120 }}>
+    <FormControl fullWidth size="medium">
       <InputLabel>Filter Status</InputLabel>
       <Select
         value={filterStatus}

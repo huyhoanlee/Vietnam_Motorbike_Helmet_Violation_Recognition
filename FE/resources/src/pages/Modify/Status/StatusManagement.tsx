@@ -259,7 +259,7 @@ const StatusManagement: React.FC = () => {
             sx={{ mt: 2 }}
             onClick={() => handleOpenDialog("create")}
           >
-            Tạo mới Status
+            Create New Status
           </Button>
 
           {loading ? (

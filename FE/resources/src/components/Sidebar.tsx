@@ -53,7 +53,7 @@ const Sidebar: React.FC = () => {
     { text: "Reports", icon: <DescriptionIcon />, path: "/reports", roles: ["Supervisor"] },
     { text: "Citizen Home", icon: <HomeIcon />, path: "/citizen", roles: ["Citizen"] },
     { text: "My Infomation", icon: <PermContactCalendarIcon />, path: "/citizen-info", roles: ["Citizen"] },
-    { text: "Card Parrot", icon: <TwoWheelerIcon />, path: "/citizen-applications", roles: ["Citizen"] },
+    { text: "Vehicle Registration", icon: <TwoWheelerIcon />, path: "/citizen-applications", roles: ["Citizen"] },
     { text: "Citizen Reports", icon: <CameraEnhanceIcon />, path: "/report-proofs", roles: ["Citizen"] },
   ];
 

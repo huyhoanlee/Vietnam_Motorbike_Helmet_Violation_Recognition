@@ -1,15 +1,20 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Typography, Box, Button, Container, Paper } from "@mui/material";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import SecurityIcon from "@mui/icons-material/Security";
 import { useNavigate } from "react-router-dom";
 
-const NotFound: React.FC = () => {
+const Unauthorized: React.FC = () => {
   const navigate = useNavigate();
+  const [userRole, setUserRole] = useState<string | null>(null);
   
-  // Try to detect user role for better redirection
-  const userRole = localStorage.getItem("user_role");
-  
-  const handleNavigateHome = () => {
+  useEffect(() => {
+    // Get current user role for better guidance
+    const role = localStorage.getItem("user_role");
+    setUserRole(role);
+  }, []);
+
+  // Determine where to redirect based on user role
+  const handleRedirect = () => {
     if (userRole === "Citizen") {
       navigate("/citizen");
     } else if (userRole === "Supervisor" || userRole === "Admin") {
@@ -33,39 +38,40 @@ const NotFound: React.FC = () => {
           textAlign: "center",
           borderRadius: 2,
           backgroundColor: "#f9f9f9",
-          borderTop: "5px solid #3f51b5"
+          borderTop: "5px solid #f44336"
         }}>
-          <ErrorOutlineIcon sx={{ fontSize: 80, color: "#3f51b5", mb: 2 }} />
+          <SecurityIcon sx={{ fontSize: 80, color: "#f44336", mb: 2 }} />
           
-          <Typography variant="h3" fontWeight="bold" gutterBottom>
-            404
+          <Typography variant="h4" fontWeight="bold" color="error" gutterBottom>
+            Unauthorized Access
           </Typography>
           
-          <Typography variant="h4" color="textSecondary" gutterBottom>
-            Page Not Found
+          <Typography variant="h6" color="textSecondary" sx={{ mb: 4 }}>
+            You don't have permission to access this page.
           </Typography>
           
-          <Typography variant="body1" sx={{ mb: 4, maxWidth: "600px", mx: "auto" }}>
-            The page you are looking for might have been removed, had its name changed,
-            or is temporarily unavailable.
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            {userRole 
+              ? `Your current role (${userRole}) does not have sufficient privileges for this resource.`
+              : "Please log in to access this system with the appropriate credentials."}
           </Typography>
           
           <Box sx={{ mt: 3, display: "flex", justifyContent: "center", gap: 2 }}>
             <Button 
               variant="contained" 
               color="primary" 
-              onClick={handleNavigateHome}
+              onClick={handleRedirect}
               size="large"
             >
-              Go to Home
+              Go to Dashboard
             </Button>
             
             <Button 
               variant="outlined"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/")}
               size="large"
             >
-              Go Back
+              Back to Home
             </Button>
           </Box>
         </Paper>
@@ -74,4 +80,4 @@ const NotFound: React.FC = () => {
   );
 };
 
-export default NotFound;
+export default Unauthorized;
