@@ -6,7 +6,7 @@ from src.modules.ai_service import AI_Service
 AI_service = AI_Service()
 
 # Đường dẫn tới file video (thay bằng path thực tế của bạn)
-video_path = "MVI_0332.MOV"  # Ví dụ: "videos/test.mp4"
+video_path = "0424(1).mp4"  # Ví dụ: "videos/test.mp4"
 
 def process_and_display_video():
     """Đọc frame từ video file, xử lý AI và hiển thị lên màn hình với FPS."""
@@ -95,8 +95,8 @@ def process_and_display_frame():
 
 if __name__ == "__main__":
     # Run
-    process_and_display_frame()
-    # process_and_display_video()
+    # process_and_display_frame()
+    process_and_display_video()
 
 #no track
 # Tổng thời gian xử lý: 60.68s
