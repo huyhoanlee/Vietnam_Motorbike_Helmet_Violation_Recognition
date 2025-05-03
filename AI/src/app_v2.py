@@ -186,4 +186,4 @@ async def extract_license_info(request: ImageBase64Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app_v2:app", host="0.0.0.0", port=8000, reload=True)
