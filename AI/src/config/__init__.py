@@ -2,7 +2,7 @@
 from .logging_message import Message
 
 class ModelConfig:
-    DETECT_WEIGHT_PATH = "./src/models/weights/detector.pt"
+    DETECT_WEIGHT_PATH = "./src/models/weights/best_0428.pt"
     PADDLE_DET_PATH = "./src/models/weights/paddle/det_15_3"
     PADDLE_REC_PATH = "./src/models/weights/paddle/en_PP-OCRv3_rec_2004"
     REC_CHAR_DICT_PATH  = "./src/models/weights/paddle/en_dict.txt"
