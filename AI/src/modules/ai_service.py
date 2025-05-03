@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from loguru import logger
 from src.models.schema import DeviceDetection, FrameData
-from src.config import AppConfig
+from src.config import AppConfig, AppConfig_2
 
 from src.modules.annotation import visualize_detections, visualize_yolo_results
 from src.modules.vehicle_detection import VehicleDetector
@@ -53,7 +53,7 @@ class AI_Service:
         
         # Vehicle detection
         detect_start = time.time()
-        detection_results = self.vehicle_detector(frame)
+        detection_results = self.vehicle_detector(frame, verbose=verbose)
         detect_time = time.time() - detect_start
         
         # Object tracking
@@ -178,12 +178,13 @@ class AI_Service:
 
         # Vehicle detection
         detect_start = time.time()
-        detection_results = self.vehicle_detector.detect(frame)
+        detection_results = self.vehicle_detector(frame)
         detect_time = time.time() - detect_start
 
         # Object tracking
         track_start = time.time()
-        vehicle_track_dets, track_confs, track_classes, vehicle_track_ids, mask = self.object_tracker.track(detection_results, frame)
+        # vehicle_track_dets, vehicle_track_ids = self.object_tracker.bytetrack(detection_results, frame)
+        vehicle_track_dets, vehicle_track_ids = self.object_tracker.track(detection_results, frame)
         track_time = time.time() - track_start
         mapping_start = time.time()
         # Group objects with vehicles   
@@ -258,7 +259,7 @@ class AIService:
         """Initialize the AI service with vehicle detection, tracking, and plate recognition"""
         self.config = config or ModelConfig()
         self._processing_lock = asyncio.Lock()
-        self._worker_semaphore = asyncio.Semaphore(AppConfig.MAX_CONCURRENT_AI_TASKS)
+        self._worker_semaphore = asyncio.Semaphore(AppConfig_2.MAX_CONCURRENT_AI_TASKS)
         self.url = url
         # Initialize models
         logger.info("Initializing AI models...")
