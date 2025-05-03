@@ -1,10 +1,10 @@
-# 🛵 Vietnam Motorbike Helmet Violation Detection
+# 🛵 Helmet Violation Detection System for Motorcyclist
 
 This project aims to automatically detect helmet violations by motorbike riders in Vietnam using computer vision and deep learning. It helps improve road safety by identifying individuals riding without helmets in videos or real-time streams.
 
 ---
 
-## 📌 Features
+## Features
 
 - 🔍 Detect motorbikes and riders in images or video frames.
 - 🧠 Classify whether each rider is wearing a helmet.
@@ -14,10 +14,17 @@ This project aims to automatically detect helmet violations by motorbike riders 
 
 ---
 
-## 🏗 Project Structure
-
+## Project Structure
+```
 helmet-violation-detector/
   ├── AI/ # AI pipeline  
   ├── BE/
   ├── FE/  
   ├── README.md # Project overview (this file)
+```
+
+
+
+## System Design
+
+![System Diagram](images/AIP_Architecture.png)
