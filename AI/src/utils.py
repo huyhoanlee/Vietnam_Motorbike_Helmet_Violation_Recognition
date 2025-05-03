@@ -348,14 +348,14 @@ def fully_optimized_mapping_tracked_vehicles(vehicle_track_dets, vehicle_track_i
 
 
 # src/utils/video.py
-from src.config import AppConfig
+from src.config import AppConfig_2
 
 def compress_frame_to_jpeg(frame: np.ndarray) -> bytes:
     """Compress a frame to JPEG format"""
     success, encoded_frame = cv2.imencode(
         '.jpg', 
         frame, 
-        [cv2.IMWRITE_JPEG_QUALITY, AppConfig.JPEG_QUALITY]
+        [cv2.IMWRITE_JPEG_QUALITY, AppConfig_2.JPEG_QUALITY]
     )
     
     if not success:

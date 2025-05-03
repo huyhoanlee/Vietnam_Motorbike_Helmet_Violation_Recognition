@@ -35,7 +35,7 @@ input_frames_queue = {}
 def ai_pipeline(AI_service, frame_data: List[FrameData]) -> List[DeviceDetection]:
     """Process video frames using AI controllers."""
     processed_results = []
-    result_json = AI_service.process_frame(frame_data["frame"], frame_data["frame_count"])
+    result_json = AI_service.process_frame(frame_data["frame"], frame_data["frame_count"], verbose=False)
     result_json.camera_id = frame_data.url
     processed_results.append(
         result_json
@@ -58,7 +58,7 @@ def process_one_url(url_input: str, stream_name):
             except Exception as e:
                 logger.info("Error processing URL in AI Service: ", e)
         else:
-            time.sleep(sleep)
+            continue
 
 @app.post("/push_url")
 async def push_url(url: str):
@@ -69,10 +69,6 @@ async def push_url(url: str):
         urls_camera[url] = stream_name #{hanaxuan: a343sd}
         rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
         input_frames_queue[stream_name] = 1 #queue.Queue(maxsize=50)
-        # with ThreadPoolExecutor(max_workers=min(len(urls_camera), 10)) as executor:
-        #     while True:
-        #         # Gửi công việc inference cho luồng mới
-        #         future = executor.submit(process_one_url, url)
         threading.Thread(target=process_one_url, args=(url, stream_name), daemon=True).start()
         return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
     rtsp_stream = f"{AppConfig.HOST_STREAM}{urls_camera[url]}"
