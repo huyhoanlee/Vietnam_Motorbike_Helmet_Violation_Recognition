@@ -41,7 +41,7 @@ def ai_pipeline(AI_service, frame_data: List[FrameData]) -> List[DeviceDetection
         result_json
         )
     post_process(processed_results)
-    return processed_results
+    return result_json.post_frame
 
 def process_one_url(url_input: str, stream_name):
     """Continuously capture frames, process them, and broadcast results."""
@@ -50,11 +50,10 @@ def process_one_url(url_input: str, stream_name):
     while True:
         if urls_camera:
             input_data = get_frame_from_url(url_input)
-            input_frames_queue[stream_name] = input_data["frame"]
-            # print(input_frames_queue[stream_name].qsize())
+            # input_frames_queue[stream_name] = input_data["frame"] #raw frame in numpy
             try:
-                dm = ai_pipeline(AI_service, input_data)
-                pass
+                input_frames_queue[stream_name] = ai_pipeline(AI_service, input_data) #show post_frame
+                # pass
             except Exception as e:
                 logger.info("Error processing URL in AI Service: ", e)
         else:
@@ -98,9 +97,9 @@ async def get_urls():
 async def stream_video(id: str):
     def generate_frames():
         while True:
-        # print(input_frames_queue.get(id).get_nowait().shape)
-            frame = input_frames_queue.get(id)#.get_nowait()
-            frame_bytes = encode_image_to_bytes(frame)
+            frame = input_frames_queue.get(id)
+            # frame_bytes = encode_image_to_bytes(frame) #use for raw frame
+            frame_bytes = frame #use for post_frame
             if not frame_bytes:
                 break
             yield (b'--frame\r\n'
