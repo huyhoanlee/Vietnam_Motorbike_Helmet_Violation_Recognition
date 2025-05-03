@@ -40,7 +40,8 @@ def ai_pipeline(AI_service, frame_data: List[FrameData]) -> List[DeviceDetection
     processed_results.append(
         result_json
         )
-    post_process(processed_results)
+    # post_process(processed_results)
+    threading.Thread(target=post_process, args=(processed_results,), daemon=True).start() # Run post_process in a separate thread
     return result_json.post_frame
 
 def process_one_url(url_input: str, stream_name):
