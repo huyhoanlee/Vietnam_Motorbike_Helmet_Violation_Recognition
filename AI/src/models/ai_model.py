@@ -16,6 +16,7 @@ class Model:
             self.device = torch.device("cpu")
             use_gpu = False
             
+        print(f"Using device: {self.device}")
         self.config = config
         self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
         if config.PADDLE_DET_PATH == "pretrained" and config.PADDLE_REC_PATH == "pretrained":
