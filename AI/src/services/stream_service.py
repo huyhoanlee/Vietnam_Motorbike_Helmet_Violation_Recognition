@@ -8,7 +8,7 @@ import numpy as np
 from loguru import logger
 from src.modules.ai_service import AI_Service, DeviceDetection, AIService
 from src.models.schema import FrameData, AIResult
-from src.config import AppConfig
+from src.config import AppConfig_2 as AppConfig
 from src.utils import compress_frame_to_jpeg
 
 class StreamError(Exception):

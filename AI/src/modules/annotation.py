@@ -29,8 +29,8 @@ def visualize_detections(frame_ori, detections):
     Returns:
         np.ndarray: Annotated frame.
     """
-    # frame = frame_ori.copy()  # Create a copy of the frame to avoid modifying the original
-    frame = frame_ori  # Create a copy of the frame to avoid modifying the original
+    frame = frame_ori.copy()  # Create a copy of the frame to avoid modifying the original
+
     # Define colors for each class
     colors = {0: (0, 255, 0),  # Green - Vehicle
               1: (255, 0, 0),  # Blue - Helmet
