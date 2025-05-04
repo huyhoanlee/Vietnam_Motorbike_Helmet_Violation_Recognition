@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   IconButton, Typography, Box, CircularProgress, Snackbar, Alert,
-  TextField, InputAdornment, Select, MenuItem, Grid, Pagination,
+  TextField, InputAdornment, Select, MenuItem, Grid, 
   FormControl, InputLabel, Card, CardContent, Chip, Fade, useTheme,
   useMediaQuery, Skeleton, Divider, Tooltip, Badge
 } from "@mui/material";
@@ -11,9 +11,13 @@ import SearchIcon from "@mui/icons-material/Search";
 import SortIcon from "@mui/icons-material/Sort";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import FirstPageIcon from '@mui/icons-material/FirstPage';
+import LastPageIcon from '@mui/icons-material/LastPage';
 import ViolationDetail from "./ViolationDetails";
 import { format } from "date-fns";
-import axiosInstance from "../../services/axiosInstance.tsx";
+import axiosInstance from "../../services/axiosInstance";
 import config from "../../config";
 
 const API_BASE_URL = config.API_URL;
@@ -44,13 +48,14 @@ interface StatusSelectProps {
 const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStatus }) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loading, setLoading] = useState(true);
+  const theme = useTheme();
 
   useEffect(() => {
     setLoading(true);
     axiosInstance
       .get(STATUS_API_URL)
       .then((response) => {
-        setStatuses(response.data.data);
+        setStatuses(response.data.data || []);
       })
       .catch((error) => {
         console.error("Failed to fetch statuses:", error);
@@ -66,7 +71,18 @@ const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStat
         onChange={(e) => setFilterStatus(e.target.value as string)}
         label="Filter Status"
         disabled={loading}
-        sx={{ "& .MuiSelect-select": { display: "flex", alignItems: "center" } }}
+        sx={{ 
+          "& .MuiSelect-select": { display: "flex", alignItems: "center" },
+          "& .MuiOutlinedInput-notchedOutline": {
+            borderColor: theme.palette.mode === "light" ? "rgba(0, 0, 0, 0.23)" : "rgba(255, 255, 255, 0.23)",
+          },
+          "&:hover .MuiOutlinedInput-notchedOutline": {
+            borderColor: theme.palette.primary.main,
+          },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+            borderColor: theme.palette.primary.main,
+          }
+        }}
         renderValue={(selected) => (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <FilterListIcon fontSize="small" />
@@ -94,6 +110,110 @@ const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStat
   );
 };
 
+const CustomPagination: React.FC<{
+  count: number;
+  page: number;
+  onChange: (event: React.ChangeEvent<unknown>, value: number) => void;
+  disabled?: boolean;
+  size?: 'small' | 'medium' | 'large';
+}> = ({ count, page, onChange, disabled = false, size = 'medium' }) => {
+  const theme = useTheme();
+  // const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  const handleFirstPage = () => {
+    if (!disabled && page !== 1) onChange({} as React.ChangeEvent<unknown>, 1);
+  };
+  
+  const handlePrevPage = () => {
+    if (!disabled && page > 1) onChange({} as React.ChangeEvent<unknown>, page - 1);
+  };
+  
+  const handleNextPage = () => {
+    if (!disabled && page < count) onChange({} as React.ChangeEvent<unknown>, page + 1);
+  };
+  
+  const handleLastPage = () => {
+    if (!disabled && page !== count) onChange({} as React.ChangeEvent<unknown>, count);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      <IconButton 
+        onClick={handleFirstPage}
+        disabled={disabled || page === 1}
+        size={size}
+        sx={{ 
+          color: page === 1 ? theme.palette.action.disabled : theme.palette.primary.main,
+          '&:hover': { bgcolor: theme.palette.action.hover },
+        }}
+      >
+        <FirstPageIcon fontSize={size} />
+      </IconButton>
+      
+      <IconButton 
+        onClick={handlePrevPage}
+        disabled={disabled || page === 1}
+        size={size}
+        sx={{ 
+          color: page === 1 ? theme.palette.action.disabled : theme.palette.primary.main,
+          '&:hover': { bgcolor: theme.palette.action.hover },
+        }}
+      >
+        <KeyboardArrowLeftIcon fontSize={size} />
+      </IconButton>
+      
+      <Box 
+        sx={{ 
+          px: 2, 
+          minWidth: '80px', 
+          textAlign: 'center',
+          bgcolor: theme.palette.background.paper,
+          borderRadius: 1,
+          border: `1px solid ${theme.palette.divider}`,
+          py: 0.5,
+          fontSize: size === 'small' ? '0.8rem' : '0.9rem',
+          fontWeight: 'medium',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {page} / {count || 1}
+      </Box>
+      
+      <IconButton 
+        onClick={handleNextPage}
+        disabled={disabled || page === count || count === 0}
+        size={size}
+        sx={{ 
+          color: page === count || count === 0 ? theme.palette.action.disabled : theme.palette.primary.main,
+          '&:hover': { bgcolor: theme.palette.action.hover },
+        }}
+      >
+        <KeyboardArrowRightIcon fontSize={size} />
+      </IconButton>
+      
+      <IconButton 
+        onClick={handleLastPage}
+        disabled={disabled || page === count || count === 0}
+        size={size}
+        sx={{ 
+          color: page === count || count === 0 ? theme.palette.action.disabled : theme.palette.primary.main, 
+          '&:hover': { bgcolor: theme.palette.action.hover },
+        }}
+      >
+        <LastPageIcon fontSize={size} />
+      </IconButton>
+    </Box>
+  );
+};
+
 const ViolationDetected: React.FC = () => {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [totalViolations, setTotalViolations] = useState(0);
@@ -101,10 +221,11 @@ const ViolationDetected: React.FC = () => {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchPlate, setSearchPlate] = useState("");
+  const [searchPlateQuery, setSearchPlateQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [sortOrder, setSortOrder] = useState("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -125,7 +246,7 @@ const ViolationDetected: React.FC = () => {
   const fetchViolationCount = useCallback(async () => {
     try {
       const response = await axiosInstance.get(`${API_BASE_URL}violations/count-all/`);
-      setTotalViolations(response.data.count || 0);
+      setTotalViolations(response.data.total_count || 0);
     } catch (err) {
       console.error("Failed to fetch violation count:", err);
       setError("Failed to fetch violation count.");
@@ -140,8 +261,8 @@ const ViolationDetected: React.FC = () => {
       params.append('per_page', itemsPerPage.toString());
       params.append('page_number', page.toString());
       
-      if (searchPlate) {
-        params.append('plate_number', searchPlate);
+      if (searchPlateQuery) {
+        params.append('plate_number', searchPlateQuery);
       }
       
       if (filterStatus !== "All") {
@@ -152,23 +273,25 @@ const ViolationDetected: React.FC = () => {
 
       const response = await axiosInstance.get(`${API_BASE_URL}violations/get-all/?${params.toString()}`);
       
-      const mappedViolations = response.data.data.map((v: any) => ({
-        id: v.violation_id,
-        plate_number: v.plate_number,
-        camera_id: v.camera_id || "Unknown",
-        detected_at: v.detected_at,
-        status: v.status_name || "Unknown", 
-        status_name: v.status_name || "Unknown",
-        location: v.location || "Unknown",
-        violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
-      }));
-      
-      setViolations(mappedViolations);
-      
-      // Also fetch the total count if not already done
-      if (totalViolations === 0) {
-        fetchViolationCount();
+      if (response.data && response.data.data) {
+        const mappedViolations = response.data.data.map((v: any) => ({
+          id: v.violation_id,
+          plate_number: v.plate_number,
+          camera_id: v.camera_id || "Unknown",
+          detected_at: v.detected_at,
+          status: v.status_name || "Unknown", 
+          status_name: v.status_name || "Unknown",
+          location: v.location || "Unknown",
+          violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
+        }));
+        
+        setViolations(mappedViolations);
+      } else {
+        setViolations([]);
       }
+      
+      // Fetch the total count
+      fetchViolationCount();
     } catch (err) {
       console.error("Failed to fetch data:", err);
       setError("Failed to fetch violation data, please try again later.");
@@ -181,7 +304,7 @@ const ViolationDetected: React.FC = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [itemsPerPage, searchPlate, filterStatus, sortOrder, totalViolations, fetchViolationCount]);
+  }, [itemsPerPage, searchPlateQuery, filterStatus, sortOrder, fetchViolationCount]);
 
   useEffect(() => {
     fetchViolationCount();
@@ -198,8 +321,10 @@ const ViolationDetected: React.FC = () => {
   };
 
   const handleSearch = () => {
+    setSearchPlateQuery(searchPlate);
     setCurrentPage(1);
-    fetchData(1);
+    // We need to wait for state update to complete
+    setTimeout(() => fetchData(1), 0);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -223,16 +348,29 @@ const ViolationDetected: React.FC = () => {
     });
   };
 
+  const handleChangePage = (_e: React.ChangeEvent<unknown>, newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
   const totalPages = Math.ceil(totalViolations / itemsPerPage);
 
   return (
     <Fade in={true} timeout={800}>
       <Box sx={{ padding: { xs: 2, sm: 3, md: 4 }, maxWidth: "100%" }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        {/* Header Section */}
+        <Box sx={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          mb: 3,
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 2, sm: 0 }
+        }}>
           <Typography variant="h4" sx={{ 
             fontWeight: "bold", 
             fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2.2rem" },
-            color: theme.palette.primary.main 
+            color: theme.palette.primary.main,
+            textAlign: { xs: 'center', sm: 'left' }
           }}>
             Violation Management
           </Typography>
@@ -240,30 +378,45 @@ const ViolationDetected: React.FC = () => {
           <Tooltip title="Refresh data">
             <IconButton 
               onClick={handleRefresh} 
+              disabled={loading || isRefreshing}
               sx={{ 
                 bgcolor: theme.palette.background.paper,
                 boxShadow: 1,
                 "&:hover": { bgcolor: theme.palette.action.hover }
               }}
             >
-              <RefreshIcon sx={{ 
-                animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
-                '@keyframes spin': {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' },
-                }
-              }} />
+              {loading || isRefreshing ? (
+                <CircularProgress size={24} color="primary" />
+              ) : (
+                <RefreshIcon sx={{ 
+                  animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  }
+                }} />
+              )}
             </IconButton>
           </Tooltip>
         </Box>
 
-        <Card elevation={3} sx={{ mb: 4, borderRadius: 2, overflow: "hidden" }}>
+        {/* Search and Filter Section */}
+        <Card elevation={3} sx={{ 
+          mb: 4, 
+          borderRadius: 2, 
+          overflow: "hidden",
+          transition: 'box-shadow 0.3s',
+          '&:hover': {
+            boxShadow: 6
+          }
+        }}>
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={5}>
                 <TextField
                   fullWidth
                   variant="outlined"
+                  placeholder="Enter plate number..."
                   label="Search Plate Number"
                   value={searchPlate}
                   onChange={(e) => setSearchPlate(e.target.value)}
@@ -274,11 +427,12 @@ const ViolationDetected: React.FC = () => {
                         <SearchIcon />
                       </InputAdornment>
                     ),
-                    endAdornment: (
+                    endAdornment: searchPlate && (
                       <InputAdornment position="end">
                         <IconButton 
                           onClick={handleSearch}
                           edge="end"
+                          disabled={loading}
                           sx={{ 
                             color: theme.palette.primary.main,
                             "&:hover": { color: theme.palette.primary.dark }
@@ -288,6 +442,13 @@ const ViolationDetected: React.FC = () => {
                         </IconButton>
                       </InputAdornment>
                     ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: theme.palette.primary.main,
+                      }
+                    }
                   }}
                 />
               </Grid>
@@ -311,7 +472,18 @@ const ViolationDetected: React.FC = () => {
                       setTimeout(() => fetchData(1), 0);
                     }}
                     label="Sort Order"
-                    sx={{ "& .MuiSelect-select": { display: "flex", alignItems: "center" } }}
+                    sx={{ 
+                      "& .MuiSelect-select": { display: "flex", alignItems: "center" },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: theme.palette.mode === "light" ? "rgba(0, 0, 0, 0.23)" : "rgba(255, 255, 255, 0.23)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: theme.palette.primary.main,
+                      }
+                    }}
                     renderValue={(selected) => (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <SortIcon fontSize="small" />
@@ -328,6 +500,7 @@ const ViolationDetected: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Violation Count and Items Per Page */}
         <Box sx={{ 
           display: "flex", 
           justifyContent: "space-between", 
@@ -360,6 +533,17 @@ const ViolationDetected: React.FC = () => {
                 setCurrentPage(1);
                 setTimeout(() => fetchData(1), 0);
               }}
+              sx={{
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.mode === "light" ? "rgba(0, 0, 0, 0.23)" : "rgba(255, 255, 255, 0.23)",
+                },
+                "&:hover .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.primary.main,
+                },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.primary.main,
+                }
+              }}
             >
               <MenuItem value={5}>5</MenuItem>
               <MenuItem value={10}>10</MenuItem>
@@ -369,6 +553,7 @@ const ViolationDetected: React.FC = () => {
           </FormControl>
         </Box>
 
+        {/* Loading State */}
         {loading ? (
           <Card elevation={3} sx={{ borderRadius: 2, overflow: "hidden", mb: 4 }}>
             <CardContent>
@@ -388,7 +573,25 @@ const ViolationDetected: React.FC = () => {
             </CardContent>
           </Card>
         ) : error ? (
-          <Alert severity="error" sx={{ mb: 4 }}>{error}</Alert>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 4,
+              borderRadius: 2,
+              boxShadow: 2 
+            }}
+            action={
+              <IconButton
+                color="inherit"
+                size="small"
+                onClick={handleRefresh}
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            {error}
+          </Alert>
         ) : (
           <>
             {isMobile ? (
@@ -402,13 +605,16 @@ const ViolationDetected: React.FC = () => {
                   violations.map((violation) => (
                     <Card 
                       key={violation.id} 
-                      elevation={3} 
+                      elevation={2} 
                       sx={{ 
                         mb: 2, 
                         borderRadius: 2,
                         borderLeft: `4px solid ${getStatusColor(violation.status_name)}`,
-                        transition: "transform 0.2s",
-                        "&:hover": { transform: "translateY(-2px)" }
+                        transition: "all 0.2s ease-in-out",
+                        "&:hover": { 
+                          transform: "translateY(-2px)",
+                          boxShadow: 4
+                        }
                       }}
                     >
                       <CardContent sx={{ p: 2 }}>
@@ -506,8 +712,11 @@ const ViolationDetected: React.FC = () => {
                           <TableRow 
                             sx={{ 
                               "&:hover": { backgroundColor: theme.palette.action.hover },
-                              transition: "background-color 0.2s"
+                              transition: "background-color 0.2s",
+                              cursor: 'pointer',
+                              borderLeft: `4px solid ${getStatusColor(violation.status_name)}`,
                             }}
+                            onClick={() => toggleRow(violation.id)}
                           >
                             <TableCell>{violation.id}</TableCell>
                             <TableCell>{violation.location}</TableCell>
@@ -526,7 +735,10 @@ const ViolationDetected: React.FC = () => {
                             <TableCell>{format(new Date(violation.detected_at), "dd/MM/yyyy HH:mm")}</TableCell>
                             <TableCell align="center">
                               <IconButton 
-                                onClick={() => toggleRow(violation.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleRow(violation.id);
+                                }}
                                 sx={{ 
                                   transform: expandedRow === violation.id ? "rotate(180deg)" : "rotate(0deg)",
                                   transition: "0.3s",
@@ -557,9 +769,10 @@ const ViolationDetected: React.FC = () => {
               </TableContainer>
             )}
 
+            {/* Pagination Section */}
             <Box 
               display="flex" 
-              justifyContent="center" 
+              justifyContent="space-between" 
               alignItems="center"
               flexDirection={isTablet ? "column" : "row"}
               gap={2}
@@ -567,36 +780,33 @@ const ViolationDetected: React.FC = () => {
             >
               <Box sx={{ display: { xs: "none", sm: "block" } }}>
                 <Typography variant="body2" color="textSecondary">
-                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalViolations)} - {Math.min(currentPage * itemsPerPage, totalViolations)} of {totalViolations} violations
+                  {totalViolations > 0 ? (
+                    `Showing ${Math.min((currentPage - 1) * itemsPerPage + 1, totalViolations)} - ${Math.min(currentPage * itemsPerPage, totalViolations)} of ${totalViolations} violations`
+                  ) : (
+                    'No violations found'
+                  )}
                 </Typography>
               </Box>
               
-              <Pagination
+              <CustomPagination
                 count={totalPages}
                 page={currentPage}
-                onChange={(_, page) => setCurrentPage(page)}
-                color="primary"
-                showFirstButton
-                showLastButton
-                siblingCount={isTablet ? 0 : 1}
+                onChange={handleChangePage}
+                disabled={loading || totalViolations === 0}
                 size={isTablet ? "small" : "medium"}
-                sx={{ 
-                  "& .MuiPaginationItem-root": { 
-                    fontWeight: "medium" 
-                  } 
-                }}
               />
             </Box>
           </>
         )}
 
+        {/* Snackbar Notifications */}
         <Snackbar
           open={snackbar.open}
           autoHideDuration={3000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
         >
-          <Alert 
+          <Alert
             severity={snackbar.severity} 
             variant="filled"
             onClose={() => setSnackbar({ ...snackbar, open: false })}

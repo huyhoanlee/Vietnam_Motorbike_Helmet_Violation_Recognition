@@ -2,322 +2,775 @@ import React, { useEffect, useState } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Switch, Snackbar, Alert, IconButton, CircularProgress,
-  MenuItem, Tooltip, Typography, Fade
+  TextField,Snackbar, Alert, IconButton, 
+  MenuItem, Tooltip, Typography, Box, Grid, Card, CardContent,
+  Chip, Divider, Fade, useTheme, Skeleton,
+  Pagination, FormControl, InputLabel, Select, InputAdornment
 } from "@mui/material";
-import { Edit, Add } from "@mui/icons-material";
-import { useForm } from "react-hook-form";
+import {
+  Edit, Add, FilterList, Search, Refresh, Check,
+  CameraAlt, LocationOn, ToggleOn, Info,
+} from "@mui/icons-material";
+import { useForm, Controller } from "react-hook-form";
 import config from "../../config";
 import axiosInstance from "../../services/axiosInstance.tsx";
+import { alpha } from "@mui/material/styles";
+
 const API_BASE_URL = `${config.API_URL}`;
 
 interface Device {
-  url_input: string,
+  url_input: string;
   camera_id: string;
   device_name: string;
   location_id: number;
   location?: string;
   status: "active" | "deactive";
   note: string;
-  last_active: Date;
+  last_active: Date | null;
 }
-// interface DeviceFormData {
-//   url_input: string;
-//   device_name: string;
-//   location: string; 
-//   status: "active" | "deactive";
-//   note: string;
-//   camera_id: string;
-// }
 
+interface DeviceFormData {
+  url_input: string;
+  device_name: string;
+  location: string | number;
+  status: "active" | "deactive";
+  note: string;
+  camera_id?: string;
+}
 
 const DeviceManagement: React.FC = () => {
+  const theme = useTheme();
+  
   const [devices, setDevices] = useState<Device[]>([]);
+  const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<Device>({
-    mode: "onChange",
-  });
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactive">("all");
   const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   
+  const { handleSubmit, reset, control, formState: { errors, isValid } } = useForm<DeviceFormData>({
+    mode: "onChange",
+    defaultValues: {
+      url_input: "",
+      device_name: "",
+      location: "",
+      status: "active",
+      note: "",
+    }
+  });
+
+  // Fetch locations
   useEffect(() => {
-  const fetchLocations = async () => {
+    const fetchLocations = async () => {
+      try {
+        const res = await axiosInstance.get(`${API_BASE_URL}locations/get-all/`);
+        setLocations(res.data.data);
+      } catch (err) {
+        console.error("Failed to fetch locations", err);
+        showSnackbar("Failed to fetch locations.", "error");
+      }
+    };
+
+    fetchLocations();
+  }, []);
+
+  // Fetch devices
+  const fetchDevices = async () => {
+    setLoading(true);
     try {
-      const res = await axiosInstance.get(`${API_BASE_URL}locations/get-all/`);
-      setLocations(res.data.data); 
+      const res = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
+      setDevices(res.data.data);
+      applyFilters(res.data.data, searchTerm, statusFilter);
+      setTotalCount(res.data.data.length);
     } catch (err) {
-      console.error("Failed to fetch locations", err);
+      console.error("Failed to fetch devices", err);
+      showSnackbar("Failed to fetch devices.", "error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  fetchLocations();
-}, []);
-
   useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const res = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
-        setDevices(res.data.data);
-      } catch (err) {
-        setSnackbarMessage("Failed to fetch devices.");
-        setOpenSnackbar(true);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDevices();
   }, []);
 
-const handleOpenDialog = (device: Device | null = null) => {
-  console.log("Opening dialog", device); 
-  setEditingDevice(device);
+  // Apply filters to devices
+  const applyFilters = (deviceList: Device[], search: string, status: string) => {
+    let filtered = deviceList;
+    
+    if (search) {
+      filtered = filtered.filter(device => 
+        device.device_name.toLowerCase().includes(search.toLowerCase()) ||
+        device.camera_id.toString().includes(search) ||
+        (device.location && device.location.toLowerCase().includes(search.toLowerCase()))
+      );
+    }
+    
+    if (status !== "all") {
+      filtered = filtered.filter(device => device.status === status);
+    }
+    
+    setFilteredDevices(filtered);
+  };
 
-  if (device) {
-    reset({
-      ...device,
-      location: device.location_id ? device.location_id.toString() : "",
-    });
-  } else {
-    reset({
-      url_input: "",
-      device_name: "",
-      location: "Location",
-      status: "active",
-      note: "",
-      camera_id: "", 
-    });
-  }
+  useEffect(() => {
+    applyFilters(devices, searchTerm, statusFilter);
+  }, [searchTerm, statusFilter, devices]);
 
-  setOpenDialog(true);
-};
+  const showSnackbar = (message: string, severity: "success" | "error" | "info" | "warning" = "success") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setOpenSnackbar(true);
+  };
+
+  const handleOpenDialog = (device: Device | null = null) => {
+    setEditingDevice(device);
+
+    if (device) {
+      reset({
+        url_input: device.url_input || "",
+        device_name: device.device_name || "",
+        location: device.location_id || "",
+        status: device.status || "active",
+        note: device.note || "",
+        camera_id: device.camera_id,
+      });
+    } else {
+      reset({
+        url_input: "",
+        device_name: "",
+        location: "",
+        status: "active",
+        note: "",
+      });
+    }
+
+    setOpenDialog(true);
+  };
 
   const handleCloseDialog = () => setOpenDialog(false);
 
-  const onSubmit = async (data: Device) => {
-    try {
-       const existingDevice = devices.find(
-        (device) => 
-          device.camera_id === data.camera_id ||
-          device.device_name == data.device_name
-       );
-
-       if (existingDevice && !editingDevice){
-        setSnackbarMessage("Device already exists.");
-        setOpenSnackbar(true);
-        return;
-       }
-
-       const changes: Partial<Device> = {};
-if (editingDevice) {
-  const changes: Partial<Device> = {};
-
-  if (data.device_name && data.device_name !== editingDevice.device_name) {
-    changes.device_name = data.device_name;
-  }
-  if (data.camera_id && data.camera_id !== editingDevice.camera_id) {
-    changes.camera_id = data.camera_id;
-  }
-  if (data.location && data.location !== editingDevice.location_id.toString()) {
-    changes.location = data.location;
-  }
-
-  if (Object.keys(changes).length === 0) {
-    setSnackbarMessage("No changes were made. Please modify at least one field.");
-    setOpenSnackbar(true);
-    return;
-  }
-
-  // Tạo payload chỉ gồm các trường thay đổi
-  const payload: Record<string, any> = {};
-  if (changes.device_name) payload.device_name = changes.device_name;
-  if (changes.camera_id) payload.camera_id = changes.camera_id;
-  if (changes.location) payload.location_id = Number(changes.location);
-
-  await axiosInstance.patch(`${API_BASE_URL}cameras/update/${editingDevice.camera_id}/`, payload);
-
-  // Update lại local state
-  setDevices((prev) =>
-    prev.map((d) =>
-      d.camera_id === editingDevice.camera_id ? { ...d, ...payload } : d
-    )
-  );
-  setSnackbarMessage("Device updated successfully!");
-}else{
-         await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
-          ...data,
-          location_id: Number(data.location),
-          });
-        const refreshed = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
-        setDevices(refreshed.data.data);
-        setSnackbarMessage("Device added successfully!");
-       }
-        setOpenSnackbar(true);
-        handleCloseDialog();
-      } catch (err) {
-        console.error("Error adding/updating device: ", err);
-        setSnackbarMessage("Error processing request.");
-        setOpenSnackbar(true);
-      }
+  const refreshDevices = () => {
+    setRefreshing(true);
+    fetchDevices();
   };
-
-  // const handleDelete = async (id: string) => {
-  //   try {
-  //     await axiosInstance.delete(`${API_BASE_URL}${id}/`);
-  //     setDevices((prev) => prev.filter((d) => d.id !== id));
-  //     setSnackbarMessage("Device deleted successfully!");
-  //     setOpenSnackbar(true);
-  //   } catch (err) {
-  //     setSnackbarMessage("Failed to delete device.");
-  //     setOpenSnackbar(true);
-  //   }
-  // };
 
   const handleStatusChange = async (device: Device) => {
     const updatedStatus = device.status === "active" ? "deactive" : "active";
     try {
       await axiosInstance.put(`${API_BASE_URL}cameras/change-status/${device.camera_id}/`, {
-        ...device,
         status: updatedStatus,
-        last_active: new Date().toISOString(),
       });
-      setDevices((prev) =>
-        prev.map((d) => (d.camera_id === device.camera_id ? { ...d, status: updatedStatus } : d))
+      
+      setDevices(prev =>
+        prev.map(d => (d.camera_id === device.camera_id ? { ...d, status: updatedStatus } : d))
       );
-      setSnackbarMessage("Device status updated successfully!");
-      setOpenSnackbar(true);
+      
+      showSnackbar(`Device ${device.device_name} is now ${updatedStatus === "active" ? "active" : "inactive"}.`);
     } catch (err) {
-      setSnackbarMessage("Failed to update device status.");
-      setOpenSnackbar(true);
+      console.error("Failed to update device status", err);
+      showSnackbar("Failed to update device status.", "error");
     }
   };
 
-  return (
-    <Paper sx={{ padding: 4, margin: 3, borderRadius: 3, boxShadow: 4 }}>
-      <Typography variant="h5" fontWeight="bold" gutterBottom>
-        Device Management
-      </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<Add />}
-        onClick={() => handleOpenDialog()}
-        sx={{ borderRadius: 2, fontWeight: "bold", textTransform: "none" }}
-      >
-        Add Device
-      </Button>
+  const onSubmit = async (data: DeviceFormData) => {
+    try {
+      if (editingDevice) {
+        // Editing existing device
+        const changedFields: Partial<DeviceFormData> = {};
+        
+        if (data.device_name !== editingDevice.device_name) {
+          changedFields.device_name = data.device_name;
+        }
+        
+        if (data.url_input !== editingDevice.url_input) {
+          changedFields.url_input = data.url_input;
+        }
+        
+        if (data.location !== editingDevice.location_id) {
+          changedFields.location = data.location;
+        }
+        
+        if (data.status !== editingDevice.status) {
+          changedFields.status = data.status;
+        }
+        
+        if (data.note !== editingDevice.note) {
+          changedFields.note = data.note;
+        }
 
+        if (Object.keys(changedFields).length === 0) {
+          showSnackbar("No changes were made.", "info");
+          handleCloseDialog();
+          return;
+        }
+
+        const payload: Record<string, any> = {};
+        if (changedFields.device_name) payload.device_name = changedFields.device_name;
+        if (changedFields.url_input) payload.url_input = changedFields.url_input;
+        if (changedFields.location) payload.location_id = Number(changedFields.location);
+        if (changedFields.status) payload.status = changedFields.status;
+        if (changedFields.note) payload.note = changedFields.note;
+
+        await axiosInstance.patch(
+          `${API_BASE_URL}cameras/update/${editingDevice.camera_id}/`, 
+          payload
+        );
+
+        showSnackbar("Device updated successfully!");
+      } else {
+        // Adding new device
+        const existingDevice = devices.find(
+          device => device.camera_id === data.camera_id || device.device_name === data.device_name
+        );
+
+        if (existingDevice) {
+          showSnackbar("Device with this ID or name already exists.", "error");
+          return;
+        }
+
+        await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
+          ...data,
+          location_id: Number(data.location),
+        });
+
+        showSnackbar("Device added successfully!");
+      }
+      
+      handleCloseDialog();
+      refreshDevices();
+    } catch (err) {
+      console.error("Error processing device:", err);
+      showSnackbar("Error processing request. Please try again.", "error");
+    }
+  };
+
+  // Pagination
+  const handleChangePage = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  const paginatedDevices = filteredDevices.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage
+  );
+
+  const renderDeviceStatus = (status: string) => {
+    return status === "active" ? (
+      <Chip
+        label="Active"
+        color="success"
+        size="small"
+        icon={<Check />}
+        sx={{ 
+          fontWeight: 'medium',
+          '& .MuiChip-icon': { fontSize: 16 }
+        }}
+      />
+    ) : (
+      <Chip
+        label="Inactive"
+        color="error"
+        size="small"
+        variant="outlined"
+        sx={{ fontWeight: 'medium' }}
+      />
+    );
+  };
+
+  return (
+    <Paper 
+      sx={{ 
+        padding: { xs: 2, sm: 3, md: 4 }, 
+        margin: { xs: 1, sm: 2, md: 3 }, 
+        borderRadius: 3, 
+        boxShadow: theme => `0 8px 24px ${alpha(theme.palette.primary.main, 0.1)}`,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header Section */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' }, 
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          mb: 3
+        }}
+      >
+        <Box sx={{ mb: { xs: 2, sm: 0 } }}>
+          <Typography variant="h5" fontWeight="700" gutterBottom color="primary.main" sx={{ display: 'flex', alignItems: 'center' }}>
+            <CameraAlt sx={{ mr: 1 }} /> Device Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Monitor and manage your connected devices
+          </Typography>
+        </Box>
+        
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<Add />}
+          onClick={() => handleOpenDialog()}
+          sx={{ 
+            borderRadius: 2, 
+            fontWeight: "bold", 
+            textTransform: "none",
+            boxShadow: 2,
+            py: 1,
+            px: 2
+          }}
+        >
+          Add New Device
+        </Button>
+      </Box>
+      
+      {/* Filter Section */}
+      <Card 
+        sx={{ 
+          mb: 3, 
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          backgroundColor: theme => alpha(theme.palette.background.paper, 0.8),
+        }}
+      >
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={5}>
+              <TextField
+                fullWidth
+                placeholder="Search by name, ID or location..."
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="status-filter-label">Status</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <FilterList fontSize="small" />
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="deactive">Inactive</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<Refresh />}
+                onClick={refreshDevices}
+                disabled={refreshing}
+                sx={{ borderRadius: 2 }}
+              >
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Devices Table Section */}
       {loading ? (
-        <CircularProgress sx={{ display: "block", margin: "20px auto" }} />
+        <Box sx={{ mt: 2 }}>
+          {[...Array(5)].map((_, idx) => (
+            <Box key={idx} sx={{ display: 'flex', mb: 1 }}>
+              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+            </Box>
+          ))}
+        </Box>
+      ) : filteredDevices.length === 0 ? (
+        <Box sx={{ 
+          textAlign: 'center', 
+          py: 5, 
+          backgroundColor: theme => alpha(theme.palette.background.paper, 0.5),
+          borderRadius: 2
+        }}>
+          <Info sx={{ fontSize: 60, color: 'text.secondary', opacity: 0.4 }} />
+          <Typography variant="h6" color="text.secondary" sx={{ mt: 2 }}>
+            No devices found
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {searchTerm || statusFilter !== 'all' 
+              ? 'Try changing your search or filter criteria'
+              : 'Start by adding a new device'}
+          </Typography>
+        </Box>
       ) : (
-        <TableContainer component={Paper} sx={{ marginTop: 3, borderRadius: 3 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableCell><b>Device ID</b></TableCell>
-                <TableCell><b>Device Name</b></TableCell>
-                <TableCell><b>Location</b></TableCell>
-                <TableCell><b>Status</b></TableCell>
-                {/* <TableCell><b>Actions</b></TableCell> */}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {devices.map((device) => (
-                <TableRow key={device.camera_id} hover>
-                  <TableCell>{device.camera_id}</TableCell>
-                  <TableCell>{device.device_name}</TableCell>
-                  <TableCell>
-                  {device.location}
-                </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={device.status === "active"}
-                      onChange={() => handleStatusChange(device)}
-                    />
-                  </TableCell>
-                  {/* <TableCell>
-                    <Tooltip title="Edit">
-                      <IconButton color="primary" onClick={() => handleOpenDialog(device)}>
-                        <Edit />
-                      </IconButton>
-                    </Tooltip> */}
-                    {/* <Tooltip title="Delete">
-                      <IconButton color="error" onClick={() => handleDelete(device.id)}>
-                        <Delete />
-                      </IconButton>
-                    </Tooltip> */}
-                  {/* </TableCell> */}
+        <>
+          <TableContainer 
+            component={Paper} 
+            sx={{ 
+              boxShadow: 'none',
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: 'divider',
+              '& .MuiTableCell-root': {
+                borderColor: 'divider',
+              }
+            }}
+          >
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Device ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Device Name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', display: { xs: 'none', md: 'table-cell' } }}>Location</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {paginatedDevices.map((device) => (
+                  <TableRow 
+                    key={device.camera_id} 
+                    hover 
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: theme => alpha(theme.palette.primary.main, 0.02),
+                      }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {device.camera_id}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <CameraAlt fontSize="small" color="action" sx={{ mr: 1, opacity: 0.7 }} />
+                        <Typography variant="body2">{device.device_name}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <LocationOn fontSize="small" color="action" sx={{ mr: 1, opacity: 0.7 }} />
+                        <Tooltip title={device.location || "No location"} arrow placement="top">
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              maxWidth: '250px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {device.location || "No location"}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {renderDeviceStatus(device.status)}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Tooltip title={device.status === "active" ? "Deactivate" : "Activate"}>
+                          <IconButton 
+                            size="small" 
+                            color={device.status === "active" ? "success" : "error"}
+                            onClick={() => handleStatusChange(device)}
+                            sx={{ 
+                              border: 1, 
+                              borderColor: 'divider',
+                              '&:hover': {
+                                backgroundColor: device.status === "active" 
+                                  ? alpha(theme.palette.error.main, 0.1)
+                                  : alpha(theme.palette.success.main, 0.1)
+                              }
+                            }}
+                          >
+                            <ToggleOn />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit Device">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleOpenDialog(device)}
+                            sx={{ 
+                              border: 1, 
+                              borderColor: 'divider',
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                              }
+                            }}
+                          >
+                            <Edit />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Pagination */}
+          {totalCount > rowsPerPage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination 
+                count={Math.ceil(filteredDevices.length / rowsPerPage)} 
+                page={page} 
+                onChange={handleChangePage}
+                color="primary"
+                shape="rounded"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          )}
+          
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {paginatedDevices.length} of {filteredDevices.length} devices
+            </Typography>
+            {searchTerm || statusFilter !== 'all' ? (
+              <Button 
+                size="small" 
+                startIcon={<FilterList />}
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </Box>
+        </>
       )}
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} TransitionComponent={Fade}>
-        <DialogTitle>{editingDevice ? "Edit Device" : "Add Device"}</DialogTitle>
-        <DialogContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <TextField
-              {...register("url_input", 
-                { 
-                  required: "Camera URL is required",  pattern: {
-                    value: /^(https?:\/\/)?([\w.-]+)+(:\d+)?(\/([\w/_-]+)?)*\/?(\?.*)?$/,
-                    message: "Invalid URL format",
-                  },})}
-              label="Camera URL format"
-              fullWidth
-              margin="normal"
-              error={!!errors.url_input}
-              helperText={errors.url_input?.message}
-            />
-            <TextField
-              {...register("device_name", { required: "Device Name is required" })}
-              label="Device Name"
-              fullWidth
-              margin="normal"
-              error={!!errors.device_name}
-              helperText={errors.device_name?.message}
-            />
-            <TextField
-              {...register("location", { required: "Location is required" })}
-              label="Location"
-              select
-              fullWidth
-              margin="normal"
-              error={!!errors.location}
-              helperText={errors.location?.message}
-            >
-              {locations.map((loc) => (
-                <MenuItem key={loc.id} value={loc.id}>
-                  {loc.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              {...register("status", { required: "Status is required" })}
-              label="Status"
-              select
-              fullWidth
-              margin="normal"
-            >
-              <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="deactive">Deactive</MenuItem>
-            </TextField>
-            <DialogActions>
-              <Button onClick={handleCloseDialog}>Cancel</Button>
-              <Button type="submit" variant="contained" color="primary">
-                Save
-              </Button>
-            </DialogActions>
+      {/* Add/Edit Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        TransitionComponent={Fade}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          elevation: 8,
+          sx: {
+            borderRadius: 2,
+            px: { xs: 1, sm: 2 },
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 1, 
+          pt: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          color: 'primary.main'
+        }}>
+          {editingDevice ? <Edit fontSize="small" /> : <Add fontSize="small" />}
+          {editingDevice ? "Edit Device" : "Add New Device"}
+        </DialogTitle>
+        
+        <Divider />
+        
+        <DialogContent sx={{ pt: 2 }}>
+          <form id="device-form" onSubmit={handleSubmit(onSubmit)}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Controller
+                  name="url_input"
+                  control={control}
+                  rules={{ 
+                    required: "Camera URL is required",
+                    pattern: {
+                      value: /^(https?:\/\/)?([\w.-]+)+(:\d+)?(\/([\w/_.-]+)?)*\/?(\?.*)?$/,
+                      message: "Please enter a valid URL format"
+                    }
+                  }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Camera URL"
+                      fullWidth
+                      variant="outlined"
+                      error={!!errors.url_input}
+                      helperText={errors.url_input?.message}
+                      placeholder="https://example.com/camera/stream"
+                    />
+                  )}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="device_name"
+                  control={control}
+                  rules={{ required: "Device name is required" }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Device Name"
+                      fullWidth
+                      variant="outlined"
+                      error={!!errors.device_name}
+                      helperText={errors.device_name?.message}
+                      placeholder="Front Door Camera"
+                    />
+                  )}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="location"
+                  control={control}
+                  rules={{ required: "Location is required" }}
+                  render={({ field }) => (
+                    <FormControl fullWidth error={!!errors.location}>
+                      <InputLabel id="location-label">Location</InputLabel>
+                      <Select
+                        {...field}
+                        labelId="location-label"
+                        label="Location"
+                        displayEmpty
+                        MenuProps={{
+                          PaperProps: {
+                            style: {
+                              maxHeight: 300
+                            }
+                          }
+                        }}
+                      >
+                        {locations.map((loc) => (
+                          <MenuItem key={loc.id} value={loc.id}>
+                            {loc.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.location && (
+                        <Typography variant="caption" color="error">
+                          {errors.location.message}
+                        </Typography>
+                      )}
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Controller
+                  name="status"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl fullWidth>
+                      <InputLabel id="status-label">Status</InputLabel>
+                      <Select
+                        {...field}
+                        labelId="status-label"
+                        label="Status"
+                      >
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="deactive">Inactive</MenuItem>
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Controller
+                  name="note"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Notes (Optional)"
+                      fullWidth
+                      variant="outlined"
+                      multiline
+                      rows={3}
+                      placeholder="Additional information about this device..."
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
           </form>
         </DialogContent>
+        
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
+          <Button 
+            onClick={handleCloseDialog}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit"
+            form="device-form"
+            variant="contained"
+            color="primary"
+            sx={{ 
+              borderRadius: 2,
+              px: 3
+            }}
+            disabled={!isValid}
+          >
+            {editingDevice ? "Update" : "Add Device"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Snackbar open={openSnackbar} autoHideDuration={3000} onClose={() => setOpenSnackbar(false)}>
-        <Alert severity="success">{snackbarMessage}</Alert>
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={openSnackbar} 
+        autoHideDuration={4000} 
+        onClose={() => setOpenSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setOpenSnackbar(false)} 
+          severity={snackbarSeverity}
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            boxShadow: 3,
+            '& .MuiAlert-icon': {
+              fontSize: '1.2rem'
+            }
+          }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </Paper>
   );

@@ -17,8 +17,12 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  useTheme,
+  Zoom,
 } from "@mui/material";
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import axiosInstance from "../../services/axiosInstance.tsx";
 import config from "../../config";
 
@@ -54,12 +58,16 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
   const [loading, setLoading] = useState(false);
   const [openImageDialog, setOpenImageDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(true);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error"
   });
+  
+  const theme = useTheme();
   const userRole = localStorage.getItem("user_role") || "user";
+  const isSupervisor = userRole.toLowerCase() === "supervisor";
 
   const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "png") => {
     if (!data) return "/placeholder-image.png";
@@ -68,23 +76,17 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
   };
 
   useEffect(() => {
-    console.log("Violation props:", violation);
-    console.log("User role:", userRole);
-    console.log("Is supervisor:", userRole.toLowerCase() === "supervisor");
-
-    if (userRole.toLowerCase() === "supervisor") {
+    if (isSupervisor) {
       axiosInstance.get(`${API_BASE_URL}violation_status/get-all/`)
         .then(res => {
           const statuses = res.data?.data || [];
-          console.log("Status options:", statuses);
           setStatusOptions(statuses);
           const matched = statuses.find((s: StatusOption) => 
             s.status_name.toLowerCase() === (violation.status_name || "Unknown").toLowerCase()
           );
-          console.log("Matched status:", matched);
           if (matched) {
             setSelectedStatusId(matched.id);
-            setSelectedStatus(matched.status_name); // Preserve original casing for display
+            setSelectedStatus(matched.status_name);
           } else {
             setSelectedStatus(violation.status_name || "Unknown");
           }
@@ -98,21 +100,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
           });
         });
     }
-  }, [violation.status_name, userRole]);
-
-  useEffect(() => {
-    if (statusOptions.length > 0) {
-      const matched = statusOptions.find((s) => 
-        s.status_name.toLowerCase() === (violation.status_name || "Unknown").toLowerCase()
-      );
-      console.log("Matched status in second useEffect:", matched);
-      if (matched) {
-        setSelectedStatusId(matched.id);
-      } else {
-        setSelectedStatusId(null);
-      }
-    }
-  }, [statusOptions, violation.status_name]);
+  }, [violation.status_name, isSupervisor]);
 
   const handleChangeStatus = () => {
     if (selectedStatus.toLowerCase() !== (violation.status_name || "Unknown").toLowerCase() && selectedStatusId !== null) {
@@ -206,9 +194,9 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
         image={normalizeBase64Image(violation.violation_image?.[0])}
         alt="Violation Image"
         onClick={() => {
-        setSelectedImage(normalizeBase64Image(violation.violation_image?.[0]));
-        setOpenImageDialog(true);
-      }}
+          setSelectedImage(normalizeBase64Image(violation.violation_image?.[0]));
+          setOpenImageDialog(true);
+        }}
         onError={(e) => {
           (e.target as HTMLImageElement).src = "/placeholder-image.png";
         }}
@@ -228,7 +216,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
 
           <Grid item xs={6}>
             <Typography variant="subtitle1" fontWeight="bold">Status:</Typography>
-            {userRole.toLowerCase() === "supervisor" && editing ? (
+            {isSupervisor && editing ? (
               <Select
                 fullWidth
                 size="small"
@@ -289,9 +277,9 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
                       cursor: "pointer"
                     }}
                     onClick={() => {
-                    setSelectedImage(normalizeBase64Image(img));
-                    setOpenImageDialog(true);
-                  }}
+                      setSelectedImage(normalizeBase64Image(img));
+                      setOpenImageDialog(true);
+                    }}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "/placeholder-image.png";
                     }}
@@ -303,12 +291,12 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
         </Grid>
 
         {/* Action Buttons */}
-        {userRole.toLowerCase() === "supervisor" ? (
+        {isSupervisor ? (
           <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
             {!editing ? (
               <Button
                 variant="contained"
-                startIcon={<NotificationsActiveIcon />}
+                startIcon={<EditIcon />}
                 sx={{ 
                   backgroundColor: "#673ab7", 
                   "&:hover": { backgroundColor: "#512da8" } 
@@ -321,6 +309,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
               <>
                 <Button
                   variant="contained"
+                  startIcon={<CheckCircleIcon />}
                   onClick={handleChangeStatus}
                   disabled={selectedStatus.toLowerCase() === (violation.status_name || "Unknown").toLowerCase() || !selectedStatusId}
                   sx={{
@@ -332,6 +321,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
                 </Button>
                 <Button
                   variant="outlined"
+                  startIcon={<CancelIcon />}
                   onClick={handleCancel}
                   sx={{ 
                     color: "#d32f2f", 
@@ -389,13 +379,37 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
         </Alert>
       </Snackbar>
 
-      <Dialog open={openImageDialog} onClose={() => setOpenImageDialog(false)} maxWidth="lg">
-      <img 
-        src={selectedImage || "/placeholder-image.png"} 
-        alt="Zoomed Image"
-        style={{ maxWidth: "100%", height: "auto" }}
-      />
-    </Dialog>
+      {/* Image Dialog */}
+      <Dialog 
+        open={openImageDialog} 
+        onClose={() => setOpenImageDialog(false)} 
+        maxWidth="lg"
+        TransitionComponent={Zoom}
+      >
+        <DialogContent sx={{ p: 1 }}>
+          {loadingImage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          <img 
+            src={selectedImage || "/placeholder-image.png"} 
+            alt="Violation Evidence"
+            style={{ 
+              maxWidth: "100%", 
+              maxHeight: "80vh", 
+              display: loadingImage ? 'none' : 'block' 
+            }}
+            onLoad={() => setLoadingImage(false)}
+            onError={() => setLoadingImage(false)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenImageDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

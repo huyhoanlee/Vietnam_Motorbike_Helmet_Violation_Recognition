@@ -135,7 +135,7 @@ const CitizenLogin = () => {
         phone_number: phone,
         code_authen: otp,
       });
-      const { access, refresh, role, id } = res.data.data;
+      const { role, id } = res.data.data;
       localStorage.setItem("user_id", String(id));
       localStorage.setItem('user_role', role);
       localStorage.setItem("is_citizen_authenticated", "true");
