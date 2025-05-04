@@ -94,4 +94,4 @@ VIETNAM_MOTOBIKE_HELMET_VIOLATION_RECOGNITION/
 - Major: Software Engineering
 - Contact:
    + Github: Kiennt1699
-   + Gmail: 
+   + Gmail: kien.nguyentrung1699@gmail.com
