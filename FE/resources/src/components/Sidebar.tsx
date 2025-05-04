@@ -9,6 +9,10 @@ import {
   Avatar,
   Box,
   Typography,
+  useTheme,
+  alpha,
+  Collapse,
+  Button,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AssessmentIcon from "@mui/icons-material/Assessment";
@@ -22,106 +26,334 @@ import HomeIcon from '@mui/icons-material/Home';
 import PermContactCalendarIcon from '@mui/icons-material/PermContactCalendar';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import CameraEnhanceIcon from '@mui/icons-material/CameraEnhance';
-
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [selected, setSelected] = useState(location.pathname);
   const [role, setRole] = useState<string>(''); 
-  // const username = localStorage.getItem("username") || "User";
- 
+  const theme = useTheme();
+  const [open, setOpen] = useState(true);
+  
   useEffect(() => {
     const userRole = localStorage.getItem("user_role"); 
     setRole(userRole || ""); 
-  }, []);
+    
+    // Update selected when location changes
+    setSelected(location.pathname);
+  }, [location.pathname]);
 
   const handleNavigation = (path: string) => {
     setSelected(path);
     navigate(path);
   };
 
-  // Cập nhật danh sách menu dựa trên role
-  const menuItems = [
-    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", roles: ["Supervisor", "Admin"] },
-    { text: "Account", icon: <AccountCircleIcon />, path: "/account", roles: ["Admin"] },
-    { text: "Supervisor Maintainance", icon: <ManageAccountsIcon />, path: "/modify", roles: ["Supervisor"] },
-    { text: "Citizen Management", icon: <EmojiPeopleIcon />, path: "/citizen-management", roles: ["Supervisor"] },
-    { text: "Devices", icon: <VideoCameraFrontIcon />, path: "/devices", roles: ["Supervisor"] },
-    { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection", roles: ["Supervisor"] },
-    { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection", roles: ["Supervisor"] },
-    { text: "Reports", icon: <DescriptionIcon />, path: "/reports", roles: ["Supervisor"] },
-    { text: "Citizen Home", icon: <HomeIcon />, path: "/citizen", roles: ["Citizen"] },
-    { text: "My Infomation", icon: <PermContactCalendarIcon />, path: "/citizen-info", roles: ["Citizen"] },
-    { text: "Vehicle Registration", icon: <TwoWheelerIcon />, path: "/citizen-applications", roles: ["Citizen"] },
-    { text: "Citizen Reports", icon: <CameraEnhanceIcon />, path: "/report-proofs", roles: ["Citizen"] },
+  const handleClick = () => {
+    setOpen(!open);
+  };
+
+  // Group menu items
+  const adminMenuItems = [
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
+    { text: "Account Management", icon: <AccountCircleIcon />, path: "/account" },
   ];
 
-  // Lọc các menu item phù hợp với role người dùng
-  const filteredMenuItems = menuItems.filter(item => item.roles?.includes(role));
+  const supervisorMenuItems = [
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
+    { text: "Supervisor Maintenance", icon: <ManageAccountsIcon />, path: "/modify" },
+    { text: "Citizen Management", icon: <EmojiPeopleIcon />, path: "/citizen-management" },
+    { text: "Devices", icon: <VideoCameraFrontIcon />, path: "/devices" },
+  ];
+
+  const dataMenuItems = [
+    { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
+    { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
+    { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },
+  ];
+
+  const citizenMenuItems = [
+    { text: "Citizen Home", icon: <HomeIcon />, path: "/citizen" },
+    { text: "My Information", icon: <PermContactCalendarIcon />, path: "/citizen-info" },
+    { text: "Vehicle Registration", icon: <TwoWheelerIcon />, path: "/citizen-applications" },
+    { text: "Citizen Reports", icon: <CameraEnhanceIcon />, path: "/report-proofs" },
+  ];
+
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
 
   return (
-    <div
-      style={{
-        width: "250px",
+    <Box
+      sx={{
+        width: "260px",
         height: "100vh",
-        backgroundColor: "#f7f3fa",
-        color: "#333",
-        boxShadow: "2px 0 5px rgba(0, 0, 0, 0.1)",
+        background: `linear-gradient(180deg, ${alpha(theme.palette.primary.dark, 0.15)} 0%, ${alpha(theme.palette.primary.light, 0.05)} 100%)`,
+        color: theme.palette.text.primary,
+        boxShadow: "2px 0 10px rgba(0, 0, 0, 0.05)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        paddingTop: "30px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
+        overflow: "hidden",
+        position: "sticky",
+        top: 0,
       }}
     >
-      {/* Avatar + Thông tin */}
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {/* Profile Section */}
+      <Box 
+        sx={{ 
+          p: 3,
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center",
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          pb: 3
+        }}
+      >
         <Avatar
-          src="/path/to/avatar.jpg"
-          sx={{ width: 80, height: 80 }}
-        />
-        {/* <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold" }}>
-          {username}
-        </Typography> */}
-        <Typography variant="body2" color="textSecondary">
-          {role}
-        </Typography>
-        {/* <Typography variant="body2" color="textSecondary">
-          Logged in: 10hr
-        </Typography> */}
+          sx={{ 
+            width: 70, 
+            height: 70,
+            bgcolor: theme.palette.primary.main,
+            color: theme.palette.common.white,
+            fontSize: 28,
+            fontWeight: 'bold',
+            mb: 1,
+            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`
+          }}
+        >
+          {role.charAt(0)}
+        </Avatar>
+        
+        <Box sx={{ textAlign: "center", mt: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: "600" }}>
+            {getGreeting()}
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontWeight: 'bold', 
+              color: theme.palette.primary.main,
+              bgcolor: alpha(theme.palette.primary.light, 0.2),
+              px: 2,
+              py: 0.5,
+              borderRadius: 1,
+              display: 'inline-block',
+              mt: 0.5
+            }}
+          >
+            {role || 'Guest'}
+          </Typography>
+        </Box>
       </Box>
 
-      {/* Danh sách Menu */}
-      <List component="nav" sx={{ width: "100%", marginTop: "30px" }}>
-        {filteredMenuItems.map((item, index) => (
-          <React.Fragment key={item.text}>
+      {/* Menu Section with Scrolling */}
+      <Box
+        sx={{
+          overflowY: "auto",
+          flex: 1,
+          "&::-webkit-scrollbar": {
+            width: "6px",
+          },
+          "&::-webkit-scrollbar-track": {
+            background: alpha(theme.palette.background.paper, 0.5),
+          },
+          "&::-webkit-scrollbar-thumb": {
+            background: alpha(theme.palette.primary.main, 0.3),
+            borderRadius: "3px",
+          },
+          "&::-webkit-scrollbar-thumb:hover": {
+            background: alpha(theme.palette.primary.main, 0.5),
+          },
+        }}
+      >
+        <List component="nav" sx={{ width: "100%", p: 2 }}>
+          {/* Admin Menu */}
+          {role === "Admin" && adminMenuItems.map((item) => (
             <ListItemButton
+              key={item.text}
               onClick={() => handleNavigation(item.path)}
               sx={{
-                backgroundColor: selected === item.path ? "#d6d2eb" : "transparent",
-                "&:hover": { backgroundColor: "#e0d6f8" },
-                transition: "0.3s",
+                backgroundColor: selected === item.path ? alpha(theme.palette.primary.main, 0.15) : "transparent",
+                borderRadius: "8px",
+                mb: 1,
+                "&:hover": { 
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                },
+                transition: "0.2s",
               }}
             >
-              <ListItemIcon sx={{ color: selected === item.path ? "#5c47d2" : "#333" }}>
+              <ListItemIcon 
+                sx={{ 
+                  color: selected === item.path ? theme.palette.primary.main : theme.palette.text.secondary,
+                  minWidth: '40px'
+                }}
+              >
                 {item.icon}
               </ListItemIcon>
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontWeight: selected === item.path ? "bold" : "normal",
-                  fontSize: "15px",
-                  color: selected === item.path ? "#5c47d2" : "#333",
+                  fontWeight: selected === item.path ? "600" : "400",
+                  fontSize: "14px",
+                  color: selected === item.path ? theme.palette.primary.main : theme.palette.text.primary,
                 }}
               />
             </ListItemButton>
-            {index !== filteredMenuItems.length - 1 && <Divider />}
-          </React.Fragment>
-        ))}
-      </List>
-    </div>
+          ))}
+
+          {/* Supervisor Menu */}
+          {role === "Supervisor" && (
+            <>
+              {supervisorMenuItems.map((item) => (
+                <ListItemButton
+                  key={item.text}
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    backgroundColor: selected === item.path ? alpha(theme.palette.primary.main, 0.15) : "transparent",
+                    borderRadius: "8px",
+                    mb: 1,
+                    "&:hover": { 
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    },
+                    transition: "0.2s",
+                  }}
+                >
+                  <ListItemIcon 
+                    sx={{ 
+                      color: selected === item.path ? theme.palette.primary.main : theme.palette.text.secondary,
+                      minWidth: '40px'
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{
+                      fontWeight: selected === item.path ? "600" : "400",
+                      fontSize: "14px",
+                      color: selected === item.path ? theme.palette.primary.main : theme.palette.text.primary,
+                    }}
+                  />
+                </ListItemButton>
+              ))}
+              
+              <ListItemButton onClick={handleClick} sx={{ borderRadius: "8px", mb: 1 }}>
+                <ListItemIcon sx={{ minWidth: '40px' }}>
+                  <AssessmentIcon />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Data & Reports" 
+                  primaryTypographyProps={{ fontSize: "14px" }}
+                />
+                {open ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+              
+              <Collapse in={open} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {dataMenuItems.map((item) => (
+                    <ListItemButton
+                      key={item.text}
+                      onClick={() => handleNavigation(item.path)}
+                      sx={{
+                        pl: 4,
+                        backgroundColor: selected === item.path ? alpha(theme.palette.primary.main, 0.15) : "transparent",
+                        borderRadius: "8px",
+                        ml: 2,
+                        mb: 1,
+                        "&:hover": { 
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        },
+                      }}
+                    >
+                      <ListItemIcon 
+                        sx={{ 
+                          color: selected === item.path ? theme.palette.primary.main : theme.palette.text.secondary,
+                          minWidth: '40px'
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontWeight: selected === item.path ? "600" : "400",
+                          fontSize: "14px",
+                          color: selected === item.path ? theme.palette.primary.main : theme.palette.text.primary,
+                        }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Collapse>
+            </>
+          )}
+
+          {/* Citizen Menu */}
+          {role === "Citizen" && citizenMenuItems.map((item) => (
+            <ListItemButton
+              key={item.text}
+              onClick={() => handleNavigation(item.path)}
+              sx={{
+                backgroundColor: selected === item.path ? alpha(theme.palette.primary.main, 0.15) : "transparent",
+                borderRadius: "8px",
+                mb: 1,
+                "&:hover": { 
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                },
+                transition: "0.2s",
+              }}
+            >
+              <ListItemIcon 
+                sx={{ 
+                  color: selected === item.path ? theme.palette.primary.main : theme.palette.text.secondary,
+                  minWidth: '40px'
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontWeight: selected === item.path ? "600" : "400",
+                  fontSize: "14px",
+                  color: selected === item.path ? theme.palette.primary.main : theme.palette.text.primary,
+                }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+      
+      {/* Footer */}
+      <Box 
+        sx={{ 
+          p: 2, 
+          borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          display: 'flex',
+          justifyContent: 'center'
+        }}
+      >
+        <Button
+          variant="outlined"
+          size="small"
+          color="primary"
+          onClick={() => navigate("/")}
+          fullWidth
+          sx={{ 
+            borderRadius: '8px',
+            textTransform: 'none',
+            py: 1
+          }}
+        >
+          Traffic Monitoring System
+        </Button>
+      </Box>
+    </Box>
   );
 };
 
