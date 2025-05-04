@@ -276,16 +276,18 @@ const CitizenInfoForm = () => {
       return;
     }
 
-    if (!isOcrConfirmed) {
-      setSnackbar({ msg: "Please confirm the extracted information before submitting.", type: "error" });
-      return;
-    }
-
     if (displayStatus === "Change Information") {
       setShowSubmitConfirmDialog(true); // Hiển thị dialog xác nhận trước khi Submit
       return;
     }
 
+
+    if (!isOcrConfirmed) {
+      setSnackbar({ msg: "Please confirm the extracted information before submitting.", type: "error" });
+      return;
+    }
+
+    
     await handleFinalSubmit();
   };
 
@@ -293,7 +295,7 @@ const CitizenInfoForm = () => {
     setLoading(true);
 
     try {
-      const base64Image = imageFile ? await fileToBase64(imageFile) : imageBase64;
+      const base64Image = imageFile ? await fileToBase64(imageFile) : imagePreview || imageBase64;
 
       const trimmedForm = Object.fromEntries(
         Object.entries(form).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])

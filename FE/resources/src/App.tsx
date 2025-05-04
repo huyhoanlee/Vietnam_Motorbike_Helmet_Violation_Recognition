@@ -27,7 +27,6 @@ import CitizenRoute from "./stores/citizenroute";
 import SupervisorProfile from "./pages/Supervisor/Profile/SupervisorProfile";
 import NotificationManager from "./pages/Modify/Notify/NotificationManager";
 import Violation from "./pages/Violation/ViolationModify";
-import CitizenVerification from "./pages/Supervisor/CitizenManagement/CitizenVerification";
 import Unauthorized from "./stores/Unauthorized";
 
 
@@ -55,7 +54,7 @@ const App = () => {
         <Route path="/violation-detection" element={<PrivateRoute element={<MainLayout><ViolationDetected /></MainLayout>} requiredRole="Supervisor"/>} />
         {/* <Route path="/violation" element={<PrivateRoute element={<MainLayout><Violation /></MainLayout>} />} /> */}
         <Route path="/citizen-management" element={<PrivateRoute element={<MainLayout><CitizenManagement /></MainLayout>} requiredRole="Supervisor"/>} />
-        <Route path="/citizen-verification" element={<PrivateRoute element={<MainLayout><CitizenVerification /></MainLayout>} requiredRole="Supervisor"/>} />
+        {/* <Route path="/citizen-verification" element={<PrivateRoute element={<MainLayout><CitizenVerification /></MainLayout>} requiredRole="Supervisor"/>} /> */}
         <Route path="/data-detection" element={<PrivateRoute element={<MainLayout><DataDetection /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/device/:deviceId" element={<PrivateRoute element={<MainLayout><DataDetail /></MainLayout>} requiredRole="Supervisor"/>} />
         <Route path="/analytics" element={<PrivateRoute element={<MainLayout><ViolationByLocation /></MainLayout>} requiredRole="Supervisor"/>} />
@@ -68,7 +67,7 @@ const App = () => {
         <Route path="/manage-notifications" element={<PrivateRoute element={<MainLayout><NotificationManager /></MainLayout>} requiredRole="Supervisor"/>} />
 
 
-        <Route path="/citizen" element={<CitizenRoute element={<MainLayout><CitizenManager /></MainLayout>}/>} />
+        <Route path="/citizen" element={<CitizenRoute element={<MainLayout><CitizenManager /></MainLayout>} />} />
         <Route path="/citizen-info" element={<CitizenRoute  element={<MainLayout><CitizenInfoForm /></MainLayout>}/>} />
         {/* <Route path="/citizen-info-hard-code" element={<MainLayout><CitizenInfoFormHardCode /></MainLayout>} /> */}
         <Route path="/citizen-applications" element={<CitizenRoute  element={<MainLayout><CitizenApplication /></MainLayout>}/>} />

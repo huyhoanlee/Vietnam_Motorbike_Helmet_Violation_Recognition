@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
@@ -7,13 +7,20 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
+  Paper,
+  Container,
+  InputAdornment,
+  IconButton
 } from "@mui/material";
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import config from "../../config";
+import PenguinCitizen from "../../pages/Login/Animation/PenguinCitizen";
 
 const API_BASE_URL = `${config.API_URL}citizens/auth/`;
-const OTP_EXPIRE_TIME = 120; // 120 seconds = 2 phút
+const OTP_EXPIRE_TIME = 120; // 120 seconds = 2 minutes
 
 const CitizenLogin = () => {
   const [phone, setPhone] = useState("");
@@ -27,10 +34,18 @@ const CitizenLogin = () => {
     type: "info",
   });
   const [countdown, setCountdown] = useState<number | null>(null);
+  
+  // States for penguin animation
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const phoneFieldRef = useRef<HTMLDivElement>(null);
+  const otpFieldRef = useRef<HTMLDivElement>(null);
 
   const navigate = useNavigate();
 
-  // Đếm ngược OTP
+  // Countdown timer for OTP
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     if (countdown && countdown > 0) {
@@ -47,6 +62,26 @@ const CitizenLogin = () => {
 
     return () => clearInterval(timer);
   }, [countdown]);
+  
+  // Update mouse position when moving over input fields
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!phoneFieldRef.current && !otpFieldRef.current) return;
+    
+    const activeRef = focusedField === 'otp' ? otpFieldRef.current : phoneFieldRef.current;
+    if (!activeRef) return;
+    
+    const rect = activeRef.getBoundingClientRect();
+    
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    setMousePosition({ x, y });
+  };
+  
+  // Reset mouse position when leaving input fields
+  const handleMouseLeave = () => {
+    setMousePosition(null);
+  };
 
   const handleSendOtp = async () => {
     if (!phone.match(/^[0-9]{10,11}$/)) {
@@ -69,8 +104,8 @@ const CitizenLogin = () => {
       });
 
       setShowOtp(true);
-      setOtp(""); // ✅ Reset OTP input
-      setCountdown(OTP_EXPIRE_TIME); // ✅ Bắt đầu đếm ngược 2 phút
+      setOtp(""); // Reset OTP input
+      setCountdown(OTP_EXPIRE_TIME); // Start 2 minute countdown
     } catch (err: any) {
       setNotification({
         open: true,
@@ -92,7 +127,7 @@ const CitizenLogin = () => {
       return;
     }
 
-    setVerifyDisabled(true); // ✅ Chặn spam nút
+    setVerifyDisabled(true); // Prevent spam clicks
     setLoading(true);
 
     try {
@@ -123,94 +158,188 @@ const CitizenLogin = () => {
         type: "error",
       });
     } finally {
-      setVerifyDisabled(false); // ✅ Cho phép nhấn lại
+      setVerifyDisabled(false);
       setLoading(false);
     }
   };
+  
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+  
   return (
-    <Box
-      sx={{
-        maxWidth: 400,
-        mx: "auto",
-        mt: 8,
-        p: 4,
-        boxShadow: 3,
-        borderRadius: 2,
-      }}
-    >
-      <Typography variant="h5" gutterBottom>
-        Citizen Login
-      </Typography>
-
-      <TextField
-        fullWidth
-        label="Phone number"
-        variant="outlined"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-
-      {!showOtp && (
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={handleSendOtp}
-          disabled={loading}
+    <Container maxWidth="sm">
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Paper 
+          elevation={6} 
+          sx={{ 
+            p: 4, 
+            width: '100%', 
+            borderRadius: '12px',
+            transition: 'transform 0.3s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-5px)'
+            }
+          }}
         >
-          {loading ? <CircularProgress size={24} /> : "Send OTP"}
-        </Button>
-      )}
-
-      {showOtp && (
-        <>
-          <TextField
-            fullWidth
-            label="Enter OTP code"
-            variant="outlined"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            sx={{ my: 2 }}
-          />
-
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleVerify}
-            disabled={loading || verifyDisabled || countdown === 0}
+          <Box sx={{ mb: 4 }}>
+            <PenguinCitizen 
+              isPasswordField={focusedField === 'otp'} 
+              isPasswordVisible={showPassword}
+              inputPosition={mousePosition}
+            />
+          </Box>
+          
+          <Typography 
+            variant="h4" 
+            align="center" 
+            fontWeight="bold" 
+            gutterBottom
+            sx={{ 
+              color: '#2563EB',
+              mb: 3
+            }}
           >
-            {loading ? <CircularProgress size={24} /> : "Authentication & Login"}
-          </Button>
-
-          <Typography align="center" sx={{ mt: 2 }}>
-            {countdown !== null &&
-              (countdown > 0
-                ? `OTP code is still valid ${countdown} second`
-                : `OTP code has expired!`)}
+            Citizen Login
           </Typography>
 
-          <Button
-            variant="text"
-            fullWidth
-            onClick={handleSendOtp}
-            disabled={loading}
-            sx={{ mt: 1 }}
-          >
-            Resend OTP
-          </Button>
-        </>
-      )}
+          <form>
+            <Box 
+              ref={phoneFieldRef}
+              onMouseMove={handleMouseMove} 
+              onMouseLeave={handleMouseLeave}
+              onFocus={() => setFocusedField('phone')}
+            >
+              <TextField
+                fullWidth
+                label="Phone number"
+                variant="outlined"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                sx={{ 
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#2563EB',
+                    },
+                  },
+                }}
+              />
+            </Box>
 
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={3000}
-        onClose={() => setNotification({ ...notification, open: false })}
-      >
-        <Alert severity={notification.type as any}>
-          {notification.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+            {!showOtp && (
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleSendOtp}
+                disabled={loading}
+                sx={{ 
+                  py: 1.5, 
+                  bgcolor: '#10B981',
+                  '&:hover': {
+                    bgcolor: '#059669',
+                  }
+                }}
+              >
+                {loading ? <CircularProgress size={24} /> : "Send OTP"}
+              </Button>
+            )}
+
+            {showOtp && (
+              <>
+                <Box 
+                  ref={otpFieldRef}
+                  onMouseMove={handleMouseMove} 
+                  onMouseLeave={handleMouseLeave}
+                  onFocus={() => setFocusedField('otp')}
+                >
+                  <TextField
+                    fullWidth
+                    label="Enter OTP code"
+                    variant="outlined"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    type={showPassword ? 'text' : 'password'}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle OTP visibility"
+                            onClick={handleClickShowPassword}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
+                    sx={{ 
+                      my: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#2563EB',
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={handleVerify}
+                  disabled={loading || verifyDisabled || countdown === 0}
+                  sx={{ 
+                    py: 1.5, 
+                    bgcolor: '#2563EB',
+                    '&:hover': {
+                      bgcolor: '#1D4ED8',
+                    }
+                  }}
+                >
+                  {loading ? <CircularProgress size={24} /> : "Authentication & Login"}
+                </Button>
+
+                <Typography align="center" sx={{ mt: 2, color: countdown === 0 ? '#EF4444' : '#6B7280' }}>
+                  {countdown !== null &&
+                    (countdown > 0
+                      ? `OTP code is still valid for ${countdown} seconds`
+                      : `OTP code has expired!`)}
+                </Typography>
+
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={handleSendOtp}
+                  disabled={loading}
+                  sx={{ 
+                    mt: 2,
+                    borderColor: '#10B981',
+                    color: '#10B981',
+                    '&:hover': {
+                      borderColor: '#059669',
+                      bgcolor: 'rgba(16, 185, 129, 0.1)',
+                    }
+                  }}
+                >
+                  Resend OTP
+                </Button>
+              </>
+            )}
+          </form>
+          
+          <Snackbar
+            open={notification.open}
+            autoHideDuration={3000}
+            onClose={() => setNotification({ ...notification, open: false })}
+          >
+            <Alert severity={notification.type as any}>
+              {notification.message}
+            </Alert>
+          </Snackbar>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 
