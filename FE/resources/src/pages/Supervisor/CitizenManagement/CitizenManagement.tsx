@@ -37,16 +37,16 @@ import {
   CheckCircle,
   DirectionsCar,
   Badge,
-  ErrorOutline,
   CheckCircleOutline
 } from "@mui/icons-material";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import type { ChipProps } from '@mui/material';
 
 const API_BASE_URL = `${config.API_URL}`;
 
 // Status configurations with corresponding colors and labels
-const statusColors = {
+const statusColors: Record<string, { label: string; color: ChipProps['color'] }> = {
   Submitted: { label: "Submitted", color: "warning" },
   Verified: { label: "Verified", color: "success" },
   Created: { label: "Created", color: "error" }
@@ -92,7 +92,7 @@ const CitizenManagement: React.FC = () => {
           card_parrot_image: firstCar?.image || null,
           plate_number: firstCar?.plate_number || "Not registered",
           car_parrot_id: firstCar?.id || null,
-          car_verified: firstCar?.verified || false,
+          car_verified: firstCar?.status || false,
           status: citizen.status || "Submitted"
         };
       });
