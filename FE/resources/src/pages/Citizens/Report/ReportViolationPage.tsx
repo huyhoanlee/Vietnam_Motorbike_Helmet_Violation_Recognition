@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Stack
 } from '@mui/material';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
@@ -116,7 +115,7 @@ const ReportViolation = () => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}violations/citizen/${userId}`);
+      const response = await axios.get(`${API_BASE_URL}violations/report/${userId}`);
       setMyViolations(response.data);
     } catch (error: any) {
       console.error('Error fetching reports:', error);
@@ -130,7 +129,7 @@ const ReportViolation = () => {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
@@ -147,7 +146,7 @@ const ReportViolation = () => {
     setImagePreviewUrl(null);
   };
 
-  const onDrop = (acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = (acceptedFiles: File[], _rejectedFiles: any[]) => {
     if (uploadingImages.length + acceptedFiles.length > 5) {
       setSnackbar({
         open: true, 
@@ -249,10 +248,10 @@ const ReportViolation = () => {
       const userId = localStorage.getItem('user_id');
       
       const payload = {
+        reported_by: userId,
         image: base64Images,
         plate_number: data.plate_number,
         location: data.location,
-        citizen_id: userId || null,
       };
 
       const response = await axios.post(`${API_BASE_URL}violations/report/`, payload);
