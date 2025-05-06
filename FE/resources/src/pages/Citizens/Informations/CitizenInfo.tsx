@@ -33,7 +33,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PersonIcon from '@mui/icons-material/Person';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-
+import CameraCapture from "./CameraCapture";
 const API_BASE_URL = config.API_URL;
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -59,13 +59,16 @@ const CitizenInfoForm = () => {
     nationality: "Vietnam",
   });
 
+  const [personImage, setPersonImage] = useState<string | null>(null);
+  const [personImagePreview, setPersonImagePreview] = useState<string | null>(null);
+  
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" | "warning" });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
+  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified" | "Rejected">("Draft");
   const [displayStatus, setDisplayStatus] = useState<string>("Draft"); // Trạng thái hiển thị ở FE
   const [editCount, setEditCount] = useState<number>(0); // Đếm số lần chỉnh sửa
   const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
@@ -75,10 +78,12 @@ const CitizenInfoForm = () => {
   const [showSubmitConfirmDialog, setShowSubmitConfirmDialog] = useState(false); // Dialog xác nhận trước khi Submit
   const [showFormFields, setShowFormFields] = useState(false);
   const [openImageDialog, setOpenImageDialog] = useState(false);
+  const [openPersonImageDialog, setOpenPersonImageDialog] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
 
   const citizenId = Number(localStorage.getItem("user_id") || 1);
   const isVerified = status === "Verified";
+  const isRejected = status === "Rejected";
   const today = new Date();
   const currentYear = today.getFullYear();
   const todayISO = today.toISOString().split("T")[0];
@@ -119,9 +124,16 @@ const CitizenInfoForm = () => {
           });
 
           setImagePreview(data.identity_card || null);
+          setPersonImagePreview(data.person_image || null);
           setStatus(data.status || "Draft");
           setDisplayStatus(data.status || "Draft");
           setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
+
+          if (data.status === "Rejected") {
+          setIsSubmitted(false);
+          setDisplayStatus("Change Information");
+        }
+
           setShowFormFields(true);
         }
       } catch (error) {
@@ -148,6 +160,12 @@ const CitizenInfoForm = () => {
       handleOcr(file);
     }
   };
+
+  const handleCameraCapture = (base64Image: string) => {
+  setPersonImage(base64Image);
+  setPersonImagePreview(base64Image);
+  setSnackbar({ msg: "Photo captured successfully!", type: "success" });
+};
 
   const handleOcr = async (file: File) => {
     try {
@@ -261,6 +279,11 @@ const CitizenInfoForm = () => {
       newErrors.issuePlace = "Place of issue can only contain letters, spaces, commas, and periods";
     }
 
+    if (!personImage && !personImagePreview) {
+    setSnackbar({ msg: "Please take your photo for verification.", type: "error" });
+    return false;
+  }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -314,6 +337,7 @@ const CitizenInfoForm = () => {
         place_of_issue: trimmedForm.issuePlace,
         nationality: trimmedForm.nationality,
         identity_card: base64Image,
+        person_image: personImage || personImagePreview,
         status: "Submitted", // Gửi status là Submitted lên BE
       };
 
@@ -338,6 +362,7 @@ const CitizenInfoForm = () => {
       });
 
       setImagePreview(data.identity_card || null);
+      setPersonImagePreview(data.person_image || null);
       setStatus(data.status || "Draft");
       
       // Cập nhật trạng thái hiển thị ở FE
@@ -369,6 +394,7 @@ const CitizenInfoForm = () => {
     }
 
     setImageFile(null);
+    setPersonImage(null); 
     setIsSubmitted(false);
     setIsOcrConfirmed(false);
     setShowConfirmDialog(false);
@@ -378,23 +404,36 @@ const CitizenInfoForm = () => {
 
   const renderStatusStepper = () => {
     const steps = ["Upload ID", "Submit Information", "Verification"];
-    const activeStep = displayStatus === "Draft" || displayStatus === "Change Information" ? 0 :
-      displayStatus.startsWith("Submit again") || status === "Submitted" ? 1 : 2;
+    const activeStep = displayStatus === "Draft" || displayStatus === "Change Information" || isRejected ? 0 :
+    displayStatus.startsWith("Submit again") || status === "Submitted" ? 1 : 2;
 
     return (
       <Fade in={!fetchingData}>
-        <Card sx={{ mb: 3, border: isVerified ? '1px solid #4caf50' : '1px solid #ff9800' }}>
+        <Card sx={{ mb: 3, border: isVerified ? '1px solid #4caf50' : isRejected ? '1px solid #f44336' : '1px solid #ff9800' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               {isVerified ? (
                 <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 28 }} />
-              ) : (
+              ) : isRejected ?(
                 <ErrorOutlineIcon color="warning" sx={{ mr: 1, fontSize: 28 }} />
+              ): (
+              <ErrorOutlineIcon color="warning" sx={{ mr: 1, fontSize: 28 }} />
               )}
               <Typography variant="h6">
-                {isVerified ? "Citizen Verified" : displayStatus === "Change Information" ? "Editing Information" : displayStatus.startsWith("Submit again") ? "Verification Pending" : status === "Submitted" ? "Verification Pending" : "Upload Your Information"}
-              </Typography>
+              {isVerified ? "Citizen Verified" : 
+               isRejected ? "Information Rejected" :
+               displayStatus === "Change Information" ? "Editing Information" : 
+               displayStatus.startsWith("Submit again") ? "Verification Pending" : 
+               status === "Submitted" ? "Verification Pending" : "Upload Your Information"}
+            </Typography>
             </Box>
+
+             {/* Add rejection message alert */}
+            {isRejected && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Your ID information and personal details do not match. Please review and update your information.
+              </Alert>
+            )}
 
             <Stepper activeStep={activeStep} alternativeLabel>
               {steps.map((label, index) => (
@@ -424,12 +463,12 @@ const CitizenInfoForm = () => {
                 <Typography variant="body2">
                   <strong>Status:</strong>
                   <Chip
-                    icon={isVerified ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
-                    label={displayStatus}
-                    color={isVerified ? "success" : displayStatus === "Change Information" || displayStatus.startsWith("Submit again") || status === "Submitted" ? "warning" : "default"}
-                    size="small"
-                    sx={{ ml: 1 }}
-                  />
+                  icon={isVerified ? <CheckCircleIcon /> : isRejected ? <ErrorOutlineIcon /> : <ErrorOutlineIcon />}
+                  label={isRejected ? "Rejected" : displayStatus}
+                  color={isVerified ? "success" : isRejected ? "error" : displayStatus === "Change Information" || displayStatus.startsWith("Submit again") || status === "Submitted" ? "warning" : "default"}
+                  size="small"
+                  sx={{ ml: 1 }}
+                />
                 </Typography>
               </Box>
             )}
@@ -484,6 +523,41 @@ const CitizenInfoForm = () => {
                   />
                 </Box>
               )}
+              <Box mt={3} mb={2}>
+              <Typography variant="body1" mb={1} fontWeight={500}>
+                Take Your Photo for Verification
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <CameraCapture 
+                  onImageCapture={handleCameraCapture} 
+                  disabled={isSubmitted || isVerified}
+                />
+                {personImagePreview && (
+                  <Avatar
+                    src={personImagePreview}
+                    alt="Person Photo"
+                    sx={{ 
+                      width: 100, 
+                      height: 100, 
+                      cursor: "pointer",
+                      transition: "transform 0.3s",
+                      border: '2px solid #1976d2'
+                    }}
+                    onClick={() => {
+                      setOpenPersonImageDialog(true);
+                      // You can add logic here to display the person image in the dialog
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                  />
+                )}
+              </Box>
+              {!personImagePreview && !isVerified && (
+                <Typography variant="caption" color="text.secondary">
+                  Please take a clear photo of your face for verification purposes
+                </Typography>
+              )}
+            </Box>
 
               {showFormFields && (
                 <Grid container spacing={2} mt={2} sx={{ opacity: isVerified ? 0.6 : isSubmitted ? 0.8 : 1 }}>
@@ -742,6 +816,17 @@ const CitizenInfoForm = () => {
             <Typography><strong>Address:</strong> {form.address}</Typography>
           </Box>
         </DialogContent>
+        {personImagePreview && (
+        <Box mt={2} display="flex" flexDirection="column" alignItems="center">
+          <Typography variant="subtitle2" gutterBottom>Your Photo</Typography>
+          <Avatar
+            src={personImagePreview}
+            alt="Person Photo"
+            onClick={() => setOpenPersonImageDialog(true)}
+            sx={{ width: 100, height: 100, mb: 1 }}
+          />
+        </Box>
+      )}
         <DialogActions>
           <Button onClick={() => setShowSubmitConfirmDialog(false)} color="secondary">
             Cancel
@@ -753,7 +838,7 @@ const CitizenInfoForm = () => {
       </Dialog>
 
       <Dialog open={openImageDialog} onClose={() => setOpenImageDialog(false)} maxWidth="md">
-        <DialogTitle>Image Preview</DialogTitle>
+        <DialogTitle>Image ID Preview</DialogTitle>
         <DialogContent>
           <img
             src={imagePreview || ""}
@@ -767,6 +852,22 @@ const CitizenInfoForm = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={openPersonImageDialog} onClose={() => setOpenPersonImageDialog(false)} maxWidth="md">
+      <DialogTitle>Person Image Preview</DialogTitle>
+      <DialogContent>
+        <img
+          src={personImagePreview || ""}
+          alt="Person Image Preview"
+          style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setOpenPersonImageDialog(false)} color="primary">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
 
       <Snackbar
         open={!!snackbar.msg}

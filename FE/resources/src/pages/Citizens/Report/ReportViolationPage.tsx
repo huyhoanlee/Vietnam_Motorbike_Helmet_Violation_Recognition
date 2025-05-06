@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Stack
 } from '@mui/material';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
@@ -47,13 +46,14 @@ interface UploadingImage {
   progress: number;
 }
 
+// Cập nhật interface Violation để khớp với dữ liệu API
 interface Violation {
-  id: string;
+  id: number; // Đổi từ string sang number
   plate_number: string;
   location: string;
-  reported_at: string;
   images: string[];
   status: 'Reported' | 'Verified';
+  reported_at?: string; // Optional, vì API hiện tại không trả về
 }
 
 const StatusChip = ({ status }: { status: string }) => {
@@ -116,8 +116,26 @@ const ReportViolation = () => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}violations/citizen/${userId}`);
-      setMyViolations(response.data);
+      const response = await axios.get(`${API_BASE_URL}violations/report/${userId}/`);
+      
+      // Kiểm tra dữ liệu trả về trước khi gán
+      const reports = Array.isArray(response.data) ? response.data : [];
+      if (reports.length === 0) {
+        setMyViolations([]);
+        return;
+      }
+
+      // Đảm bảo dữ liệu khớp với interface Violation
+      const formattedReports: Violation[] = reports.map((report: any) => ({
+        id: report.id,
+        plate_number: report.plate_number,
+        location: report.location,
+        images: Array.isArray(report.images) ? report.images : [],
+        status: report.status as 'Reported' | 'Verified',
+        reported_at: report.reported_at // Có thể không có, đã để optional
+      }));
+
+      setMyViolations(formattedReports);
     } catch (error: any) {
       console.error('Error fetching reports:', error);
       setSnackbar({
@@ -125,12 +143,13 @@ const ReportViolation = () => {
         message: error.response?.data?.message || 'Failed to load your reports',
         severity: 'error'
       });
+      setMyViolations([]); // Đặt lại danh sách nếu có lỗi
     } finally {
       setLoadingReports(false);
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
@@ -147,7 +166,7 @@ const ReportViolation = () => {
     setImagePreviewUrl(null);
   };
 
-  const onDrop = (acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = (acceptedFiles: File[], _rejectedFiles: any[]) => {
     if (uploadingImages.length + acceptedFiles.length > 5) {
       setSnackbar({
         open: true, 
@@ -182,9 +201,7 @@ const ReportViolation = () => {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/*': []
-    },
+    accept: { 'image/*': [] },
     multiple: true
   });
 
@@ -249,10 +266,10 @@ const ReportViolation = () => {
       const userId = localStorage.getItem('user_id');
       
       const payload = {
+        reported_by: userId,
         image: base64Images,
         plate_number: data.plate_number,
-        location: data.location,
-        citizen_id: userId || null,
+        reported_location: data.reported_location,
       };
 
       const response = await axios.post(`${API_BASE_URL}violations/report/`, payload);
@@ -263,11 +280,9 @@ const ReportViolation = () => {
         severity: 'success'
       });
 
-      // Reset form and images
       reset();
       setUploadingImages([]);
 
-      // If the user is logged in, fetch their reports again
       if (userId) {
         fetchMyReports();
       }
@@ -286,7 +301,8 @@ const ReportViolation = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A'; // Trả về giá trị mặc định nếu không có reported_at
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -345,11 +361,11 @@ const ReportViolation = () => {
                     <TextField
                       label="Location of Violation"
                       fullWidth
-                      {...register('location', { 
+                      {...register('reported_location', { 
                         required: 'Location is required' 
                       })}
-                      error={!!errors.location}
-                      helperText={errors.location?.message as string || ''}
+                      error={!!errors.reported_location}
+                      helperText={errors.reported_location?.message as string || ''}
                       variant="outlined"
                       placeholder="e.g. Nguyen Hue Street, District 1"
                     />
@@ -510,7 +526,7 @@ const ReportViolation = () => {
                           <CardMedia
                             component="img"
                             height="160"
-                            image={violation.images[0]}
+                            image={violation.images[0] || 'https://via.placeholder.com/160'} // Hình mặc định nếu không có ảnh
                             alt="Violation evidence"
                             sx={{ objectFit: 'cover' }}
                           />
@@ -524,6 +540,7 @@ const ReportViolation = () => {
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                               {violation.location}
                             </Typography>
+                            {/* Bỏ hiển thị reported_at hoặc sử dụng giá trị mặc định */}
                             <Typography variant="caption" color="text.secondary" display="block">
                               Reported: {formatDate(violation.reported_at)}
                             </Typography>

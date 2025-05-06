@@ -74,8 +74,6 @@ interface CameraData {
 const DataDetection = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isMedium = useMediaQuery(theme.breakpoints.down("md"));
-
   // State for search and filters
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("All");
