@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   Grid,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -39,7 +38,7 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import InfoIcon from "@mui/icons-material/Info";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import { Bar, Pie, Line, Doughnut } from "react-chartjs-2";
+import { Bar,  Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -155,8 +154,8 @@ const Dashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [imageViewer, setImageViewer] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<string>("30days");
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [selectedViolation, setSelectedViolation] = useState<Violation | null>(null);
+  const [_selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [_selectedViolation, setSelectedViolation] = useState<Violation | null>(null);
   
   const pieChartHeight = 240;
   const barLineChartHeight = 300;
@@ -348,7 +347,7 @@ const Dashboard: React.FC = () => {
             },
           },
           datalabels: {
-            formatter: (value: number, context: any) => {
+            formatter: (value: number, _context: any) => {
               const percentage = ((value / total) * 100).toFixed(0);
               return parseFloat(percentage) > 5 ? `${percentage}%` : '';
             },
@@ -402,7 +401,7 @@ const Dashboard: React.FC = () => {
             },
           },
           datalabels: {
-            formatter: (value: number, context: any) => {
+            formatter: (value: number, _context: any) => {
               const percentage = ((value / total) * 100).toFixed(0);
               return parseFloat(percentage) > 5 ? `${percentage}%` : '';
             },
@@ -456,7 +455,7 @@ const Dashboard: React.FC = () => {
             },
           },
           datalabels: {
-            formatter: (value: number, context: any) => {
+            formatter: (value: number, _context: any) => {
               const percentage = ((value / total) * 100).toFixed(0);
               return parseFloat(percentage) > 5 ? `${percentage}%` : '';
             },

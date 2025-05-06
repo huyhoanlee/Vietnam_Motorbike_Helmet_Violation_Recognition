@@ -2,10 +2,10 @@ import { useEffect, useState, useMemo } from "react";
 import {
   Paper, Typography, TextField, Grid, Button, Snackbar, Alert, MenuItem, CircularProgress,
   Box, Tabs, Tab, Divider, Chip, Card, CardContent, CardActions, Fade, useTheme, useMediaQuery,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip
+  IconButton
 } from "@mui/material";
 import {
-  LocationOn, Add, Refresh, Search, Close, Delete, Edit, 
+  LocationOn, Add, Refresh, Search, Close, 
   ExpandMore, ExpandLess, FilterList, Map as MapIcon
 } from "@mui/icons-material";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
@@ -291,7 +291,7 @@ const LocationManagement = () => {
   };
 
   // Handle tab change
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 

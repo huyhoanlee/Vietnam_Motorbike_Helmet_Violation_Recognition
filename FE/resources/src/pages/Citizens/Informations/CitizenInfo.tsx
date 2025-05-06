@@ -475,7 +475,7 @@ const CitizenInfoForm = () => {
               {imagePreview && (
                 <Box mt={2}>
                   <Avatar
-                    src={imagePreview}
+                    src={imagePreview || ""}
                     variant="rounded"
                     sx={{ width: 160, height: 100, cursor: "pointer", transition: "transform 0.3s" }}
                     onClick={() => setOpenImageDialog(true)}
@@ -756,7 +756,7 @@ const CitizenInfoForm = () => {
         <DialogTitle>Image Preview</DialogTitle>
         <DialogContent>
           <img
-            src={imagePreview}
+            src={imagePreview || ""}
             alt="ID Preview"
             style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
           />
