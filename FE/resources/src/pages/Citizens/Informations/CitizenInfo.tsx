@@ -68,7 +68,7 @@ const CitizenInfoForm = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [snackbar, setSnackbar] = useState({ msg: "", type: "success" as "success" | "error" | "warning" });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified">("Draft");
+  const [status, setStatus] = useState<"Draft" | "Submitted" | "Verified" | "Rejected">("Draft");
   const [displayStatus, setDisplayStatus] = useState<string>("Draft"); // Trạng thái hiển thị ở FE
   const [editCount, setEditCount] = useState<number>(0); // Đếm số lần chỉnh sửa
   const [awaitingConfirmEdit, setAwaitingConfirmEdit] = useState(false);
@@ -83,6 +83,7 @@ const CitizenInfoForm = () => {
 
   const citizenId = Number(localStorage.getItem("user_id") || 1);
   const isVerified = status === "Verified";
+  const isRejected = status === "Rejected";
   const today = new Date();
   const currentYear = today.getFullYear();
   const todayISO = today.toISOString().split("T")[0];
@@ -127,6 +128,12 @@ const CitizenInfoForm = () => {
           setStatus(data.status || "Draft");
           setDisplayStatus(data.status || "Draft");
           setIsSubmitted(data.status === "Submitted" || data.status === "Verified");
+
+          if (data.status === "Rejected") {
+          setIsSubmitted(false);
+          setDisplayStatus("Change Information");
+        }
+
           setShowFormFields(true);
         }
       } catch (error) {
@@ -397,23 +404,36 @@ const CitizenInfoForm = () => {
 
   const renderStatusStepper = () => {
     const steps = ["Upload ID", "Submit Information", "Verification"];
-    const activeStep = displayStatus === "Draft" || displayStatus === "Change Information" ? 0 :
-      displayStatus.startsWith("Submit again") || status === "Submitted" ? 1 : 2;
+    const activeStep = displayStatus === "Draft" || displayStatus === "Change Information" || isRejected ? 0 :
+    displayStatus.startsWith("Submit again") || status === "Submitted" ? 1 : 2;
 
     return (
       <Fade in={!fetchingData}>
-        <Card sx={{ mb: 3, border: isVerified ? '1px solid #4caf50' : '1px solid #ff9800' }}>
+        <Card sx={{ mb: 3, border: isVerified ? '1px solid #4caf50' : isRejected ? '1px solid #f44336' : '1px solid #ff9800' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               {isVerified ? (
                 <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 28 }} />
-              ) : (
+              ) : isRejected ?(
                 <ErrorOutlineIcon color="warning" sx={{ mr: 1, fontSize: 28 }} />
+              ): (
+              <ErrorOutlineIcon color="warning" sx={{ mr: 1, fontSize: 28 }} />
               )}
               <Typography variant="h6">
-                {isVerified ? "Citizen Verified" : displayStatus === "Change Information" ? "Editing Information" : displayStatus.startsWith("Submit again") ? "Verification Pending" : status === "Submitted" ? "Verification Pending" : "Upload Your Information"}
-              </Typography>
+              {isVerified ? "Citizen Verified" : 
+               isRejected ? "Information Rejected" :
+               displayStatus === "Change Information" ? "Editing Information" : 
+               displayStatus.startsWith("Submit again") ? "Verification Pending" : 
+               status === "Submitted" ? "Verification Pending" : "Upload Your Information"}
+            </Typography>
             </Box>
+
+             {/* Add rejection message alert */}
+            {isRejected && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Your ID information and personal details do not match. Please review and update your information.
+              </Alert>
+            )}
 
             <Stepper activeStep={activeStep} alternativeLabel>
               {steps.map((label, index) => (
@@ -443,12 +463,12 @@ const CitizenInfoForm = () => {
                 <Typography variant="body2">
                   <strong>Status:</strong>
                   <Chip
-                    icon={isVerified ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
-                    label={displayStatus}
-                    color={isVerified ? "success" : displayStatus === "Change Information" || displayStatus.startsWith("Submit again") || status === "Submitted" ? "warning" : "default"}
-                    size="small"
-                    sx={{ ml: 1 }}
-                  />
+                  icon={isVerified ? <CheckCircleIcon /> : isRejected ? <ErrorOutlineIcon /> : <ErrorOutlineIcon />}
+                  label={isRejected ? "Rejected" : displayStatus}
+                  color={isVerified ? "success" : isRejected ? "error" : displayStatus === "Change Information" || displayStatus.startsWith("Submit again") || status === "Submitted" ? "warning" : "default"}
+                  size="small"
+                  sx={{ ml: 1 }}
+                />
                 </Typography>
               </Box>
             )}

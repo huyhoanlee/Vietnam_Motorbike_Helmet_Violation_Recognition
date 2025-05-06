@@ -30,26 +30,38 @@ import {
   Tooltip,
   IconButton,
   Alert,
-  Snackbar
+  Snackbar,
+  ButtonGroup
 } from "@mui/material";
 import {
   Visibility,
   CheckCircle,
   DirectionsCar,
   Badge,
-  CheckCircleOutline
+  ErrorOutline,
+  CheckCircleOutline,
+  CancelOutlined,
+  Compare
 } from "@mui/icons-material";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import type { ChipProps } from '@mui/material';
 
 const API_BASE_URL = `${config.API_URL}`;
 
+type ChipColor =
+  | "default"
+  | "primary"
+  | "secondary"
+  | "error"
+  | "info"
+  | "success"
+  | "warning";
 // Status configurations with corresponding colors and labels
-const statusColors: Record<string, { label: string; color: ChipProps['color'] }> = {
+const statusColors: Record<string, { label: string; color: ChipColor }> = {
   Submitted: { label: "Submitted", color: "warning" },
   Verified: { label: "Verified", color: "success" },
-  Created: { label: "Created", color: "error" }
+  Created: { label: "Created", color: "info" },
+  Rejected: { label: "Rejected", color: "error" }
 };
 
 // Format image source for display
@@ -70,10 +82,12 @@ const CitizenManagement: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [verifyingIdentity, setVerifyingIdentity] = useState(false);
+  const [rejectingIdentity, setRejectingIdentity] = useState(false);
   const [verifyingVehicle, setVerifyingVehicle] = useState(false);
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'identity' | 'vehicle' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'verify-identity' | 'reject-identity' | 'verify-vehicle' | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [compareImagesDialog, setCompareImagesDialog] = useState(false);
 
   useEffect(() => {
     fetchCitizens();
@@ -82,22 +96,36 @@ const CitizenManagement: React.FC = () => {
   const fetchCitizens = async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get(`${API_BASE_URL}car_parrots/get-all/`);
-      const apiData = response.data;
-
-      const formatted = apiData.map((citizen: any) => {
-        const firstCar = citizen.card_parrots?.[0] || {};
+      // Fetch ALL citizens instead of only submitted ones
+      const citizensResponse = await axiosInstance.get(`${API_BASE_URL}citizens/get-all/`);
+      let citizensData = citizensResponse.data || [];
+      
+      // Fetch car parrots data separately
+      const carParrotsResponse = await axiosInstance.get(`${API_BASE_URL}car_parrots/get-all/`);
+      const carParrotsData = carParrotsResponse.data || [];
+      
+      // Merge data to ensure we have complete citizen information
+      const mergedData = citizensData.map((citizen: any) => {
+        // Find matching citizen in car parrots data
+        const matchingCarParrot = carParrotsData.find((cp: any) => 
+          cp.citizen_identity_id === citizen.citizen_identity_id
+        );
+        
+        // Get first car info if available
+        const firstCar = matchingCarParrot?.card_parrots?.[0] || {};
+        
         return {
           ...citizen,
+          citizen_id: citizen.id, // Use the actual ID as citizen_id
           card_parrot_image: firstCar?.image || null,
           plate_number: firstCar?.plate_number || "Not registered",
           car_parrot_id: firstCar?.id || null,
-          car_verified: firstCar?.status || false,
-          status: citizen.status || "Submitted"
+          car_verified: firstCar?.status === "Verified",
+          car_status: firstCar?.status || null
         };
       });
 
-      setCitizens(formatted);
+      setCitizens(mergedData);
     } catch (error) {
       console.error("Fetch error:", error);
       toast.error("Failed to load citizens data");
@@ -117,26 +145,31 @@ const CitizenManagement: React.FC = () => {
   };
 
   const handleVerifyIdentity = () => {
-    setConfirmAction('identity');
+    setConfirmAction('verify-identity');
+    setOpenConfirmDialog(true);
+  };
+
+  const handleRejectIdentity = () => {
+    setConfirmAction('reject-identity');
     setOpenConfirmDialog(true);
   };
 
   const handleVerifyVehicle = () => {
-    setConfirmAction('vehicle');
+    setConfirmAction('verify-vehicle');
     setOpenConfirmDialog(true);
   };
 
   const handleConfirmVerification = async () => {
     try {
-      if (confirmAction === 'identity') {
+      if (confirmAction === 'verify-identity') {
         setVerifyingIdentity(true);
-        const citizenId = selectedCitizen.citizen_id.toString().replace(/\D/g, '');
+        const citizenId = selectedCitizen.id.toString();
         await axiosInstance.patch(`${API_BASE_URL}citizens/verify/${citizenId}/`);
         
         // Update local state
         setCitizens(prevCitizens => 
           prevCitizens.map(citizen => 
-            citizen.citizen_id === selectedCitizen.citizen_id 
+            citizen.id === selectedCitizen.id 
               ? { ...citizen, status: "Verified" } 
               : citizen
           )
@@ -144,7 +177,25 @@ const CitizenManagement: React.FC = () => {
         
         setSelectedCitizen({...selectedCitizen, status: "Verified"});
         setSnackbar({ open: true, message: 'Identity verification successful', severity: 'success' });
-      } else if (confirmAction === 'vehicle') {
+      } 
+      else if (confirmAction === 'reject-identity') {
+        setRejectingIdentity(true);
+        const citizenId = selectedCitizen.id.toString();
+        await axiosInstance.patch(`${API_BASE_URL}citizens/reject/${citizenId}/`);
+        
+        // Update local state
+        setCitizens(prevCitizens => 
+          prevCitizens.map(citizen => 
+            citizen.id === selectedCitizen.id 
+              ? { ...citizen, status: "Rejected" } 
+              : citizen
+          )
+        );
+        
+        setSelectedCitizen({...selectedCitizen, status: "Rejected"});
+        setSnackbar({ open: true, message: 'Identity rejected due to image mismatch', severity: 'success' });
+      }
+      else if (confirmAction === 'verify-vehicle') {
         setVerifyingVehicle(true);
         const carParrotId = selectedCitizen.car_parrot_id;
         await axiosInstance.put(`${API_BASE_URL}car_parrots/verified/${carParrotId}/`);
@@ -152,20 +203,21 @@ const CitizenManagement: React.FC = () => {
         // Update local state
         setCitizens(prevCitizens => 
           prevCitizens.map(citizen => 
-            citizen.citizen_id === selectedCitizen.citizen_id 
-              ? { ...citizen, car_verified: true } 
+            citizen.id === selectedCitizen.id 
+              ? { ...citizen, car_verified: true, car_status: "Verified" } 
               : citizen
           )
         );
         
-        setSelectedCitizen({...selectedCitizen, car_verified: true});
+        setSelectedCitizen({...selectedCitizen, car_verified: true, car_status: "Verified"});
         setSnackbar({ open: true, message: 'Vehicle registration verification successful', severity: 'success' });
       }
     } catch (error) {
       console.error("Verification error:", error);
-      setSnackbar({ open: true, message: 'Verification failed. Please try again.', severity: 'error' });
+      setSnackbar({ open: true, message: 'Action failed. Please try again.', severity: 'error' });
     } finally {
       setVerifyingIdentity(false);
+      setRejectingIdentity(false);
       setVerifyingVehicle(false);
       setOpenConfirmDialog(false);
       setConfirmAction(null);
@@ -174,6 +226,10 @@ const CitizenManagement: React.FC = () => {
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleCompareImages = () => {
+    setCompareImagesDialog(true);
   };
 
   const canVerifyVehicle = selectedCitizen?.status === "Verified" && selectedCitizen?.card_parrot_image;
@@ -214,7 +270,7 @@ const CitizenManagement: React.FC = () => {
             <Table>
               <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
                 <TableRow>
-                  {["Citizen ID", "Full Name", "Phone Number", "Email", "Status", "Actions"].map((header) => (
+                  {["ID", "Citizen Identity ID", "Full Name", "Phone Number", "Email", "Status", "Actions"].map((header) => (
                     <TableCell 
                       key={header} 
                       sx={{ 
@@ -229,33 +285,44 @@ const CitizenManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {citizens.map((citizen) => (
-                  <TableRow key={citizen.citizen_id} hover>
-                    <TableCell>{citizen.citizen_id}</TableCell>
-                    <TableCell>{citizen.full_name}</TableCell>
-                    <TableCell>{citizen.phone_number}</TableCell>
-                    <TableCell>{citizen.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={statusColors[citizen.status as keyof typeof statusColors]?.label || "Unknown"}
-                        color={statusColors[citizen.status as keyof typeof statusColors]?.color || "default"}
-                        size={isMobile ? "small" : "medium"}
-                        sx={{ fontWeight: 'medium' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          color="primary"
-                          onClick={() => handleViewDetails(citizen)}
+                {citizens.length > 0 ? (
+                  citizens.map((citizen) => (
+                    <TableRow key={citizen.id} hover>
+                      <TableCell>{citizen.id}</TableCell>
+                      <TableCell>{citizen.citizen_identity_id}</TableCell>
+                      <TableCell>{citizen.full_name}</TableCell>
+                      <TableCell>{citizen.phone_number}</TableCell>
+                      <TableCell>{citizen.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={statusColors[citizen.status as keyof typeof statusColors]?.label || "Unknown"}
+                          color={statusColors[citizen.status as keyof typeof statusColors]?.color || "default"}
                           size={isMobile ? "small" : "medium"}
-                        >
-                          <Visibility />
-                        </IconButton>
-                      </Tooltip>
+                          sx={{ fontWeight: 'medium' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title="View Details">
+                          <IconButton 
+                            color="primary"
+                            onClick={() => handleViewDetails(citizen)}
+                            size={isMobile ? "small" : "medium"}
+                          >
+                            <Visibility />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography variant="body1" py={3}>
+                        No citizens found
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -316,6 +383,16 @@ const CitizenManagement: React.FC = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body1">
+                            <strong>Date of Birth:</strong> {selectedCitizen.dob}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
+                            <strong>Gender:</strong> {selectedCitizen.gender}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
                             <strong>Phone:</strong> {selectedCitizen.phone_number}
                           </Typography>
                         </Grid>
@@ -326,17 +403,37 @@ const CitizenManagement: React.FC = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body1">
+                            <strong>Nationality:</strong> {selectedCitizen.nationality}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
+                            <strong>Place of Birth:</strong> {selectedCitizen.place_of_birth}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
+                            <strong>Issue Date:</strong> {selectedCitizen.issue_date}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
+                            <strong>Place of Issue:</strong> {selectedCitizen.place_of_issue}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body1">
                             <strong>Plate Number:</strong> {selectedCitizen.plate_number}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body1">
-                            <strong>Identity Verification:</strong> {selectedCitizen.status === "Verified" ? "Verified" : "Not Verified"}
+                            <strong>Identity Verification:</strong> {selectedCitizen.status}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body1">
-                            <strong>Vehicle Verification:</strong> {selectedCitizen.car_verified ? "Verified" : "Not Verified"}
+                            <strong>Vehicle Verification:</strong> {selectedCitizen.car_verified ? "Verified" : (selectedCitizen.car_status || "Not Verified")}
                           </Typography>
                         </Grid>
                       </Grid>
@@ -344,7 +441,7 @@ const CitizenManagement: React.FC = () => {
                   </Card>
                 </Grid>
 
-                {/* Identity Card */}
+                {/* Identity Card and Personal Photo Comparison */}
                 <Grid item xs={12} md={6}>
                   <Card elevation={3} sx={{ height: '100%', borderRadius: 2 }}>
                     <CardContent>
@@ -360,35 +457,95 @@ const CitizenManagement: React.FC = () => {
                             <CheckCircle color="success" />
                           </Tooltip>
                         )}
+                        {selectedCitizen.status === "Rejected" && (
+                          <Tooltip title="Rejected">
+                            <ErrorOutline color="error" />
+                          </Tooltip>
+                        )}
                       </Box>
                       <Divider sx={{ mb: 2 }} />
                       {selectedCitizen.identity_card ? (
-                        <CardMedia
-                          component="img"
-                          image={formatImageSrc(selectedCitizen.identity_card)}
-                          alt="Identity Card"
-                          sx={{
-                            width: '100%',
-                            borderRadius: 1,
-                            boxShadow: 1,
-                            transition: 'transform 0.3s ease-in-out',
-                            '&:hover': { transform: 'scale(1.02)' }
-                          }}
-                        />
+                        <>
+                          <CardMedia
+                            component="img"
+                            image={formatImageSrc(selectedCitizen.identity_card)}
+                            alt="Identity Card"
+                            sx={{
+                              width: '100%',
+                              borderRadius: 1,
+                              boxShadow: 1,
+                              maxHeight: 250,
+                              objectFit: 'contain',
+                              transition: 'transform 0.3s ease-in-out',
+                              '&:hover': { transform: 'scale(1.02)' }
+                            }}
+                          />
+                          
+                          {/* Personal Photo */}
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                              Personal Photo
+                            </Typography>
+                            {selectedCitizen.person_image ? (
+                              <CardMedia
+                                component="img"
+                                image={formatImageSrc(selectedCitizen.person_image)}
+                                alt="Personal Photo"
+                                sx={{
+                                  width: '100%',
+                                  maxHeight: 200,
+                                  objectFit: 'contain',
+                                  borderRadius: 1,
+                                  boxShadow: 1
+                                }}
+                              />
+                            ) : (
+                              <Alert severity="info">Personal photo not available</Alert>
+                            )}
+                          </Box>
+                          
+                          {/* Compare button */}
+                          {selectedCitizen.identity_card && selectedCitizen.person_image && selectedCitizen.status === "Submitted" && (
+                            <Button
+                              variant="outlined"
+                              startIcon={<Compare />}
+                              onClick={handleCompareImages}
+                              sx={{ mt: 2, mb: 1 }}
+                              fullWidth
+                            >
+                              Compare Images
+                            </Button>
+                          )}
+                          
+                          {selectedCitizen.status === "Submitted" && selectedCitizen.identity_card && (
+                            <ButtonGroup 
+                              variant="contained" 
+                              sx={{ mt: 1, width: '100%' }}
+                              aria-label="identity verification button group"
+                            >
+                              <Button 
+                                color="primary"
+                                startIcon={<CheckCircleOutline />}
+                                onClick={handleVerifyIdentity}
+                                disabled={verifyingIdentity || rejectingIdentity}
+                                sx={{ width: '50%' }}
+                              >
+                                {verifyingIdentity ? <CircularProgress size={24} /> : "Verify"}
+                              </Button>
+                              <Button 
+                                color="error"
+                                startIcon={<CancelOutlined />}
+                                onClick={handleRejectIdentity}
+                                disabled={verifyingIdentity || rejectingIdentity}
+                                sx={{ width: '50%' }}
+                              >
+                                {rejectingIdentity ? <CircularProgress size={24} /> : "Reject"}
+                              </Button>
+                            </ButtonGroup>
+                          )}
+                        </>
                       ) : (
                         <Alert severity="info">Identity card not available</Alert>
-                      )}
-                      {selectedCitizen.status !== "Verified" && selectedCitizen.identity_card && (
-                        <Button 
-                          variant="contained" 
-                          color="primary"
-                          startIcon={<CheckCircleOutline />}
-                          onClick={handleVerifyIdentity}
-                          disabled={verifyingIdentity}
-                          sx={{ mt: 2, width: '100%' }}
-                        >
-                          {verifyingIdentity ? <CircularProgress size={24} /> : "Verify Identity"}
-                        </Button>
                       )}
                     </CardContent>
                   </Card>
@@ -413,36 +570,45 @@ const CitizenManagement: React.FC = () => {
                       </Box>
                       <Divider sx={{ mb: 2 }} />
                       {selectedCitizen.card_parrot_image ? (
-                        <CardMedia
-                          component="img"
-                          image={formatImageSrc(selectedCitizen.card_parrot_image)}
-                          alt="Vehicle Registration"
-                          sx={{
-                            width: '100%',
-                            borderRadius: 1,
-                            boxShadow: 1,
-                            transition: 'transform 0.3s ease-in-out',
-                            '&:hover': { transform: 'scale(1.02)' }
-                          }}
-                        />
+                        <>
+                          <CardMedia
+                            component="img"
+                            image={formatImageSrc(selectedCitizen.card_parrot_image)}
+                            alt="Vehicle Registration"
+                            sx={{
+                              width: '100%',
+                              maxHeight: 400,
+                              objectFit: 'contain',
+                              borderRadius: 1,
+                              boxShadow: 1,
+                              transition: 'transform 0.3s ease-in-out',
+                              '&:hover': { transform: 'scale(1.02)' }
+                            }}
+                          />
+                          {selectedCitizen.status === "Verified" && !selectedCitizen.car_verified && (
+                            <Button 
+                              variant="contained" 
+                              color="primary"
+                              startIcon={<CheckCircleOutline />}
+                              onClick={handleVerifyVehicle}
+                              disabled={verifyingVehicle || !canVerifyVehicle}
+                              sx={{ mt: 2, width: '100%' }}
+                            >
+                              {verifyingVehicle ? <CircularProgress size={24} /> : "Verify Vehicle Registration"}
+                            </Button>
+                          )}
+                        </>
                       ) : (
                         <Alert severity="info">Vehicle registration not available</Alert>
-                      )}
-                      {selectedCitizen.status === "Verified" && selectedCitizen.card_parrot_image && !selectedCitizen.car_verified && (
-                        <Button 
-                          variant="contained" 
-                          color="primary"
-                          startIcon={<CheckCircleOutline />}
-                          onClick={handleVerifyVehicle}
-                          disabled={verifyingVehicle || !canVerifyVehicle}
-                          sx={{ mt: 2, width: '100%' }}
-                        >
-                          {verifyingVehicle ? <CircularProgress size={24} /> : "Verify Vehicle Registration"}
-                        </Button>
                       )}
                       {selectedCitizen.status === "Verified" && !selectedCitizen.card_parrot_image && (
                         <Alert severity="warning" sx={{ mt: 2 }}>
                           Citizen has not uploaded vehicle registration documents
+                        </Alert>
+                      )}
+                      {selectedCitizen.status === "Rejected" && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                          Citizen identity verification was rejected. Vehicle registration cannot be processed.
                         </Alert>
                       )}
                     </CardContent>
@@ -463,6 +629,83 @@ const CitizenManagement: React.FC = () => {
         )}
       </Dialog>
 
+      {/* Image Comparison Dialog */}
+      <Dialog
+        open={compareImagesDialog}
+        onClose={() => setCompareImagesDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Image Comparison</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle1" align="center" gutterBottom>Identity Card Image</Typography>
+              {selectedCitizen?.identity_card && (
+                <CardMedia
+                  component="img"
+                  image={formatImageSrc(selectedCitizen.identity_card)}
+                  alt="Identity Card"
+                  sx={{
+                    width: '100%',
+                    borderRadius: 1,
+                    maxHeight: 400,
+                    objectFit: 'contain'
+                  }}
+                />
+              )}
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle1" align="center" gutterBottom>Personal Photo</Typography>
+              {selectedCitizen?.person_image && (
+                <CardMedia
+                  component="img"
+                  image={formatImageSrc(selectedCitizen.person_image)}
+                  alt="Personal Photo"
+                  sx={{
+                    width: '100%',
+                    borderRadius: 1,
+                    maxHeight: 400,
+                    objectFit: 'contain'
+                  }}
+                />
+              )}
+            </Grid>
+            <Grid item xs={12}>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Compare the person's appearance in both images. Verify that they appear to be the same person.
+                If there is a significant mismatch, you should reject the identity verification.
+              </Alert>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompareImagesDialog(false)} variant="outlined">
+            Close
+          </Button>
+          <ButtonGroup variant="contained">
+            <Button 
+              color="primary" 
+              onClick={() => {
+                setCompareImagesDialog(false);
+                handleVerifyIdentity();
+              }}
+            >
+              Verify Identity
+            </Button>
+            <Button 
+              color="error" 
+              onClick={() => {
+                setCompareImagesDialog(false);
+                handleRejectIdentity();
+              }}
+            >
+              Reject Identity
+            </Button>
+          </ButtonGroup>
+        </DialogActions>
+      </Dialog>
+
       {/* Confirmation Dialog */}
       <Dialog
         open={openConfirmDialog}
@@ -471,9 +714,11 @@ const CitizenManagement: React.FC = () => {
         <DialogTitle>Confirmation</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {confirmAction === 'identity' 
+            {confirmAction === 'verify-identity' 
               ? `Are you sure you want to verify ${selectedCitizen?.full_name}'s identity? This confirms that you have reviewed their information and identity card, and everything is correct.`
-              : `Are you sure you want to verify ${selectedCitizen?.full_name}'s vehicle registration? This confirms that you have reviewed their vehicle documents and everything is correct.`
+              : confirmAction === 'reject-identity'
+                ? `Are you sure you want to REJECT ${selectedCitizen?.full_name}'s identity verification? This indicates that the person's photo doesn't match their identity card photo.`
+                : `Are you sure you want to verify ${selectedCitizen?.full_name}'s vehicle registration? This confirms that you have reviewed their vehicle documents and everything is correct.`
             }
           </DialogContentText>
         </DialogContent>
@@ -483,14 +728,14 @@ const CitizenManagement: React.FC = () => {
           </Button>
           <Button 
             onClick={handleConfirmVerification} 
-            color="primary" 
+            color={confirmAction === 'reject-identity' ? "error" : "primary"}
             variant="contained"
-            disabled={verifyingIdentity || verifyingVehicle}
+            disabled={verifyingIdentity || rejectingIdentity || verifyingVehicle}
           >
-            {verifyingIdentity || verifyingVehicle ? (
+            {verifyingIdentity || rejectingIdentity || verifyingVehicle ? (
               <CircularProgress size={24} />
             ) : (
-              "Confirm Verification"
+              confirmAction === 'reject-identity' ? "Confirm Rejection" : "Confirm Verification"
             )}
           </Button>
         </DialogActions>

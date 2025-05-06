@@ -185,56 +185,58 @@ const ViolationLookupPage: React.FC = () => {
   };
 
   const handleSearch = async () => {
-    if (!plateNumber.trim()) {
-      setNotification({
-        open: true,
-        type: "warning",
-        message: "Please enter a license plate number",
-      });
-      return;
-    }
+  if (!plateNumber.trim()) {
+    setNotification({
+      open: true,
+      type: "warning",
+      message: "Please enter a license plate number",
+    });
+    return;
+  }
 
-    setLoading(true);
-    setSearchResult(null);
-    setHasSearched(true);
+  setLoading(true);
+  setSearchResult(null);
+  setHasSearched(true);
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/search-by-plate-number/`, {
-        plate_number: plateNumber.trim()
+  try {
+    // Không cần phải chuẩn hóa phía client vì BE đã xử lý normalize
+    // Gửi plate number nguyên bản tới API
+    const response = await axios.post(`${API_BASE_URL}/search-by-plate-number/`, {
+      plate_number: plateNumber.trim()
+    });
+    
+    const data: Violation[] = response.data?.data?.violations || [];
+    
+    // Sort violations with the most recent ones first
+    const sortedData = [...data].sort((a, b) => 
+      new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+    );
+    
+    setSearchResult(sortedData);
+    
+    if (sortedData.length > 0) {
+      setNotification({ 
+        open: true, 
+        type: "success", 
+        message: `Found ${sortedData.length} violation${sortedData.length !== 1 ? 's' : ''} for plate ${plateNumber}` 
       });
-      
-      const data: Violation[] = response.data?.data?.violations || [];
-      
-      // Sort violations with the most recent ones first
-      const sortedData = [...data].sort((a, b) => 
-        new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
-      );
-      
-      setSearchResult(sortedData);
-      
-      if (sortedData.length > 0) {
-        setNotification({ 
-          open: true, 
-          type: "success", 
-          message: `Found ${sortedData.length} violation${sortedData.length !== 1 ? 's' : ''} for plate ${plateNumber}` 
-        });
-      } else {
-        setNotification({ 
-          open: true, 
-          type: "info", 
-          message: "No violations found for this plate number" 
-        });
-      }
-    } catch (error: any) {
-      setNotification({
-        open: true,
-        type: "error",
-        message: error?.response?.data?.message || "Error searching for violations",
+    } else {
+      setNotification({ 
+        open: true, 
+        type: "info", 
+        message: "No violations found for this plate number" 
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    setNotification({
+      open: true,
+      type: "error",
+      message: error?.response?.data?.message || "Error searching for violations",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter') {
@@ -335,7 +337,7 @@ const ViolationLookupPage: React.FC = () => {
                   value={plateNumber}
                   onChange={(e) => setPlateNumber(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter license plate (e.g., 59A-12345)"
+                  placeholder="Enter license plate (e.g., 59A-12345, 59A 12345, 59A12345)"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
