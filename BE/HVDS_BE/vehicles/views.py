@@ -5,8 +5,6 @@ from rest_framework.views import APIView
 from .models import Vehicle
 from .serializers import VehicleSerializer, VehicleUpdateSerializer, VehicleSearchSerializer, SearchCitizenInputSerializer
 
-# GET: get all  
-# POST: create new
 class VehicleListCreateView(generics.ListCreateAPIView):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
@@ -17,7 +15,6 @@ class VehicleListCreateView(generics.ListCreateAPIView):
             return [permissions.AllowAny()]
         return [permission() for permission in self.permission_classes]
 
-# PUT/PATCH: update
 class VehicleUpdateView(generics.UpdateAPIView):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleUpdateSerializer

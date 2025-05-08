@@ -35,6 +35,7 @@ class Migration(migrations.Migration):
                 ('issue_date', models.DateField(null=True, blank=True)),
                 ('place_of_issue', models.CharField(max_length=255, null=True, blank=True)),
                 ('nationality', models.CharField(max_length=100)),
+                ('person_image', models.TextField()),
             ],
         ),
     ]

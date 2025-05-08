@@ -36,6 +36,23 @@ class CarParrotsVerifyView(generics.UpdateAPIView):
         serializer = self.get_serializer(instance)
         return Response({"message": "Verified for registrations car successfully","data":serializer.data}, status=status.HTTP_200_OK)
     
+class CarParrotsRejectView(generics.UpdateAPIView):
+    queryset = CarParrots.objects.all()
+    serializer_class = CarParrotsSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.status = 'Rejected'
+        instance.save()
+        
+        vehicle, _ = Vehicle.objects.get_or_create(plate_number=instance.plate_number)
+        vehicle.car_parrot_id = instance
+        vehicle.save()
+        
+        serializer = self.get_serializer(instance)
+        return Response({"message": "Verified for registrations car successfully","data":serializer.data}, status=status.HTTP_200_OK)
+    
 class CarParrotUpdateView(generics.UpdateAPIView):
     queryset = CarParrots.objects.all()
     serializer_class = CarParrotUpdateSerializer

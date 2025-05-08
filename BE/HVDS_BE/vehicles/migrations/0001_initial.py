@@ -17,6 +17,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.CharField(primary_key=True, max_length=255, auto_created=True)),
                 ('plate_number', models.CharField(max_length=20, unique=True)),
+                ('normalized_plate_number', models.CharField(max_length=20, unique=True)),
                 ('car_parrot_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='car_parrots.carparrot')),
             ],
         ),

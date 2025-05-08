@@ -14,7 +14,6 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = Account.objects.all()
     serializer_class = UserSerializer
 
-    # PUT
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         
@@ -26,7 +25,6 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
-    # PATCH
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
@@ -53,6 +51,7 @@ class RoleViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
 
 class LogoutView(viewsets.ViewSet):
+    permission_classes = [AllowAny]
     def create(self, request):
         try:
             refresh_token = request.data["refresh"]
