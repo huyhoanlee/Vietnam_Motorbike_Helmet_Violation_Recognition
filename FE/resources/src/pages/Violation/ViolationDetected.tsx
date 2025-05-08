@@ -118,7 +118,6 @@ const CustomPagination: React.FC<{
   size?: 'small' | 'medium' | 'large';
 }> = ({ count, page, onChange, disabled = false, size = 'medium' }) => {
   const theme = useTheme();
-  // const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const handleFirstPage = () => {
     if (!disabled && page !== 1) onChange({} as React.ChangeEvent<unknown>, 1);
@@ -243,6 +242,11 @@ const ViolationDetected: React.FC = () => {
     return `data:image/${format};base64,${data}`;
   };
 
+  // Chuẩn hóa plate_number trước khi tìm kiếm
+  const normalizePlateNumber = (plate: string) => {
+    return plate.toLowerCase().replace(/[\s\-.]/g, "");
+  };
+
   const fetchViolationCount = useCallback(async () => {
     try {
       const response = await axiosInstance.get(`${API_BASE_URL}violations/count-all/`);
@@ -260,21 +264,13 @@ const ViolationDetected: React.FC = () => {
       let params = new URLSearchParams();
       params.append('per_page', itemsPerPage.toString());
       params.append('page_number', page.toString());
-      
-      if (searchPlateQuery) {
-        params.append('plate_number', searchPlateQuery);
-      }
-      
-      if (filterStatus !== "All") {
-        params.append('status', filterStatus);
-      }
-      
-      params.append('sort', sortOrder);
 
+      // Gửi yêu cầu lấy toàn bộ dữ liệu từ API (không thêm tham số lọc ngay)
       const response = await axiosInstance.get(`${API_BASE_URL}violations/get-all/?${params.toString()}`);
       
+      let fetchedViolations: Violation[] = [];
       if (response.data && response.data.data) {
-        const mappedViolations = response.data.data.map((v: any) => ({
+        fetchedViolations = response.data.data.map((v: any) => ({
           id: v.violation_id,
           plate_number: v.plate_number,
           camera_id: v.camera_id || "Unknown",
@@ -284,14 +280,38 @@ const ViolationDetected: React.FC = () => {
           location: v.location || "Unknown",
           violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
         }));
-        
-        setViolations(mappedViolations);
-      } else {
-        setViolations([]);
       }
-      
-      // Fetch the total count
-      fetchViolationCount();
+
+      // Thực hiện search, filter và sort ở phía client
+      let filteredViolations = [...fetchedViolations];
+
+      // Search
+      if (searchPlateQuery) {
+        const normalizedSearch = normalizePlateNumber(searchPlateQuery);
+        filteredViolations = filteredViolations.filter((v) =>
+          normalizePlateNumber(v.plate_number).includes(normalizedSearch)
+        );
+      }
+
+      // Filter
+      if (filterStatus !== "All") {
+        filteredViolations = filteredViolations.filter(
+          (v) => v.status_name.toLowerCase() === filterStatus.toLowerCase()
+        );
+      }
+
+      // Sort
+      filteredViolations.sort((a, b) => {
+        const dateA = new Date(a.detected_at).getTime();
+        const dateB = new Date(b.detected_at).getTime();
+        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+      });
+
+      // Cập nhật state
+      setViolations(filteredViolations);
+
+      // Cập nhật tổng số vi phạm sau khi lọc
+      setTotalViolations(filteredViolations.length);
     } catch (err) {
       console.error("Failed to fetch data:", err);
       setError("Failed to fetch violation data, please try again later.");
@@ -304,7 +324,7 @@ const ViolationDetected: React.FC = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [itemsPerPage, searchPlateQuery, filterStatus, sortOrder, fetchViolationCount]);
+  }, [itemsPerPage, searchPlateQuery, filterStatus, sortOrder]);
 
   useEffect(() => {
     fetchViolationCount();
@@ -323,8 +343,7 @@ const ViolationDetected: React.FC = () => {
   const handleSearch = () => {
     setSearchPlateQuery(searchPlate);
     setCurrentPage(1);
-    // We need to wait for state update to complete
-    setTimeout(() => fetchData(1), 0);
+    fetchData(1);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -457,7 +476,7 @@ const ViolationDetected: React.FC = () => {
                 <StatusSelect filterStatus={filterStatus} setFilterStatus={(status) => {
                   setFilterStatus(status);
                   setCurrentPage(1);
-                  setTimeout(() => fetchData(1), 0);
+                  fetchData(1);
                 }} />
               </Grid>
               
@@ -469,7 +488,7 @@ const ViolationDetected: React.FC = () => {
                     onChange={(e) => {
                       setSortOrder(e.target.value);
                       setCurrentPage(1);
-                      setTimeout(() => fetchData(1), 0);
+                      fetchData(1);
                     }}
                     label="Sort Order"
                     sx={{ 
@@ -531,7 +550,7 @@ const ViolationDetected: React.FC = () => {
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
-                setTimeout(() => fetchData(1), 0);
+                fetchData(1);
               }}
               sx={{
                 "& .MuiOutlinedInput-notchedOutline": {

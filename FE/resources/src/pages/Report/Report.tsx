@@ -37,7 +37,7 @@ import {
 } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid, isAfter, isBefore, startOfDay, endOfDay, parse } from "date-fns";
 import config from "../../config";
 import axiosInstance from "../../services/axiosInstance";
 import robotoBase64 from "../../fonts/rechange_to_vietnamese";
@@ -144,6 +144,9 @@ const StatusChip: React.FC<{ status: string }> = ({ status }) => {
     case "Rejected":
       color = "error";
       break;
+    case "AI reliable":
+      color = "secondary";
+      break;
     default:
       color = "default";
   }
@@ -161,7 +164,7 @@ const StatusChip: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-const ReportPage: React.FC = () => {
+const ReportViolation: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -185,7 +188,43 @@ const ReportPage: React.FC = () => {
   const [totalViolations, setTotalViolations] = useState(0);
   const [reportGeneratedDate, setReportGeneratedDate] = useState<Date | null>(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const formatDateForApi = (dateString: string): string => {
+    if (!dateString) return "";
+    try {
+      const parsedDate = parse(dateString, "dd/MM/yyyy", new Date());
+      if (isValid(parsedDate)) {
+        return dateString;
+      }
+      return "";
+    } catch (error) {
+      console.error("Date parsing error:", error);
+      return "";
+    }
+  };
+
+  // Check if a date string is within the selected date range
+  const isDateInRange = (dateString: string, startDateStr: string, endDateStr: string): boolean => {
+    try {
+      // Parse the detected date
+      const detectedDate = parseISO(dateString);
+      
+      if (!isValid(detectedDate)) return false;
+      
+      // Parse the start and end dates from DD/MM/YYYY format
+      const start = parse(startDateStr, 'dd/MM/yyyy', new Date());
+      const end = parse(endDateStr, 'dd/MM/yyyy', new Date());
+      
+      // Set the start date to beginning of day and end date to end of day for inclusive comparison
+      const startOfDayDate = startOfDay(start);
+      const endOfDayDate = endOfDay(end);
+      
+      // Check if the date is within range (inclusive)
+      return !isBefore(detectedDate, startOfDayDate) && !isAfter(detectedDate, endOfDayDate);
+    } catch (error) {
+      console.error("Date parsing error:", error);
+      return false;
+    }
+  };
 
   // Fixed: Filter violations only when both date range and status are applied
   const fetchViolations = async () => {
@@ -197,8 +236,26 @@ const ReportPage: React.FC = () => {
     }
 
     // Validate dates
-    if (startDate > endDate) {
-      setSnackbarMessage("Start date cannot be after end date");
+    try {
+      const startDateObj = parse(startDate, "dd/MM/yyyy", new Date());
+      const endDateObj = parse(endDate, "dd/MM/yyyy", new Date());
+      
+      if (!isValid(startDateObj) || !isValid(endDateObj)) {
+        setSnackbarMessage("Invalid date format. Please use DD/MM/YYYY");
+        setSnackbarType("error");
+        setOpenSnackbar(true);
+        return;
+      }
+      
+      if (isAfter(startDateObj, endDateObj)) {
+        setSnackbarMessage("Start date cannot be after end date");
+        setSnackbarType("error");
+        setOpenSnackbar(true);
+        return;
+      }
+    } catch (error) {
+      console.error("Date validation error:", error);
+      setSnackbarMessage("Invalid date format. Please use DD/MM/YYYY");
       setSnackbarType("error");
       setOpenSnackbar(true);
       return;
@@ -208,11 +265,20 @@ const ReportPage: React.FC = () => {
     setAnimateTable(false);
 
     try {
+      // Convert dates to YYYY-MM-DD format for API
+      const apiStartDate = formatDateForApi(startDate);
+      const apiEndDate = formatDateForApi(endDate);
+
       const res = await axiosInstance.get(API_BASE_URL, {
-        params: { start_date: startDate, end_date: endDate },
+        params: { start_time: apiStartDate, end_time: apiEndDate },
       });
 
-      const data = res.data?.data?.violations || [];
+      let data = res.data?.data?.violations || [];
+      
+      // Additional client-side date filtering to ensure only records within range are shown
+      // This fixes the bug where API returns records outside the requested date range
+      data = data.filter((v: Violation) => isDateInRange(v.detected_at, startDate, endDate));
+      
       setViolations(data);
       setTotalViolations(data.length);
       setReportGeneratedDate(new Date());
@@ -541,34 +607,40 @@ const ReportPage: React.FC = () => {
                   alignItems: { sm: "center" },
                 }}>
                   <TextField
-                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
                     label={
                       <span className="date-input-label">
                         <DateRangeIcon fontSize="small" sx={{ opacity: 0.7 }} />
                         Start Date
                       </span>
                     }
-                    InputLabelProps={{ shrink: true }}
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    inputProps={{ 
+                      maxLength: 10,
+                      pattern: "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\\d{4}$" 
+                    }}
                     fullWidth
-                    inputProps={{ max: today }}
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <TextField
-                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
                     label={
                       <span className="date-input-label">
                         <DateRangeIcon fontSize="small" sx={{ opacity: 0.7 }} />
                         End Date
                       </span>
                     }
-                    InputLabelProps={{ shrink: true }}
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    inputProps={{ 
+                      maxLength: 10,
+                      pattern: "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\\d{4}$" 
+                    }}
                     fullWidth
-                    inputProps={{ max: today }}
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <StatusSelect 
                     filterStatus={filterStatus} 
@@ -851,4 +923,4 @@ const ReportPage: React.FC = () => {
   );
 };
 
-export default ReportPage;
+export default ReportViolation;

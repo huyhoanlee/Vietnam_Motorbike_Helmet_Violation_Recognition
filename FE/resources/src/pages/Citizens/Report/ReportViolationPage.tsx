@@ -34,6 +34,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import PendingIcon from '@mui/icons-material/Pending';
+import CancelIcon from '@mui/icons-material/Cancel';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useDropzone } from 'react-dropzone';
 import config from "../../../config";
@@ -46,14 +47,14 @@ interface UploadingImage {
   progress: number;
 }
 
-// Cập nhật interface Violation để khớp với dữ liệu API
+// Updated Violation interface to include "Rejected" status
 interface Violation {
-  id: number; // Đổi từ string sang number
+  id: number;
   plate_number: string;
   location: string;
   images: string[];
-  status: 'Reported' | 'Verified';
-  reported_at?: string; // Optional, vì API hiện tại không trả về
+  status: 'Reported' | 'Verified' | 'Rejected';
+  reported_at?: string;
 }
 
 const StatusChip = ({ status }: { status: string }) => {
@@ -63,6 +64,16 @@ const StatusChip = ({ status }: { status: string }) => {
         icon={<VerifiedIcon />}
         label="Verified"
         color="success"
+        size="small"
+        variant="outlined"
+      />
+    );
+  } else if (status === 'Rejected') {
+    return (
+      <Chip
+        icon={<CancelIcon />}
+        label="Rejected"
+        color="error"
         size="small"
         variant="outlined"
       />
@@ -125,14 +136,14 @@ const ReportViolation = () => {
         return;
       }
 
-      // Đảm bảo dữ liệu khớp với interface Violation
+      // Đảm bảo dữ liệu khớp với interface Violation đã cập nhật
       const formattedReports: Violation[] = reports.map((report: any) => ({
         id: report.id,
         plate_number: report.plate_number,
         location: report.location,
         images: Array.isArray(report.images) ? report.images : [],
-        status: report.status as 'Reported' | 'Verified',
-        reported_at: report.reported_at // Có thể không có, đã để optional
+        status: report.status as 'Reported' | 'Verified' | 'Rejected',
+        reported_at: report.reported_at
       }));
 
       setMyViolations(formattedReports);
@@ -143,7 +154,7 @@ const ReportViolation = () => {
         message: error.response?.data?.message || 'Failed to load your reports',
         severity: 'error'
       });
-      setMyViolations([]); // Đặt lại danh sách nếu có lỗi
+      setMyViolations([]);
     } finally {
       setLoadingReports(false);
     }
@@ -302,7 +313,7 @@ const ReportViolation = () => {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A'; // Trả về giá trị mặc định nếu không có reported_at
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -526,7 +537,7 @@ const ReportViolation = () => {
                           <CardMedia
                             component="img"
                             height="160"
-                            image={violation.images[0] || 'https://via.placeholder.com/160'} // Hình mặc định nếu không có ảnh
+                            image={violation.images[0] || 'https://via.placeholder.com/160'}
                             alt="Violation evidence"
                             sx={{ objectFit: 'cover' }}
                           />
@@ -540,7 +551,6 @@ const ReportViolation = () => {
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                               {violation.location}
                             </Typography>
-                            {/* Bỏ hiển thị reported_at hoặc sử dụng giá trị mặc định */}
                             <Typography variant="caption" color="text.secondary" display="block">
                               Reported: {formatDate(violation.reported_at)}
                             </Typography>

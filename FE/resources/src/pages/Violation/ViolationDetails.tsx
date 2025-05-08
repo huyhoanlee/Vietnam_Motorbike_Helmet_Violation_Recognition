@@ -24,7 +24,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import axiosInstance from "../../services/axiosInstance.tsx";
-import config from "../../config";
+import config from "../../config.tsx";
 
 const API_BASE_URL = config.API_URL;
 

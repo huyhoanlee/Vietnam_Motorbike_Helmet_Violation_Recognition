@@ -12,7 +12,7 @@ import {
   CameraAlt, LocationOn, ToggleOn, Info,
 } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
-import config from "../../config";
+import config from "../../config.tsx";
 import axiosInstance from "../../services/axiosInstance.tsx";
 import { alpha } from "@mui/material/styles";
 

@@ -106,6 +106,9 @@ const DataDetection = () => {
     return ["All", ...Array.from(new Set(locations))];
   }, [data]);
 
+  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
+
+  
   // Fetch data on component mount
   useEffect(() => {
     fetchCameras();
@@ -135,33 +138,64 @@ const DataDetection = () => {
   };
 
   // Open stream dialog and initialize stream if camera is active
+  // const handleOpenStream = async (camera: CameraData) => {
+  //   setSelectedCamera(camera);
+  //   setOpenDialog(true);
+  //   setCapturedImage(null);
+  //   setIsPaused(false);
+    
+  //   if (camera.status !== "active") {
+  //     setStreamUrl(null);
+  //     setStreamError("This camera is currently inactive");
+  //     return;
+  //   }
+    
+  //   setStreamLoading(true);
+  //   setStreamError(null);
+    
+  //   try {
+  //     // Request stream URL from backend
+  //     const response = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera.camera_id}/`);
+  //     setStreamUrl(response.data.output_url);
+  //   } catch (error) {
+  //     console.error("Failed to load stream:", error);
+  //     setStreamError("Failed to initialize camera stream. Please try again.");
+  //     setStreamUrl(null);
+  //   } finally {
+  //     setStreamLoading(false);
+  //   }
+  // };
+
   const handleOpenStream = async (camera: CameraData) => {
-    setSelectedCamera(camera);
-    setOpenDialog(true);
-    setCapturedImage(null);
-    setIsPaused(false);
+  setSelectedCamera(camera);
+  setOpenDialog(true);
+  setCapturedImage(null);
+  setIsPaused(false);
+  
+  if (camera.status !== "active") {
+    setStreamUrl(null);
+    setStreamError("This camera is currently inactive");
+    return;
+  }
+  
+  setStreamLoading(true);
+  setStreamError(null);
+  
+  try {
+    // Fixed URL instead of making API request
+    setStreamUrl("https://huyhoanlee-simulate-streaming.hf.space/video");
     
-    if (camera.status !== "active") {
-      setStreamUrl(null);
-      setStreamError("This camera is currently inactive");
-      return;
-    }
-    
-    setStreamLoading(true);
-    setStreamError(null);
-    
-    try {
-      // Request stream URL from backend
-      const response = await axiosInstance.patch(`${API_BASE_URL}streaming/${camera.camera_id}/`);
-      setStreamUrl(response.data.output_url);
-    } catch (error) {
-      console.error("Failed to load stream:", error);
-      setStreamError("Failed to initialize camera stream. Please try again.");
-      setStreamUrl(null);
-    } finally {
-      setStreamLoading(false);
-    }
-  };
+    // Keeping the API call for other potential side effects but ignoring the response
+    // You can remove this if the API call isn't needed at all
+    await axiosInstance.patch(`${API_BASE_URL}streaming/${camera.camera_id}/`);
+  } catch (error) {
+    console.error("Failed to load stream:", error);
+    // Still set the fixed URL even if API call fails
+    setStreamUrl("https://huyhoanlee-simulate-streaming.hf.space/video");
+  } finally {
+    setStreamLoading(false);
+  }
+};
 
   // Close stream dialog and reset states
   const handleCloseDialog = () => {
@@ -177,55 +211,52 @@ const DataDetection = () => {
   const togglePause = () => {
     if (!isPaused) {
       // About to pause - ensure we capture the current frame
-      captureCurrentFrame();
+      setLastFrameUrl(streamUrl ? `${streamUrl}?t=${Date.now()}` : null);
     }
     setIsPaused(prev => !prev);
   };
 
   // Capture current frame from video stream
   const captureCurrentFrame = () => {
-    const img = imgRef.current;
-    if (!img || !img.complete || img.naturalWidth === 0) return false;
-
-    if (!canvasRef.current) {
-      canvasRef.current = document.createElement("canvas");
-    }
-
-    const canvas = canvasRef.current;
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.drawImage(img, 0, 0);
-      try {
-        const imageDataUrl = canvas.toDataURL("image/jpeg");
-        return imageDataUrl;
-      } catch (e) {
-        console.error("Error capturing frame:", e);
-      }
-    }
-    return null;
+    return isPaused && lastFrameUrl ? lastFrameUrl : streamUrl ? `${streamUrl}?t=${Date.now()}` : null;
   };
 
   // Handle capturing an image from the stream
   const handleCaptureImage = () => {
-    const capturedImageData = captureCurrentFrame();
-    if (capturedImageData) {
-      setCapturedImage(capturedImageData);
-    }
+    const imageUrl = captureCurrentFrame();
+  if (imageUrl) {
+    setCapturedImage(imageUrl);
+  }
   };
 
   // Download captured image
   const downloadCapturedImage = () => {
     if (!capturedImage || !selectedCamera) return;
-    
-    const link = document.createElement('a');
-    link.href = capturedImage;
-    link.download = `${selectedCamera.device_name.replace(/\s+/g, '_')}_${new Date().toISOString().replace(/:/g, '-')}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  
+  // Create a temporary link to download the image
+  const link = document.createElement('a');
+  
+  // Create a temporary anchor element to navigate to the image URL
+  // This will trigger a download instead of navigation
+  const fileName = `${selectedCamera.device_name.replace(/\s+/g, '_')}_${new Date().toISOString().replace(/:/g, '-')}.jpg`;
+  
+  // Use fetch to get the image as a blob
+  fetch(capturedImage)
+    .then(response => response.blob())
+    .then(blob => {
+      // Create a blob URL and use it for download
+      const blobUrl = URL.createObjectURL(blob);
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Clean up the blob URL
+      URL.revokeObjectURL(blobUrl);
+    })
+    .catch(err => {
+      console.error("Error downloading image:", err);
+    });
   };
 
   // Handle search input change
