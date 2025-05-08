@@ -16,7 +16,7 @@ class CarParrotRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        validated_data['status'] = 'Verified'
+        validated_data['status'] = 'Submitted'
         car_parrot = CarParrots.objects.create(**validated_data)
         return car_parrot
 
@@ -181,6 +181,7 @@ class CitizenUpdateSerializer(serializers.ModelSerializer):
             'issue_date',
             'place_of_issue',
             'nationality',
+            'person_image'
         ]
         extra_kwargs = {
             'citizen_identity_id': {'required': False},
@@ -194,6 +195,7 @@ class CitizenUpdateSerializer(serializers.ModelSerializer):
             'issue_date': {'required': False, 'allow_null': True},
             'place_of_issue': {'required': False, 'allow_null': True},
             'nationality': {'required': False},
+            'person_image': {'required': False},
         }
 
     def update(self, instance, validated_data):
@@ -208,7 +210,8 @@ class CitizenUpdateSerializer(serializers.ModelSerializer):
         instance.issue_date = validated_data.get('issue_date', instance.issue_date)
         instance.place_of_issue = validated_data.get('place_of_issue', instance.place_of_issue)
         instance.nationality = validated_data.get('nationality', instance.nationality)
-        instance.status = 'Verified'
+        instance.status = 'Submitted'
+        instance.person_image = validated_data.get('person_image', instance.nationality)
         instance.save()
         return instance
     
@@ -221,3 +224,8 @@ class CitizenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Citizen
         fields = "__all__"
+        
+
+class CitizenStatusCountSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    count = serializers.IntegerField()

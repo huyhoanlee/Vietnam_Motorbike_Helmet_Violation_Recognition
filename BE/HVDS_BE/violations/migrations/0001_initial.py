@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('cameras', '0001_initial'),
         ('vehicles', '0001_initial'),
+        ('citizens', '0001_initial'),
         ('violation_status', '0001_initial'),
     ]
 
@@ -20,11 +21,13 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('detected_at', models.DateTimeField()),
-                ('tracking_id', models.CharField(max_length=255, null=True, blank=True)),  # Optional
+                ('tracking_id', models.CharField(max_length=255, null=True, blank=True)),
                 ('max_confidence', models.FloatField(null=True, blank=True)),
+                ('reported_location', models.CharField(max_length=255, null=True, blank=True)),
                 ('violation_status_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='violation_status.violationstatus')),
                 ('camera_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='cameras.camera')),
                 ('vehicle_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='vehicles.vehicle')),
+                ('reported_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='citizens.citizen')),
             ],
         ),
     ]

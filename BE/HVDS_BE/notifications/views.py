@@ -4,7 +4,6 @@ from .models import Notification
 from violations.models import Violation
 from .serializers import NotificationSerializer, NotificationDetailSerializer
 
-# 1. GET /view_all
 class NotificationViewAllView(generics.ListAPIView):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -17,7 +16,6 @@ class NotificationViewAllView(generics.ListAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-# 2. GET /search-by-violation/
 class NotificationSearchByViolationView(generics.ListAPIView):
     serializer_class = NotificationSerializer
 
@@ -36,7 +34,6 @@ class NotificationSearchByViolationView(generics.ListAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-# 3. GET /search-by-status/
 class NotificationSearchByStatusView(generics.ListAPIView):
     serializer_class = NotificationSerializer
 
@@ -54,7 +51,6 @@ class NotificationSearchByStatusView(generics.ListAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-# 4. GET /:id
 class NotificationDetailView(generics.RetrieveAPIView):
     queryset = Notification.objects.all()
     serializer_class = NotificationDetailSerializer

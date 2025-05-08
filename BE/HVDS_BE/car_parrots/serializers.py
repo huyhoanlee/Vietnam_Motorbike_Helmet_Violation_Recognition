@@ -15,17 +15,7 @@ class CitizenCarParrotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Citizen
-        fields = [
-            'citizen_id',
-            'citizen_identity_id',
-            'full_name',
-            'phone_number',
-            'email',
-            'address',
-            'identity_card',
-            'card_parrots',
-            'status'
-        ]
+        fields = "__all__"
 
     def get_citizen_id(self, obj):
         return f"CIT{obj.id:03d}"

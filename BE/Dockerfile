@@ -16,10 +16,11 @@ COPY --chown=user . /app
 
 WORKDIR /app/HVDS_BE
 
-##test update
-
-# RUN python manage.py migrate
-# RUN echo "from accounts.models import Account; Account.objects.create_superuser('admin', 'admin@gmail.com', '123')" | python manage.py shell
+RUN python manage.py migrate
+RUN python manage.py generate_location_data
+RUN python manage.py generate_violation_status_data
+RUN python manage.py generate_camera_data
+RUN python manage.py generate_account_data
 
 CMD ["uvicorn", "HVDS_BE.asgi:application", "--host", "0.0.0.0", "--port", "7860"]
-#uvicorn HVDS_BE.asgi:application --host 0.0.0.0 --port 7860
+# uvicorn HVDS_BE.asgi:application --host 0.0.0.0 --port 7860

@@ -1,7 +1,9 @@
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.views import APIView
+from django.db.models import Count
 from rest_framework import generics
-from .serializers import CameraResponseSerializer, StreamingSerializer, CameraCreateSerializer, CameraChangeStatusSerializer, CameraUpdateSerializer, CameraInformationSerializer
+from .serializers import CameraResponseSerializer, CameraStatusCountSerializer, StreamingSerializer, CameraCreateSerializer, CameraChangeStatusSerializer, CameraUpdateSerializer, CameraInformationSerializer
 from .models import Camera
 
 
@@ -38,7 +40,6 @@ class ListView(generics.ListAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
         
-# API POST /change-status/:id
 class StreamingView(generics.UpdateAPIView):
     queryset = Camera.objects.all()
     serializer_class = StreamingSerializer
@@ -52,7 +53,6 @@ class StreamingView(generics.UpdateAPIView):
             serializer.data
         , status=status.HTTP_200_OK)
 
-# API POST /update/:id
 class CameraUpdateView(generics.UpdateAPIView):
     queryset = Camera.objects.all()
     serializer_class = CameraUpdateSerializer
@@ -84,3 +84,9 @@ class CameraChangeStatusView(generics.UpdateAPIView):
             "message": "Changed status successfully",
             "data": {"camera_id": instance.id, "status": instance.status}
         }, status=status.HTTP_200_OK)
+        
+class CameraCountByStatusView(APIView):
+    def get(self, request):
+        counts = Camera.objects.values('status').annotate(count=Count('id'))
+        serializer = CameraStatusCountSerializer(counts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

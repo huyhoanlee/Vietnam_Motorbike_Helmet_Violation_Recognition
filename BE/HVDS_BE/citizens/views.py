@@ -1,6 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from .serializers import CitizenSerializer, CitizenChangeEmailSerializer, CarParrotRegisterSerializer, CarParrotResponseSerializer, CitizenApplicationsSerializer, CitizenUpdateSerializer, CitizenResponseSerializer
+from .serializers import CitizenSerializer, CitizenStatusCountSerializer, CitizenChangeEmailSerializer, CarParrotRegisterSerializer, CarParrotResponseSerializer, CitizenApplicationsSerializer, CitizenUpdateSerializer, CitizenResponseSerializer
 from .models import Citizen
 from rest_framework.views import APIView
 from rest_framework import status
@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from car_parrots.models import CarParrots
 from vehicles.models import Vehicle
 from .utils import call_api, email_api
+from django.db.models import Count
 
 class CitizenGetAllSubmittedView(generics.ListAPIView):
     serializer_class = CitizenSerializer
@@ -26,6 +27,18 @@ class CitizenVerifyView(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.status = "Verified"
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class CitizenRejectView(generics.UpdateAPIView):
+    queryset = Citizen.objects.all()
+    serializer_class = CitizenSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.status = "Rejected"
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -177,3 +190,9 @@ class CitizenInformationView(generics.RetrieveAPIView):
     serializer_class = CitizenSerializer
     lookup_field = 'id'
     permission_classes = [AllowAny]
+    
+class CitizenCountByStatusView(APIView):
+    def get(self, request):
+        counts = Citizen.objects.values('status').annotate(count=Count('id'))
+        serializer = CitizenStatusCountSerializer(counts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -3,8 +3,9 @@ from .models import Camera
 from camera_urls.models import CameraUrl
 from locations.models import Location
 import requests
+from django.conf import settings
 
-URL = "http://58.8.184.170:55143"
+URL = settings.AI_SERVICE_URL
 class CameraSerializer(serializers.ModelSerializer):
     class Meta:
         model = Camera
@@ -57,6 +58,8 @@ class StreamingSerializer(serializers.ModelSerializer):
 class CameraCreateSerializer(serializers.ModelSerializer):
     url_input = serializers.CharField(write_only=True)  
     location = serializers.SerializerMethodField()
+    status = serializers.CharField()
+    device_name = serializers.CharField()
 
     class Meta:
         model = Camera
@@ -92,22 +95,25 @@ class CameraCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         input_url = validated_data.pop('url_input')
         location_id = validated_data.pop('location_id')
+        status = validated_data.pop('status')
+        device_name = validated_data.pop('device_name')
         
-        push_url_response = requests.post(f"{URL}/push_url?url={input_url}")
-        if push_url_response.status_code == 200:
-            output = push_url_response.json()
-            output_url = output.get("url", "")
-        else:
-            raise serializers.ValidationError({"message": "Failed to get output_url from external API"})
+        if status == "Active":
+            push_url_response = requests.post(f"{URL}/push_url?url={input_url}")
+            if push_url_response.status_code == 200:
+                output = push_url_response.json()
+                output_url = output.get("url", "")
+            else:
+                raise serializers.ValidationError({"message": "Failed to get output_url from external API"})
 
         camera_url = CameraUrl.objects.create(
             input_url=input_url,
-            output_url=output_url
+            output_url=output_url,
         )
 
         camera = Camera.objects.create(
-            device_name=validated_data['device_name'],
-            status=validated_data['status'],
+            device_name=device_name,
+            status=status,
             location_id=location_id,
             camera_url_id=camera_url
         )
@@ -121,17 +127,25 @@ class CameraChangeStatusSerializer(serializers.ModelSerializer):
         fields = ['id', 'status']
     
     def update(self, instance, validated_data):
-        push_url_response = requests.post(f"{URL}/delete_url?url={instance.camera_url_id.input_url}")
-        if push_url_response.status_code != 200:
-            raise serializers.ValidationError("Failed to update output_url")
+        status = validated_data['status']
+        if status == "Deactive":
+            push_url_response = requests.post(f"{URL}/delete_url?url={instance.camera_url_id.input_url}")
+            if push_url_response.status_code != 200:
+                raise serializers.ValidationError("Failed to deactive camera")
+        else:
+            push_url_response = requests.post(f"{URL}/push_url?url={instance.camera_url_id.input_url}")
+            if push_url_response.status_code != 200:
+                raise serializers.ValidationError("Failed to active camera")
 
 class CameraUpdateSerializer(serializers.ModelSerializer):
     input_url = serializers.CharField(write_only=True, required=False)
     location_id = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), required=False)
+    status = serializers.CharField()
+    device_name = serializers.CharField()
 
     class Meta:
         model = Camera
-        fields = ['id', 'device_name', 'input_url', 'location_id']
+        fields = ['id', 'device_name', 'input_url', 'location_id', 'status']
 
     def update(self, instance, validated_data):
         if 'device_name' in validated_data:
@@ -141,15 +155,25 @@ class CameraUpdateSerializer(serializers.ModelSerializer):
         if 'input_url' in validated_data:
             input_url = validated_data['input_url']
             push_url_response = requests.post(f"{URL}/push_url?url={input_url}")
+            requests.post(f"{URL}/delete_url?url={instance.camera_url_id.input_url}")
             if push_url_response.status_code == 200:
                 output = push_url_response.json()
                 output_url = output.get("url", "")
                 instance.camera_url_id.input_url = input_url
                 instance.camera_url_id.output_url = output_url
-                instance.camera_url_id.save()
             else:
                 raise serializers.ValidationError("Failed to update output_url")
-
+        if 'status' in validated_data:
+            status = validated_data['status']
+            if status == "Deactive":
+                push_url_response = requests.post(f"{URL}/delete_url?url={instance.camera_url_id.input_url}")
+                if push_url_response.status_code != 200:
+                    raise serializers.ValidationError("Failed to deactive camera")
+            else:
+                push_url_response = requests.post(f"{URL}/push_url?url={instance.camera_url_id.input_url}")
+                if push_url_response.status_code != 200:
+                    raise serializers.ValidationError("Failed to active camera")
+            instance.status = validated_data['status']
         instance.save()
         return instance
 
@@ -162,3 +186,8 @@ class CameraResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Camera
         fields = ['id', 'device_name', 'input_url', 'name', 'road', 'dist']
+        
+
+class CameraStatusCountSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    count = serializers.IntegerField()
