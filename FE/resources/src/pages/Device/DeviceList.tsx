@@ -20,11 +20,11 @@ const API_BASE_URL = `${config.API_URL}`;
 
 interface Device {
   url_input: string;
-  camera_id: string;
+  camera_id: number;
   device_name: string;
   location_id: number;
   location?: string;
-  status: "active" | "deactive";
+  status: "active" | "Active" | "inactive" | "Deactive";
   note: string;
   last_active: Date | null;
 }
@@ -33,7 +33,7 @@ interface DeviceFormData {
   url_input: string;
   device_name: string;
   location: string | number;
-  status: "active" | "deactive";
+  status: "active" | "Active" | "inactive" | "Deactive";
   note: string;
   camera_id?: string;
 }
@@ -51,7 +51,7 @@ const DeviceManagement: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactive">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactive" | "inactive">("all");
   const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
@@ -88,12 +88,41 @@ const DeviceManagement: React.FC = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
-      setDevices(res.data.data);
-      applyFilters(res.data.data, searchTerm, statusFilter);
-      setTotalCount(res.data.data.length);
+      
+      // Check if the response has the expected format
+      if (res.data && Array.isArray(res.data.data)) {
+        // Sort by camera_id (highest first)
+        const sortedDevices = [...res.data.data].sort((a, b) => {
+          // Sort devices by newest/highest camera_id first
+          return b.camera_id - a.camera_id;
+        });
+
+        // Group devices by status after sorting by camera_id
+        const activeDevices = sortedDevices.filter(device => 
+          device.status.toLowerCase() === "active"
+        );
+        const inactiveDevices = sortedDevices.filter(device => 
+          device.status.toLowerCase() !== "active"
+        );
+        
+        // Combine the filtered arrays with active devices first
+        const groupedDevices = [...activeDevices, ...inactiveDevices];
+        
+        setDevices(groupedDevices);
+        applyFilters(groupedDevices, searchTerm, statusFilter);
+        setTotalCount(res.data.data.length);
+      } else {
+        setDevices([]);
+        setFilteredDevices([]);
+        setTotalCount(0);
+        console.error("Invalid response format:", res.data);
+      }
     } catch (err) {
       console.error("Failed to fetch devices", err);
       showSnackbar("Failed to fetch devices.", "error");
+      setDevices([]);
+      setFilteredDevices([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,10 +146,23 @@ const DeviceManagement: React.FC = () => {
     }
     
     if (status !== "all") {
-      filtered = filtered.filter(device => device.status === status);
+      filtered = filtered.filter(device => 
+        (status === "active" && device.status.toLowerCase() === "active") || 
+        (status === "inactive" && device.status.toLowerCase() !== "active")
+      );
     }
     
-    setFilteredDevices(filtered);
+    // Group filtered devices by status (active first, then inactive)
+    // while maintaining the camera_id sort within each group
+    const activeFiltered = filtered.filter(device => 
+      device.status.toLowerCase() === "active"
+    );
+    const inactiveFiltered = filtered.filter(device => 
+      device.status.toLowerCase() !== "active"
+    );
+    
+    // Set the filtered devices with active first, then inactive
+    setFilteredDevices([...activeFiltered, ...inactiveFiltered]);
   };
 
   useEffect(() => {
@@ -143,7 +185,7 @@ const DeviceManagement: React.FC = () => {
         location: device.location_id || "",
         status: device.status || "active",
         note: device.note || "",
-        camera_id: device.camera_id,
+        camera_id: device.camera_id.toString(),
       });
     } else {
       reset({
@@ -166,17 +208,41 @@ const DeviceManagement: React.FC = () => {
   };
 
   const handleStatusChange = async (device: Device) => {
-    const updatedStatus = device.status === "active" ? "deactive" : "active";
+    // Convert between active/inactive statuses
+    // Keep the casing consistent with what's returned by the API
+    const isActive = device.status.toLowerCase() === "active";
+    const updatedStatus = isActive ? "Deactive" : "active";
+      
     try {
       await axiosInstance.put(`${API_BASE_URL}cameras/change-status/${device.camera_id}/`, {
         status: updatedStatus,
       });
       
-      setDevices(prev =>
-        prev.map(d => (d.camera_id === device.camera_id ? { ...d, status: updatedStatus } : d))
+      // Update the device in the devices array
+      const updatedDevices = devices.map(d => {
+        if (d.camera_id === device.camera_id) {
+          return { ...d, status: updatedStatus as "active" | "Active" | "inactive" | "Deactive" };
+        }
+        return d;
+      });
+      
+      // Group devices by status
+      const activeDevices = updatedDevices.filter(d => 
+        d.status.toLowerCase() === "active"
+      );
+      const inactiveDevices = updatedDevices.filter(d => 
+        d.status.toLowerCase() !== "active"
       );
       
-      showSnackbar(`Device ${device.device_name} is now ${updatedStatus === "active" ? "active" : "inactive"}.`);
+      // Combine with active first, maintaining camera_id sort within each group
+      const sortedDevices = [...activeDevices, ...inactiveDevices];
+      
+      setDevices(sortedDevices);
+      
+      // Update filtered devices
+      applyFilters(sortedDevices, searchTerm, statusFilter);
+      
+      showSnackbar(`Device ${device.device_name} is now ${updatedStatus.toLowerCase() === "active" ? "active" : "inactive"}.`);
     } catch (err) {
       console.error("Failed to update device status", err);
       showSnackbar("Failed to update device status.", "error");
@@ -231,7 +297,7 @@ const DeviceManagement: React.FC = () => {
       } else {
         // Adding new device
         const existingDevice = devices.find(
-          device => device.camera_id === data.camera_id || device.device_name === data.device_name
+          device => device.camera_id.toString() === data.camera_id || device.device_name === data.device_name
         );
 
         if (existingDevice) {
@@ -239,16 +305,63 @@ const DeviceManagement: React.FC = () => {
           return;
         }
 
-        await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
+        const response = await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
           ...data,
           location_id: Number(data.location),
         });
+
+        // If we got a response with the new device, update the list directly
+        if (response.data && response.data.data) {
+          // Find the location name for the newly added device
+          const locationObj = locations.find(loc => loc.id === Number(data.location));
+          const locationName = locationObj ? locationObj.name : "";
+          
+          // Create a new device object
+          const newDevice: Device = {
+            ...response.data.data,
+            location: locationName,
+            status: response.data.data.status
+          };
+          
+          // Add the new device and re-sort the array
+          const updatedDevices = [newDevice, ...devices];
+          
+          // Group devices by status
+          const activeDevices = updatedDevices.filter(d => 
+            d.status.toLowerCase() === "active"
+          );
+          const inactiveDevices = updatedDevices.filter(d => 
+            d.status.toLowerCase() !== "active"
+          );
+          
+          // Sort each group by camera_id (newest/highest first)
+          activeDevices.sort((a, b) => b.camera_id - a.camera_id);
+          inactiveDevices.sort((a, b) => b.camera_id - a.camera_id);
+          
+          // Combine the groups with active first
+          const sortedDevices = [...activeDevices, ...inactiveDevices];
+          
+          setDevices(sortedDevices);
+          
+          // Update filtered devices
+          applyFilters(sortedDevices, searchTerm, statusFilter);
+          
+          // Reset to first page to show the new device
+          setPage(1);
+        } else {
+          // If we don't get the device back, refresh the full list
+          await fetchDevices();
+        }
 
         showSnackbar("Camera added successfully!");
       }
       
       handleCloseDialog();
-      refreshDevices();
+      
+      // Only do a full refresh if we're editing (the add case is handled above)
+      if (editingDevice) {
+        refreshDevices();
+      }
     } catch (err) {
       console.error("Error processing device:", err);
       showSnackbar("Error processing request. Please try again.", "error");
@@ -266,7 +379,7 @@ const DeviceManagement: React.FC = () => {
   );
 
   const renderDeviceStatus = (status: string) => {
-    return status === "active" ? (
+    return status.toLowerCase() === "active" ? (
       <Chip
         label="Active"
         color="success"
@@ -379,7 +492,7 @@ const DeviceManagement: React.FC = () => {
                 >
                   <MenuItem value="all">All Statuses</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="deactive">Inactive</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -495,16 +608,16 @@ const DeviceManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title={device.status === "active" ? "Deactivate" : "Activate"}>
+                        <Tooltip title={device.status.toLowerCase() === "active" ? "Set as Inactive" : "Set as Active"}>
                           <IconButton 
                             size="small" 
-                            color={device.status === "active" ? "success" : "error"}
+                            color={device.status.toLowerCase() === "active" ? "success" : "error"}
                             onClick={() => handleStatusChange(device)}
                             sx={{ 
                               border: 1, 
                               borderColor: 'divider',
                               '&:hover': {
-                                backgroundColor: device.status === "active" 
+                                backgroundColor: device.status.toLowerCase() === "active" 
                                   ? alpha(theme.palette.error.main, 0.1)
                                   : alpha(theme.palette.success.main, 0.1)
                               }
@@ -698,7 +811,7 @@ const DeviceManagement: React.FC = () => {
                         label="Status"
                       >
                         <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="deactive">Inactive</MenuItem>
+                        <MenuItem value="inactive">Inactive</MenuItem>
                       </Select>
                     </FormControl>
                   )}

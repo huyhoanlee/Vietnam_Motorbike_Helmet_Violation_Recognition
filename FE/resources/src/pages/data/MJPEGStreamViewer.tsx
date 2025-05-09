@@ -231,7 +231,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
     
     // Only show error after multiple failures
     if (errorCountRef.current > 3 && !isUnmountedRef.current) {
-      setError("Không thể tải luồng video. Vui lòng thử lại sau.");
+      setError("Unable to load video stream. Please try again later..");
       setIsLoading(false);
       
       // Stop streaming
@@ -318,7 +318,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
         hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
       }
     } else {
-      setError(status !== "active" ? "Camera hiện đang không hoạt động" : "Không có URL luồng video");
+      setError(status !== "active" ? "Camera is currently not working" : "No video stream URL");
       setIsLoading(false);
     }
     
@@ -380,7 +380,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                 </Typography>
                 {status !== "active" && (
                   <Typography variant="body2" sx={{ color: "#bbb", maxWidth: "80%" }}>
-                    Camera này hiện không hoạt động. Vui lòng kiểm tra trạng thái camera hoặc thử lại sau.
+                    This camera is currently unavailable. Please check the camera status or try again later.
                   </Typography>
                 )}
                 <Button
@@ -389,7 +389,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   onClick={handleRefresh}
                   sx={{ mt: 2 }}
                 >
-                  Thử lại
+                  Retry
                 </Button>
               </Box>
             )}
@@ -401,7 +401,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   <img
                     ref={liveVideoRef}
                     src={streamUrl ? getUniqueStreamUrl() : ''}
-                    alt="Luồng Camera"
+                    alt="Streaming Camera"
                     style={{
                       width: "100%",
                       height: "100%",
@@ -430,7 +430,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                 {isPaused && frozenFrame && (
                   <img
                     src={frozenFrame}
-                    alt="Ảnh đã tạm dừng"
+                    alt="Photo paused"
                     style={{
                       width: "100%",
                       height: "100%",
@@ -463,7 +463,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                       zIndex: 20,
                     }}
                   >
-                    Đã tạm dừng
+                    Paused
                   </Box>
                 )}
                 
@@ -484,7 +484,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   >
                     <CircularProgress sx={{ color: "#fff" }} />
                     <Typography variant="body2" sx={{ color: "#fff" }}>
-                      Đang khởi tạo...
+                      Initializing...
                     </Typography>
                   </Box>
                 )}
@@ -521,7 +521,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   }}
                 />
                 <Typography variant="body2" fontWeight="medium">
-                  {isPaused ? "Đã dừng" : "Trực tiếp"}
+                  {isPaused ? "Pause" : "Live"}
                 </Typography>
               </Box>
             )}
@@ -543,7 +543,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   zIndex: 30,
                 }}
               >
-                <Tooltip title={isPaused ? "Tiếp tục phát" : "Tạm dừng"}>
+                <Tooltip title={isPaused ? "Continue" : "Pause"}>
                   <span>
                     <IconButton
                       onClick={handlePause}
@@ -561,7 +561,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   </span>
                 </Tooltip>
 
-                <Tooltip title="Làm mới luồng">
+                <Tooltip title="Refresh stream">
                   <span>
                     <IconButton
                       onClick={handleRefresh}
@@ -614,7 +614,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
               >
                 <FiberManualRecordIcon sx={{ fontSize: 12, mr: 0.5 }} />
                 <Typography variant="caption" fontWeight="medium">
-                  {status === "active" ? "Hoạt động" : "Không hoạt động"}
+                  {status === "active" ? "Active" : "Inactive"}
                 </Typography>
               </Box>
             </Grid>

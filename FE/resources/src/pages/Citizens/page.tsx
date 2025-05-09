@@ -33,7 +33,7 @@ const CitizenManager: React.FC = () => {
     },
     {
       title: "Application",
-      subtitle: "Process Vehicle Card Parrot",
+      subtitle: "Process Vehicle Registration",
       icon: <AssignmentIcon sx={{ fontSize: isMobile ? 40 : 50, color: theme.palette.secondary.main }} />,
       path: "/citizen-applications",
       color: theme.palette.secondary.main

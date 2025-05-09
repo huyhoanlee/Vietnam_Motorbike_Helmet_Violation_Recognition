@@ -34,6 +34,7 @@ import {
   Skeleton,
   Badge,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 // Icons
 import SearchIcon from "@mui/icons-material/Search";
@@ -76,7 +77,7 @@ const DataDetection = () => {
   // State for search and filters
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "active" | "inactive">("All");
 
   // State for camera data
   const [data, setData] = useState<CameraData[]>([]);
@@ -109,10 +110,28 @@ const DataDetection = () => {
     setLoading(true);
     setError(null);
     try {
+      // Make sure we have the correct API endpoint
       const res = await axiosInstance.get<{ data: CameraData[] }>(`${API_BASE_URL}get-all/`);
-      setData(res.data.data);
+      
+      // Check if response has data and correct format
+      if (res.data && Array.isArray(res.data.data)) {
+        // Sort data by last_active timestamp (newest first)
+        const sortedData = [...res.data.data].sort((a, b) => {
+          if (!a.last_active && !b.last_active) return 0;
+          if (!a.last_active) return 1;
+          if (!b.last_active) return -1;
+          return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
+        });
+        setData(sortedData);
+      } else {
+        console.error("Invalid response format:", res.data);
+        setData([]);
+        setError("Invalid data format received from the server");
+      }
     } catch (err) {
       console.error("Error fetching cameras:", err);
+      // Provide a fallback empty array to prevent UI errors
+      setData([]);
       setError("Failed to load camera data. Please try again later.");
     } finally {
       setLoading(false);
@@ -241,20 +260,55 @@ const DataDetection = () => {
 
   // Handle status filter change
   const handleStatusFilterChange = (e: any) => {
-    setStatusFilter(e.target.value);
+    setStatusFilter(e.target.value as "All" | "active" | "inactive");
   };
 
   // Filter data based on search and filters
   const filteredData = useMemo(() => {
-    return data.filter((camera) => {
-      const matchesSearch =
-        camera.device_name.toLowerCase().includes(search.toLowerCase()) ||
-        camera.location.toLowerCase().includes(search.toLowerCase()) ||
-        camera.camera_id.toLowerCase().includes(search.toLowerCase());
-      const matchesLocation = locationFilter === "All" || camera.location === locationFilter;
-      const matchesStatus = statusFilter === "All" || camera.status === statusFilter;
-      return matchesSearch && matchesLocation && matchesStatus;
-    });
+    // Safety check to prevent filtering null/undefined data
+    if (!data || !Array.isArray(data)) {
+      console.warn("Attempted to filter invalid data:", data);
+      return [];
+    }
+    
+    try {
+      return data
+        .filter((camera) => {
+          // Ensure camera properties exist before accessing
+          const deviceName = camera?.device_name || "";
+          const location = camera?.location || "";
+          const cameraId = camera?.camera_id || "";
+          const status = camera?.status || "";
+          
+          // Case-insensitive search for device name, location, and camera_id
+          const matchesSearch = search 
+            ? deviceName.toLowerCase().includes(search.toLowerCase()) ||
+              location.toLowerCase().includes(search.toLowerCase()) ||
+              cameraId.toLowerCase().includes(search.toLowerCase())
+            : true;
+          
+          // Match location
+          const matchesLocation = locationFilter === "All" || location === locationFilter;
+          
+          // Match status - handle different status naming variations
+          const matchesStatus = 
+            statusFilter === "All" || 
+            (statusFilter === "active" && status === "active") || 
+            (statusFilter === "inactive" && status !== "active");
+          
+          return matchesSearch && matchesLocation && matchesStatus;
+        })
+        // Sort by last_active timestamp (newest first)
+        .sort((a, b) => {
+          if (!a.last_active && !b.last_active) return 0;
+          if (!a.last_active) return 1;
+          if (!b.last_active) return -1;
+          return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
+        });
+    } catch (err) {
+      console.error("Error filtering data:", err);
+      return [];
+    }
   }, [data, search, locationFilter, statusFilter]);
 
   // Get timestamp in human-readable format
@@ -313,6 +367,7 @@ const DataDetection = () => {
           borderRadius: 2,
           overflow: "visible",
           transition: "box-shadow 0.3s ease",
+          backgroundColor: theme => alpha(theme.palette.background.paper, 0.8),
           "&:hover": {
             boxShadow: 3,
           },
@@ -354,7 +409,9 @@ const DataDetection = () => {
                       value={locationFilter}
                       onChange={handleLocationFilterChange}
                       startAdornment={<LocationOnIcon sx={{ mr: 1, color: "action.active" }} />}
+                      label="Location"
                     >
+                      <MenuItem value="All">All Locations</MenuItem>
                       {locationOptions.map((option) => (
                         <MenuItem key={option} value={option}>
                           {option}
@@ -367,6 +424,7 @@ const DataDetection = () => {
                     <Select
                       value={statusFilter}
                       onChange={handleStatusFilterChange}
+                      label="Status"
                       startAdornment={
                         statusFilter === "active" ? (
                           <VideocamIcon sx={{ mr: 1, color: "success.main" }} />
@@ -375,7 +433,7 @@ const DataDetection = () => {
                         )
                       }
                     >
-                      <MenuItem value="All">All</MenuItem>
+                      <MenuItem value="All">All Statuses</MenuItem>
                       <MenuItem value="active">
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <FiberManualRecordIcon sx={{ fontSize: 12, color: "success.main" }} />
@@ -468,7 +526,7 @@ const DataDetection = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredData.length === 0 ? (
+                {!filteredData || filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 4 : 6} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
