@@ -59,7 +59,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
     }
   }, [isPaused]);
   
-  // Simple function to capture a frame from a video element
+  // Get the most recent frame from an image element
   const captureFrame = useCallback((sourceEl: HTMLImageElement | null) => {
     if (!sourceEl || !canvasRef.current) return null;
     
@@ -106,76 +106,109 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
     return `${streamUrl}?t=${timestamp}`;
   }, [streamUrl]);
   
-  // Handle pause button click - simpler and more direct approach
+  // Handle pause/resume actions with prioritized capture
   const handlePause = useCallback(() => {
     if (isPaused) {
       // RESUMING - Simple and quick
       console.log("Resuming video stream");
       setIsPaused(false);
+      
+      // Schedule pre-fetch of new frames immediately after setState completes
+      setTimeout(() => {
+        if (liveVideoRef.current) {
+          liveVideoRef.current.src = getUniqueStreamUrl();
+        }
+        
+        if (hiddenVideoRef.current) {
+          const timestamp = Date.now() + 50;
+          hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
+        }
+      }, 0);
+      
       onResume?.();
       return;
     }
     
-    // PAUSING - Capture the current frame immediately
-    console.log("Pausing video stream");
+    // PAUSING - Capture the current frame with highest priority
+    console.log("Pausing video stream - immediate capture");
     
-    // Mark as paused first to stop the stream updates
+    // First capture the frame BEFORE changing any state to minimize delay
+    let capturedFrame = null;
+    
+    // Try liveVideoRef first - this is what the user is seeing right now
+    if (liveVideoRef.current && liveVideoRef.current.complete) {
+      capturedFrame = captureFrame(liveVideoRef.current);
+      if (capturedFrame) {
+        console.log("Successfully captured current visible frame instantly");
+      }
+    }
+    
+    // If we couldn't get the live frame, try the hidden frame
+    if (!capturedFrame && hiddenVideoRef.current && hiddenVideoRef.current.complete) {
+      capturedFrame = captureFrame(hiddenVideoRef.current);
+      if (capturedFrame) {
+        console.log("Used hidden frame for instant capture");
+      }
+    }
+    
+    // NOW set the isPaused state AFTER we've captured the frame
     setIsPaused(true);
     
-    // Clear any previous frame to avoid showing old content
-    setFrozenFrame(null);
+    // Set the captured frame if we have one
+    if (capturedFrame) {
+      setFrozenFrame(capturedFrame);
+      onPause?.();
+      return;
+    }
     
-    // Attempt frame capture from live video first
-    let captured = false;
+    // If we're here, we couldn't capture immediately, so try more aggressive methods
+    console.log("Immediate capture failed, trying alternate methods");
+    setFrozenFrame(null); // Clear any previous frame
     
-    // Force a fresh source update before capture to get the very latest frame
-    if (liveVideoRef.current) {
-      const uniqueUrl = getUniqueStreamUrl();
-      
-      // Get what's already visible in the video element
-      const currentFrame = captureFrame(liveVideoRef.current);
-      
-      if (currentFrame) {
-        setFrozenFrame(currentFrame);
-        captured = true;
-        console.log("Successfully captured current frame");
-      } else {
-        console.log("Could not capture from current frame, updating source and trying again");
-        
-        // Set new source and try immediate capture
-        liveVideoRef.current.src = uniqueUrl;
-        
-        // Try immediate capture if the image is already loaded
-        if (liveVideoRef.current.complete) {
-          const freshFrame = captureFrame(liveVideoRef.current);
-          if (freshFrame) {
-            setFrozenFrame(freshFrame);
-            captured = true;
-            console.log("Successfully captured fresh frame");
+    // Create a temporary image to load the very latest frame
+    const tempImg = new Image();
+    tempImg.crossOrigin = "anonymous";
+    
+    // Set up capture for when image loads
+    tempImg.onload = () => {
+      if (canvasRef.current) {
+        try {
+          const canvas = canvasRef.current;
+          canvas.width = tempImg.naturalWidth || 640;
+          canvas.height = tempImg.naturalHeight || 480;
+          
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(tempImg, 0, 0);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            if (dataUrl && dataUrl !== 'data:,') {
+              setFrozenFrame(dataUrl);
+              console.log("Captured fresh frame with delayed method");
+            } else {
+              setFrozenFrame(DEFAULT_PLACEHOLDER);
+              console.log("Failed to get data URL from canvas");
+            }
           }
+        } catch (e) {
+          console.error("Error in delayed capture:", e);
+          setFrozenFrame(DEFAULT_PLACEHOLDER);
         }
       }
-    }
+    };
     
-    // Fallback to hidden video if available
-    if (!captured && hiddenVideoRef.current) {
-      const fallbackFrame = captureFrame(hiddenVideoRef.current);
-      if (fallbackFrame) {
-        setFrozenFrame(fallbackFrame);
-        captured = true;
-        console.log("Used fallback hidden frame");
-      }
-    }
-    
-    // Final fallback to placeholder
-    if (!captured) {
-      console.log("Using placeholder - no frames could be captured");
+    tempImg.onerror = () => {
+      console.error("Failed to load temporary image");
       setFrozenFrame(DEFAULT_PLACEHOLDER);
-    }
+    };
     
-    // Notify parent
+    // Use a unique URL with the exact pause timestamp
+    const pauseTimestamp = Date.now();
+    tempImg.src = `${streamUrl}?t=${pauseTimestamp}`;
+    
+    // Notify parent that we've paused
     onPause?.();
-  }, [isPaused, captureFrame, onPause, onResume, getUniqueStreamUrl]);
+  }, [isPaused, captureFrame, onPause, onResume, getUniqueStreamUrl, streamUrl]);
   
   // Handler for successfully loaded frames
   const handleImageLoad = useCallback(() => {
@@ -248,13 +281,13 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
         liveVideoRef.current.src = getUniqueStreamUrl();
         phase = 1;
       } else if (phase === 1 && hiddenVideoRef.current) {
-        const timestamp = Date.now() + 50; // Slightly offset to get a different frame
+        const timestamp = Date.now() + 20; // Reduced offset to get frames closer to current time
         hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
         phase = 0;
       }
       
-      // Schedule next update (around 12 FPS)
-      streamRequestTimerRef.current = setTimeout(updateStream, 80);
+      // Schedule next update (higher frame rate for more responsive pausing)
+      streamRequestTimerRef.current = setTimeout(updateStream, 50); // Increased frame rate
     };
     
     // Start update loop
