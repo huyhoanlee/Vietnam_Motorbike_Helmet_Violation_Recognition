@@ -67,6 +67,30 @@ VIETNAM_MOTOBIKE_HELMET_VIOLATION_RECOGNITION/
   ├── images 
 ```
 
+## Branch Structure
+
+This repository follows a structured branching strategy to support stable releases, ongoing development, and experimental features:
+
+- **`main`**  
+  The production-ready branch. Always contains the latest stable version of the project.
+
+- **`AI-pipeline`**  
+  Focuses on the integration and development of the core AI modules such as object detection, tracking, and OCR. This is the main branch for evolving the AI logic and handling inference pipelines.
+
+- **`Frontend`**  
+  Dedicated to the development of the ReactJS-based user interface. Includes work related to UI/UX, live stream display, event monitoring, and user interaction components.
+
+- **`Backend`**  
+  Handles development and maintenance of the Django backend. This includes API logic, user management, and communication with external services.
+
+- **`stimulate_streaming`**  
+  A specialized branch used to test or simulate video stream handling.
+
+- **`eda_training_model`**  
+  Contains scripts, notebooks, and code used for exploratory data analysis (EDA) and model training. Supports experimenting with model improvements, dataset inspection, and evaluation workflows.
+
+Each branch has a focused purpose, which helps the team work in parallel and merge features cleanly from three branch: **`AI-pipeline`**, **`Frontend`**, **`Backend`** into the main production flow.
+
 ---
 
 ## Participants
@@ -79,12 +103,12 @@ VIETNAM_MOTOBIKE_HELMET_VIOLATION_RECOGNITION/
 - Major: Artificial Intelligence
 - Contact:
    + Github: tungns
-   + Gmail: 
-3. Hoang Ngoc Xuan Nguyen - AI Engineer + BE Developer
+   + Gmail: Nstung463@gmail.com
+3. Hoang Ngoc Xuan Nguyen - AI + BE Developer
 - Major: Artificial Intelligence
 - Contact:
-   + Github:
-   + Gmail: 
+   + Github: hanak3
+   + Gmail: hoangnguyen01022003@gmail.com
 4. Dang Thi Le Chi - AI Engineer
 - Major: Artificial Intelligence
 - Contact:
