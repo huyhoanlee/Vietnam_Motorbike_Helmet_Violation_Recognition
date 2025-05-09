@@ -8,3 +8,4 @@ asgiref>=3.5.0
 requests
 django-redis
 pandas
+openpyxl

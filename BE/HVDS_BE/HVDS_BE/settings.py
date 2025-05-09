@@ -210,7 +210,7 @@ STRINGEE_KEY_SID = "SK.0.sFAW2g7DEWTmZ04oZbQvc4ktrdMI2U"
 STRINGEE_KEY_SECRET = "RGc0WjFHZ3FCYW02VDZGSW5BMWV2SGN4WWF2SEdEUA==" 
 STRINGEE_FROM_NUMBER = "842871029693"  # Stringee-provided number (e.g., "+842412345678")
 STRINGEE_URL = "https://api.stringee.com/v1/call2/callout"
-FILE_DATA_PATH = f'{BASE_DIR} + /data.xlsx'
+FILE_DATA_PATH = f'{BASE_DIR}/data.xlsx'
 LOGIN_URL = "http://localhost:7860/api/accounts/login/"
 CREATE_CAMERA_url = "http://localhost:7860/api/cameras/create/"
 AI_SERVICE_URL = 'https://huyhoanlee-ai-service.hf.space'

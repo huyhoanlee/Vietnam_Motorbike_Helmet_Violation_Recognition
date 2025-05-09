@@ -7,7 +7,7 @@ class Command(BaseCommand):
     help = 'Generate fake Location data from Excel file or sample data'
 
     def handle(self, *args, **kwargs):
-            df = pd.read_excel(settings.FILE_DATA_PATHe_path, sheet_name='Location')
+            df = pd.read_excel(settings.FILE_DATA_PATH, sheet_name='Location')
             Location.objects.all().delete()
             for _, row in df.iterrows():
                 Location.objects.create(
