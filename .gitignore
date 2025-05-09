@@ -142,3 +142,6 @@ cython_debug/
 .idea/*
 local_files/*
 app/.idea/*
+.DS_Store
+yes
+yes.pub
