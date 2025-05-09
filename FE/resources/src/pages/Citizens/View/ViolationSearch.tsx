@@ -137,7 +137,7 @@ const ViolationLookupPage: React.FC = () => {
   });
   const [imageViewer, setImageViewer] = useState<{url: string, title: string} | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-
+  const citizenId = Number(localStorage.getItem("user_id"));
   const normalizeBase64Image = (data: string, format: "jpeg" | "png" = "jpeg") => {
     if (data.startsWith("data:image/")) {
       return data; 
@@ -167,7 +167,7 @@ const ViolationLookupPage: React.FC = () => {
   const fetchCitizenViolations = async () => {
     setLoadCitizen(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/search-by-citizen/`);
+      const response = await axios.get(`${API_BASE_URL}/search-by-citizen/${citizenId}/`);
       setCitizenViolations(response.data?.data || {});
     } catch (error) {
       setNotification({

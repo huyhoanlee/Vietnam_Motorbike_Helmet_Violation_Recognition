@@ -136,7 +136,7 @@ const Dashboard: React.FC = () => {
   const [citizenStatus, setCitizenStatus] = useState<CitizenStatus[]>([]);
   const [locationCounts, setLocationCounts] = useState<LocationCount[]>([]);
   const [timeCounts, setTimeCounts] = useState<TimeCount[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [_locations, setLocations] = useState<Location[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
   // UI states

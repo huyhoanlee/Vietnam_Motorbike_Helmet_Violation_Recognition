@@ -77,7 +77,7 @@ const DataDetection = () => {
   // State for search and filters
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | "active" | "inactive">("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Deactive">("All");
 
   // State for camera data
   const [data, setData] = useState<CameraData[]>([]);
@@ -151,9 +151,9 @@ const DataDetection = () => {
     setOpenDialog(true);
     setStreamPaused(false);
     
-    if (camera.status !== "active") {
+    if (camera.status !== "Active") {
       setStreamUrl(null);
-      setStreamError("This camera is currently inactive");
+      setStreamError("This camera is currently deactie");
       return;
     }
     
@@ -260,7 +260,7 @@ const DataDetection = () => {
 
   // Handle status filter change
   const handleStatusFilterChange = (e: any) => {
-    setStatusFilter(e.target.value as "All" | "active" | "inactive");
+    setStatusFilter(e.target.value as "All" | "Active" | "Deactive");
   };
 
   // Filter data based on search and filters
@@ -293,8 +293,8 @@ const DataDetection = () => {
           // Match status - handle different status naming variations
           const matchesStatus = 
             statusFilter === "All" || 
-            (statusFilter === "active" && status === "active") || 
-            (statusFilter === "inactive" && status !== "active");
+            (statusFilter === "Active" && status === "Active") || 
+            (statusFilter === "Deactive" && status !== "Active");
           
           return matchesSearch && matchesLocation && matchesStatus;
         })
@@ -426,7 +426,7 @@ const DataDetection = () => {
                       onChange={handleStatusFilterChange}
                       label="Status"
                       startAdornment={
-                        statusFilter === "active" ? (
+                        statusFilter === "Active" ? (
                           <VideocamIcon sx={{ mr: 1, color: "success.main" }} />
                         ) : (
                           <VideocamOffIcon sx={{ mr: 1, color: "action.active" }} />
@@ -434,16 +434,16 @@ const DataDetection = () => {
                       }
                     >
                       <MenuItem value="All">All Statuses</MenuItem>
-                      <MenuItem value="active">
+                      <MenuItem value="Active">
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <FiberManualRecordIcon sx={{ fontSize: 12, color: "success.main" }} />
                           Active
                         </Box>
                       </MenuItem>
-                      <MenuItem value="inactive">
+                      <MenuItem value="Deactive">
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <FiberManualRecordIcon sx={{ fontSize: 12, color: "error.main" }} />
-                          Inactive
+                          Deactive
                         </Box>
                       </MenuItem>
                     </Select>
@@ -561,7 +561,7 @@ const DataDetection = () => {
                       <TableCell sx={{ fontSize: "0.875rem" }}>{camera.camera_id}</TableCell>
                       <TableCell>
                         <Box sx={{ display: "flex", alignItems: "center" }}>
-                          {camera.status === "active" ? (
+                          {camera.status === "Active" ? (
                             <Badge
                               overlap="circular"
                               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -605,10 +605,10 @@ const DataDetection = () => {
                       )}
                       <TableCell>
                         <Chip
-                          label={camera.status === "active" ? "Active" : "Inactive"}
+                          label={camera.status === "Active" ? "Active" : "Deactive"}
                           size="small"
                           sx={{
-                            backgroundColor: camera.status === "active" ? "success.light" : "error.light",
+                            backgroundColor: camera.status === "Active" ? "success.light" : "error.light",
                             color: "white",
                             fontWeight: "medium",
                             minWidth: 70,
@@ -690,7 +690,7 @@ const DataDetection = () => {
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <PlayCircleOutlineIcon sx={{ mr: 1 }} />
             <Typography variant="h6">{selectedCamera?.device_name || "Camera Stream"}</Typography>
-            {selectedCamera?.status === "active" && !streamPaused && (
+            {selectedCamera?.status === "Active" && !streamPaused && (
               <Chip
                 size="small"
                 label="Live"
@@ -699,7 +699,7 @@ const DataDetection = () => {
                 sx={{ ml: 2, "& .MuiChip-icon": { fontSize: 10 } }}
               />
             )}
-            {selectedCamera?.status === "active" && streamPaused && (
+            {selectedCamera?.status === "Active" && streamPaused && (
               <Chip
                 size="small"
                 label="Paused"
@@ -748,9 +748,9 @@ const DataDetection = () => {
               <Typography variant="h6" sx={{ color: "#fff" }}>
                 {streamError}
               </Typography>
-              {selectedCamera?.status !== "active" && (
+              {selectedCamera?.status !== "Active" && (
                 <Typography variant="body2" sx={{ color: "#bbb", maxWidth: "80%" }}>
-                  This camera is currently inactive. Please check the camera status or try again later.
+                  This camera is currently deactive. Please check the camera status or try again later.
                 </Typography>
               )}
             </Box>
@@ -807,7 +807,7 @@ const DataDetection = () => {
                   gap: 2,
                 }}
               >
-                {selectedCamera?.status === "active" ? (
+                {selectedCamera?.status === "Active" ? (
                   <Box
                     sx={{
                       display: "inline-flex",
@@ -842,7 +842,7 @@ const DataDetection = () => {
                   >
                     <FiberManualRecordIcon sx={{ fontSize: 12, mr: 0.5 }} />
                     <Typography variant="caption" fontWeight="medium">
-                      Inactive
+                      Deactive
                     </Typography>
                   </Box>
                 )}

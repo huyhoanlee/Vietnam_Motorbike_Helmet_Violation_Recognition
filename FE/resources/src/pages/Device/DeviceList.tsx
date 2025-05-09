@@ -24,7 +24,7 @@ interface Device {
   device_name: string;
   location_id: number;
   location?: string;
-  status: "active" | "Active" | "inactive" | "Deactive";
+  status: "Active" | "Deactive";
   note: string;
   last_active: Date | null;
 }
@@ -33,7 +33,7 @@ interface DeviceFormData {
   url_input: string;
   device_name: string;
   location: string | number;
-  status: "active" | "Active" | "inactive" | "Deactive";
+  status: "Active" | "Deactive";
   note: string;
   camera_id?: string;
 }
@@ -63,7 +63,7 @@ const DeviceManagement: React.FC = () => {
       url_input: "",
       device_name: "",
       location: "",
-      status: "active",
+      status: "Active",
       note: "",
     }
   });
@@ -99,10 +99,10 @@ const DeviceManagement: React.FC = () => {
 
         // Group devices by status after sorting by camera_id
         const activeDevices = sortedDevices.filter(device => 
-          device.status.toLowerCase() === "active"
+          device.status === "Active"
         );
         const inactiveDevices = sortedDevices.filter(device => 
-          device.status.toLowerCase() !== "active"
+          device.status === "Deactive"
         );
         
         // Combine the filtered arrays with active devices first
@@ -147,18 +147,18 @@ const DeviceManagement: React.FC = () => {
     
     if (status !== "all") {
       filtered = filtered.filter(device => 
-        (status === "active" && device.status.toLowerCase() === "active") || 
-        (status === "inactive" && device.status.toLowerCase() !== "active")
+        (status === "active" && device.status === "Active") || 
+        (status === "inactive" && device.status === "Deactive")
       );
     }
     
     // Group filtered devices by status (active first, then inactive)
     // while maintaining the camera_id sort within each group
     const activeFiltered = filtered.filter(device => 
-      device.status.toLowerCase() === "active"
+      device.status === "Active"
     );
     const inactiveFiltered = filtered.filter(device => 
-      device.status.toLowerCase() !== "active"
+      device.status === "Deactive"
     );
     
     // Set the filtered devices with active first, then inactive
@@ -183,7 +183,7 @@ const DeviceManagement: React.FC = () => {
         url_input: device.url_input || "",
         device_name: device.device_name || "",
         location: device.location_id || "",
-        status: device.status || "active",
+        status: device.status || "Active",
         note: device.note || "",
         camera_id: device.camera_id.toString(),
       });
@@ -192,7 +192,7 @@ const DeviceManagement: React.FC = () => {
         url_input: "",
         device_name: "",
         location: "",
-        status: "active",
+        status: "Active",
         note: "",
       });
     }
@@ -210,8 +210,8 @@ const DeviceManagement: React.FC = () => {
   const handleStatusChange = async (device: Device) => {
     // Convert between active/inactive statuses
     // Keep the casing consistent with what's returned by the API
-    const isActive = device.status.toLowerCase() === "active";
-    const updatedStatus = isActive ? "Deactive" : "active";
+    const isActive = device.status === "Active";
+    const updatedStatus = isActive ? "Deactive" : "Active";
       
     try {
       await axiosInstance.put(`${API_BASE_URL}cameras/change-status/${device.camera_id}/`, {
@@ -221,17 +221,17 @@ const DeviceManagement: React.FC = () => {
       // Update the device in the devices array
       const updatedDevices = devices.map(d => {
         if (d.camera_id === device.camera_id) {
-          return { ...d, status: updatedStatus as "active" | "Active" | "inactive" | "Deactive" };
+          return { ...d, status: updatedStatus as "Active" | "Deactive" };
         }
         return d;
       });
       
       // Group devices by status
       const activeDevices = updatedDevices.filter(d => 
-        d.status.toLowerCase() === "active"
+        d.status === "Active"
       );
       const inactiveDevices = updatedDevices.filter(d => 
-        d.status.toLowerCase() !== "active"
+        d.status === "Deactive"
       );
       
       // Combine with active first, maintaining camera_id sort within each group
@@ -242,7 +242,7 @@ const DeviceManagement: React.FC = () => {
       // Update filtered devices
       applyFilters(sortedDevices, searchTerm, statusFilter);
       
-      showSnackbar(`Device ${device.device_name} is now ${updatedStatus.toLowerCase() === "active" ? "active" : "inactive"}.`);
+      showSnackbar(`Device ${device.device_name} is now ${updatedStatus === "Active" ? "active" : "inactive"}.`);
     } catch (err) {
       console.error("Failed to update device status", err);
       showSnackbar("Failed to update device status.", "error");
@@ -328,10 +328,10 @@ const DeviceManagement: React.FC = () => {
           
           // Group devices by status
           const activeDevices = updatedDevices.filter(d => 
-            d.status.toLowerCase() === "active"
+            d.status === "Active"
           );
           const inactiveDevices = updatedDevices.filter(d => 
-            d.status.toLowerCase() !== "active"
+            d.status === "Deactive"
           );
           
           // Sort each group by camera_id (newest/highest first)
@@ -379,7 +379,7 @@ const DeviceManagement: React.FC = () => {
   );
 
   const renderDeviceStatus = (status: string) => {
-    return status.toLowerCase() === "active" ? (
+    return status === "Active" ? (
       <Chip
         label="Active"
         color="success"
@@ -608,16 +608,16 @@ const DeviceManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title={device.status.toLowerCase() === "active" ? "Set as Inactive" : "Set as Active"}>
+                        <Tooltip title={device.status === "Active" ? "Set as Inactive" : "Set as Active"}>
                           <IconButton 
                             size="small" 
-                            color={device.status.toLowerCase() === "active" ? "success" : "error"}
+                            color={device.status === "Active" ? "success" : "error"}
                             onClick={() => handleStatusChange(device)}
                             sx={{ 
                               border: 1, 
                               borderColor: 'divider',
                               '&:hover': {
-                                backgroundColor: device.status.toLowerCase() === "active" 
+                                backgroundColor: device.status === "Active" 
                                   ? alpha(theme.palette.error.main, 0.1)
                                   : alpha(theme.palette.success.main, 0.1)
                               }
@@ -810,8 +810,8 @@ const DeviceManagement: React.FC = () => {
                         labelId="status-label"
                         label="Status"
                       >
-                        <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="inactive">Inactive</MenuItem>
+                        <MenuItem value="Active">Active</MenuItem>
+                        <MenuItem value="Deactive">Inactive</MenuItem>
                       </Select>
                     </FormControl>
                   )}
