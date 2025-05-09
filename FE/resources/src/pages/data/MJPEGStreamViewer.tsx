@@ -1,10 +1,8 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   Box,
   Typography,
   CircularProgress,
-  Snackbar,
-  Alert,
   Paper,
   Grid,
   IconButton,
@@ -12,10 +10,8 @@ import {
   Button,
 } from "@mui/material";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
@@ -24,309 +20,285 @@ interface MJPEGStreamViewerProps {
   cameraName?: string;
   location?: string;
   status?: string;
+  onPause?: () => void;
+  onResume?: () => void;
 }
 
-interface StreamError {
-  message: string;
-  timestamp: number;
-  retryCount: number;
-}
+// Default image to use as fallback when pause capture fails
+const DEFAULT_PLACEHOLDER = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMjIyIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9IjAuMzVlbSIgZmlsbD0iI2FhYSI+UGF1c2VkPC90ZXh0Pjwvc3ZnPg==";
 
 const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
   streamUrl,
   cameraName = "Camera",
   location = "Unknown Location",
   status = "active",
+  onPause,
+  onResume,
 }) => {
+  // Core state
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [showSnackbar, setShowSnackbar] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success");
-
-  // Stream handling refs
-  const imgRef = useRef<HTMLImageElement>(null);
-  const streamTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const errorInfoRef = useRef<StreamError | null>(null);
-  const requestIdRef = useRef<number>(0);
-  const lastFrameUrlRef = useRef<string | null>(null);
-
-  // Load image with timeout and error handling
-  const loadImageWithTimeout = (url: string, timeoutMs: number = 10000): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const currentRequestId = ++requestIdRef.current;
-      
-      console.log(`[${currentRequestId}] Loading image from: ${url}`);
-      
-      const timeoutId = setTimeout(() => {
-        console.warn(`[${currentRequestId}] Image load timeout after ${timeoutMs}ms`);
-        img.src = "";
-        reject(new Error("Image loading timeout"));
-      }, timeoutMs);
-      
-      img.onload = () => {
-        console.log(`[${currentRequestId}] Image loaded successfully`);
-        clearTimeout(timeoutId);
-        resolve(url);
-      };
-      
-      img.onerror = (e) => {
-        console.error(`[${currentRequestId}] Image load error:`, e);
-        clearTimeout(timeoutId);
-        if (e instanceof Event && e.type === "error") {
-          console.warn(`[${currentRequestId}] Potential CORS issue: Ensure the server allows cross-origin requests with proper headers.`);
-          reject(new Error("Failed to load image, possibly due to CORS restrictions"));
-        } else {
-          reject(new Error("Failed to load image"));
-        }
-      };
-      
-      img.crossOrigin = "anonymous";
-      img.src = `${url}?t=${Date.now()}`;
-    });
-  };
-
-  // Capture current frame by storing its URL (không sử dụng canvas)
-  const captureFrame = (): string | null => {
-    try {
-      if (imgRef.current && imgRef.current.src) {
-        console.log("Capturing current frame URL:", imgRef.current.src);
-        return imgRef.current.src;
-      }
-      console.warn("Cannot capture frame: Image not ready or imgRef is null");
-      return null;
-    } catch (err) {
-      console.error("Error capturing frame:", err);
-      return null;
-    }
-  };
-
-  // Toggle pause/resume
-  const togglePause = () => {
-    try {
-      if (!isPaused) {
-        console.log("Pausing stream and capturing current frame");
-        const frameSrc = captureFrame();
-        if (frameSrc) {
-          console.log("Frame captured successfully while pausing:", frameSrc);
-          lastFrameUrlRef.current = frameSrc;
-          if (imgRef.current) {
-            imgRef.current.src = frameSrc;
-          }
-        } else {
-          console.warn("Failed to capture frame while pausing");
-          setSnackbarMessage("Không thể chụp frame hiện tại khi tạm dừng.");
-          setSnackbarSeverity("warning");
-          setShowSnackbar(true);
-        }
-        if (streamTimerRef.current) {
-          clearTimeout(streamTimerRef.current);
-          streamTimerRef.current = null;
-        }
-      } else {
-        console.log("Resuming stream");
-        setIsLoading(true);
-        fetchNextFrame();
-      }
-      setIsPaused((prev) => !prev);
-    } catch (err) {
-      console.error("Error in togglePause:", err);
-      setSnackbarMessage("Đã xảy ra lỗi khi tạm dừng/phát lại stream.");
-      setSnackbarSeverity("error");
-      setShowSnackbar(true);
-    }
-  };
-
-  // Handle capturing an image
-  const handleCaptureImage = () => {
-    try {
-      console.log("Capturing image requested");
-      const capturedImageSrc = isPaused ? lastFrameUrlRef.current : captureFrame();
-      if (capturedImageSrc) {
-        console.log("Image captured successfully:", capturedImageSrc);
-        setCapturedImage(capturedImageSrc);
-        setSnackbarMessage("Đã chụp được hình ảnh vi phạm!");
-        setSnackbarSeverity("success");
-        setShowSnackbar(true);
-      } else {
-        console.error("Failed to capture image: No valid frame available");
-        setSnackbarMessage("Không thể chụp hình ảnh. Vui lòng thử lại.");
-        setSnackbarSeverity("error");
-        setShowSnackbar(true);
-      }
-    } catch (err) {
-      console.error("Error in handleCaptureImage:", err);
-      setSnackbarMessage("Đã xảy ra lỗi khi chụp hình ảnh.");
-      setSnackbarSeverity("error");
-      setShowSnackbar(true);
-    }
-  };
-
-  // Download captured image directly via Blob
-  const downloadCapturedImage = () => {
-    const imageToDownload = capturedImage || lastFrameUrlRef.current;
-    
-    if (!imageToDownload) {
-      console.warn("No image available to download");
-      setSnackbarMessage("Không có hình ảnh để tải xuống!");
-      setSnackbarSeverity("warning");
-      setShowSnackbar(true);
-      return;
-    }
-
-    console.log("Downloading captured image:", imageToDownload);
-    
-    try {
-      const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
-      const filename = `vi_pham_${cameraName.replace(/\s+/g, "_")}_${timestamp}.jpg`;
-      
-      fetch(imageToDownload)
-        .then(response => {
-          if (!response.ok) {
-            console.error("Fetch response not ok:", response.status, response.statusText);
-            throw new Error(`Network response was not ok: ${response.statusText}`);
-          }
-          return response.blob();
-        })
-        .then(blob => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
-          console.log(`Image downloaded as: ${filename}`);
-          setSnackbarMessage("Đã lưu hình ảnh vi phạm thành công!");
-          setSnackbarSeverity("success");
-          setShowSnackbar(true);
-        })
-        .catch(err => {
-          console.error("Error downloading image in fetch operation:", err);
-          throw err;
-        });
-    } catch (error) {
-      console.error("Error downloading image:", error);
-      setSnackbarMessage("Lỗi khi tải hình ảnh. Vui lòng thử lại.");
-      setSnackbarSeverity("error");
-      setShowSnackbar(true);
-    }
-  };
-
-  // Function to fetch the next frame
-  const fetchNextFrame = async () => {
-    if (isPaused || !streamUrl || status !== "active") {
-      console.log("Skipping fetchNextFrame: Stream is paused, invalid URL, or status is not active");
-      return;
-    }
-
-    try {
-      const frameSrc = await loadImageWithTimeout(streamUrl);
-      
-      if (imgRef.current && !isPaused) {
-        imgRef.current.src = frameSrc;
-        lastFrameUrlRef.current = frameSrc;
-        setError(null);
-        setIsLoading(false);
-        
-        errorInfoRef.current = null;
-        
-        streamTimerRef.current = setTimeout(fetchNextFrame, 200);
-      }
-    } catch (err) {
-      console.error("Error fetching frame:", err);
-      
-      if (!errorInfoRef.current) {
-        errorInfoRef.current = {
-          message: err instanceof Error ? err.message : String(err),
-          timestamp: Date.now(),
-          retryCount: 1
-        };
-      } else {
-        errorInfoRef.current.retryCount++;
-      }
-      
-      if (errorInfoRef.current.retryCount >= 3) {
-        setError(`Không thể tải luồng video. Lỗi: ${errorInfoRef.current.message}`);
-        setIsLoading(false);
-        console.warn("Maximum retry attempts reached. Stream stopped.");
-      } else {
-        const backoffDelay = Math.min(1000 * (2 ** (errorInfoRef.current.retryCount - 1)), 5000);
-        console.log(`Retrying in ${backoffDelay}ms (attempt ${errorInfoRef.current.retryCount})`);
-        streamTimerRef.current = setTimeout(fetchNextFrame, backoffDelay);
-      }
-    }
-  };
-
-  // Handle manual refresh
-  const handleRefresh = () => {
-    try {
-      console.log("Manual refresh requested");
-      setIsLoading(true);
-      setError(null);
-      
-      errorInfoRef.current = null;
-      
-      if (streamTimerRef.current) {
-        clearTimeout(streamTimerRef.current);
-      }
-      
-      fetchNextFrame();
-      
-      setSnackbarMessage("Đang làm mới luồng video...");
-      setSnackbarSeverity("info");
-      setShowSnackbar(true);
-    } catch (err) {
-      console.error("Error in handleRefresh:", err);
-      setSnackbarMessage("Đã xảy ra lỗi khi làm mới luồng video.");
-      setSnackbarSeverity("error");
-      setShowSnackbar(true);
-    }
-  };
-
-  // Initialize and clean up stream
+  const [frozenFrame, setFrozenFrame] = useState<string | null>(null);
+  
+  // Video refs
+  const liveVideoRef = useRef<HTMLImageElement>(null); // For live streaming
+  const hiddenVideoRef = useRef<HTMLImageElement>(null); // For capturing on pause
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Control refs
+  const isUnmountedRef = useRef<boolean>(false);
+  const errorCountRef = useRef<number>(0);
+  const streamRequestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureTimestampRef = useRef<number>(0);
+  
+  // Completely clear frozen frame when resuming
   useEffect(() => {
-    console.log(`Initializing stream with URL: ${streamUrl}, status: ${status}`);
-    
-    if (!streamUrl || status !== "active") {
-      setError(status !== "active" ? "Camera hiện đang không hoạt động" : "Không có URL luồng video");
-      setIsLoading(false);
-      console.warn("Stream initialization skipped: Invalid stream URL or inactive status");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    
-    fetchNextFrame();
-
-    return () => {
-      console.log("Cleaning up stream resources");
-      if (streamTimerRef.current) {
-        clearTimeout(streamTimerRef.current);
-        streamTimerRef.current = null;
-      }
-    };
-  }, [streamUrl, status]);
-
-  // Handle image loading status changes on pause/resume
-  useEffect(() => {
-    if (isPaused && imgRef.current && lastFrameUrlRef.current) {
-      console.log("Updating display with last captured frame:", lastFrameUrlRef.current);
-      imgRef.current.src = lastFrameUrlRef.current;
-      setIsLoading(false);
+    if (!isPaused) {
+      setFrozenFrame(null);
     }
   }, [isPaused]);
-
-  const handleCloseSnackbar = () => {
-    setShowSnackbar(false);
-  };
-
+  
+  // Simple function to capture a frame from a video element
+  const captureFrame = useCallback((sourceEl: HTMLImageElement | null) => {
+    if (!sourceEl || !canvasRef.current) return null;
+    
+    try {
+      // Check if image is loaded
+      if (!sourceEl.complete || sourceEl.naturalWidth === 0) {
+        console.log("Image not fully loaded for capture");
+        return null;
+      }
+      
+      const canvas = canvasRef.current;
+      
+      // Set canvas dimensions to match source image
+      canvas.width = sourceEl.naturalWidth || sourceEl.width || 640;
+      canvas.height = sourceEl.naturalHeight || sourceEl.height || 480;
+      
+      // Draw the frame onto canvas
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      
+      ctx.drawImage(sourceEl, 0, 0, canvas.width, canvas.height);
+      
+      // Try to get data URL
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        if (dataUrl && dataUrl !== 'data:,') {
+          return dataUrl;
+        }
+      } catch (e) {
+        console.error("Error creating data URL:", e);
+      }
+    } catch (e) {
+      console.error("Error capturing frame:", e);
+    }
+    
+    return null;
+  }, []);
+  
+  // Create a unique URL for the stream that will bypass browser cache
+  const getUniqueStreamUrl = useCallback(() => {
+    if (!streamUrl) return '';
+    const timestamp = Date.now();
+    captureTimestampRef.current = timestamp; // Store the timestamp for validation later
+    return `${streamUrl}?t=${timestamp}`;
+  }, [streamUrl]);
+  
+  // Handle pause button click - simpler and more direct approach
+  const handlePause = useCallback(() => {
+    if (isPaused) {
+      // RESUMING - Simple and quick
+      console.log("Resuming video stream");
+      setIsPaused(false);
+      onResume?.();
+      return;
+    }
+    
+    // PAUSING - Capture the current frame immediately
+    console.log("Pausing video stream");
+    
+    // Mark as paused first to stop the stream updates
+    setIsPaused(true);
+    
+    // Clear any previous frame to avoid showing old content
+    setFrozenFrame(null);
+    
+    // Attempt frame capture from live video first
+    let captured = false;
+    
+    // Force a fresh source update before capture to get the very latest frame
+    if (liveVideoRef.current) {
+      const uniqueUrl = getUniqueStreamUrl();
+      
+      // Get what's already visible in the video element
+      const currentFrame = captureFrame(liveVideoRef.current);
+      
+      if (currentFrame) {
+        setFrozenFrame(currentFrame);
+        captured = true;
+        console.log("Successfully captured current frame");
+      } else {
+        console.log("Could not capture from current frame, updating source and trying again");
+        
+        // Set new source and try immediate capture
+        liveVideoRef.current.src = uniqueUrl;
+        
+        // Try immediate capture if the image is already loaded
+        if (liveVideoRef.current.complete) {
+          const freshFrame = captureFrame(liveVideoRef.current);
+          if (freshFrame) {
+            setFrozenFrame(freshFrame);
+            captured = true;
+            console.log("Successfully captured fresh frame");
+          }
+        }
+      }
+    }
+    
+    // Fallback to hidden video if available
+    if (!captured && hiddenVideoRef.current) {
+      const fallbackFrame = captureFrame(hiddenVideoRef.current);
+      if (fallbackFrame) {
+        setFrozenFrame(fallbackFrame);
+        captured = true;
+        console.log("Used fallback hidden frame");
+      }
+    }
+    
+    // Final fallback to placeholder
+    if (!captured) {
+      console.log("Using placeholder - no frames could be captured");
+      setFrozenFrame(DEFAULT_PLACEHOLDER);
+    }
+    
+    // Notify parent
+    onPause?.();
+  }, [isPaused, captureFrame, onPause, onResume, getUniqueStreamUrl]);
+  
+  // Handler for successfully loaded frames
+  const handleImageLoad = useCallback(() => {
+    // Don't process if component is unmounted
+    if (isUnmountedRef.current) return;
+    
+    // Update loading state only once
+    if (isLoading) {
+      setIsLoading(false);
+      errorCountRef.current = 0;
+    }
+  }, [isLoading]);
+  
+  // Handle image load errors
+  const handleImageError = useCallback(() => {
+    // Don't process if unmounted
+    if (isUnmountedRef.current) return;
+    
+    errorCountRef.current++;
+    
+    // Only show error after multiple failures
+    if (errorCountRef.current > 3 && !isUnmountedRef.current) {
+      setError("Không thể tải luồng video. Vui lòng thử lại sau.");
+      setIsLoading(false);
+      
+      // Stop streaming
+      if (streamRequestTimerRef.current) {
+        clearTimeout(streamRequestTimerRef.current);
+        streamRequestTimerRef.current = null;
+      }
+    }
+  }, []);
+  
+  // Handle refresh button
+  const handleRefresh = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+    errorCountRef.current = 0;
+    
+    // Reset pause state
+    setIsPaused(false);
+    setFrozenFrame(null);
+    
+    // Force refresh both videos
+    if (liveVideoRef.current) {
+      liveVideoRef.current.src = getUniqueStreamUrl();
+    }
+    
+    if (hiddenVideoRef.current) {
+      const timestamp = Date.now() + 50;
+      hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
+    }
+  }, [streamUrl, getUniqueStreamUrl]);
+  
+  // Stream update loop - more efficient approach
+  useEffect(() => {
+    // Don't run if paused, unmounted, or no URL
+    if (isUnmountedRef.current || isPaused || !streamUrl || status !== "active") {
+      return;
+    }
+    
+    let phase = 0; // Alternating between two videos to always have a frame ready
+    
+    const updateStream = () => {
+      if (isUnmountedRef.current || isPaused) return;
+      
+      // Alternate between updating the two video elements
+      // This ensures we always have at least one fully loaded frame
+      if (phase === 0 && liveVideoRef.current) {
+        liveVideoRef.current.src = getUniqueStreamUrl();
+        phase = 1;
+      } else if (phase === 1 && hiddenVideoRef.current) {
+        const timestamp = Date.now() + 50; // Slightly offset to get a different frame
+        hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
+        phase = 0;
+      }
+      
+      // Schedule next update (around 12 FPS)
+      streamRequestTimerRef.current = setTimeout(updateStream, 80);
+    };
+    
+    // Start update loop
+    updateStream();
+    
+    // Cleanup
+    return () => {
+      if (streamRequestTimerRef.current) {
+        clearTimeout(streamRequestTimerRef.current);
+        streamRequestTimerRef.current = null;
+      }
+    };
+  }, [isPaused, streamUrl, status, getUniqueStreamUrl]);
+  
+  // Setup and cleanup
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    
+    // Initial setup
+    if (streamUrl && status === "active") {
+      // Initialize both video elements
+      if (liveVideoRef.current) {
+        liveVideoRef.current.src = getUniqueStreamUrl();
+      }
+      
+      if (hiddenVideoRef.current) {
+        const timestamp = Date.now() + 50;
+        hiddenVideoRef.current.src = `${streamUrl}?t=${timestamp}`;
+      }
+    } else {
+      setError(status !== "active" ? "Camera hiện đang không hoạt động" : "Không có URL luồng video");
+      setIsLoading(false);
+    }
+    
+    return () => {
+      isUnmountedRef.current = true;
+      
+      if (streamRequestTimerRef.current) {
+        clearTimeout(streamRequestTimerRef.current);
+        streamRequestTimerRef.current = null;
+      }
+    };
+  }, [streamUrl, status, getUniqueStreamUrl]);
+  
   return (
     <Box sx={{ width: "100%", height: "100%" }}>
       <Paper
@@ -353,27 +325,6 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
               overflow: "hidden",
             }}
           >
-            {isLoading && !error && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 2,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 2,
-                }}
-              >
-                <CircularProgress sx={{ color: "#fff" }} />
-                <Typography variant="body2" sx={{ color: "#fff" }}>
-                  Đang tải luồng video...
-                </Typography>
-              </Box>
-            )}
-
             {error && (
               <Box
                 sx={{
@@ -381,7 +332,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   top: "50%",
                   left: "50%",
                   transform: "translate(-50%, -50%)",
-                  zIndex: 2,
+                  zIndex: 20,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -399,8 +350,8 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                     Camera này hiện không hoạt động. Vui lòng kiểm tra trạng thái camera hoặc thử lại sau.
                   </Typography>
                 )}
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   startIcon={<RefreshIcon />}
                   onClick={handleRefresh}
                   sx={{ mt: 2 }}
@@ -410,23 +361,104 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
               </Box>
             )}
 
-            <img
-              ref={imgRef}
-              alt="Luồng Camera"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                opacity: isLoading && !isPaused ? 0.7 : 1,
-                transition: "opacity 0.3s ease",
-                display: error ? "none" : "block",
-              }}
-              onError={(e) => {
-                console.error("Image error event:", e);
-              }}
-              crossOrigin="anonymous"
-            />
+            {!error && (
+              <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
+                {/* Live stream video - visible when not paused */}
+                {!isPaused && (
+                  <img
+                    ref={liveVideoRef}
+                    src={streamUrl ? getUniqueStreamUrl() : ''}
+                    alt="Luồng Camera"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
+                    crossOrigin="anonymous"
+                  />
+                )}
+                
+                {/* Hidden video element - always loaded but invisible, used for capture redundancy */}
+                <img
+                  ref={hiddenVideoRef}
+                  src={streamUrl ? `${streamUrl}?t=${Date.now()+100}` : ''}
+                  alt="Hidden Video"
+                  style={{
+                    display: 'none', 
+                    position: 'absolute',
+                  }}
+                  onLoad={handleImageLoad}
+                  crossOrigin="anonymous"
+                />
+                
+                {/* Frozen frame image - shown when paused */}
+                {isPaused && frozenFrame && (
+                  <img
+                    src={frozenFrame}
+                    alt="Ảnh đã tạm dừng"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                )}
+                
+                {/* Canvas used for capturing frames - always hidden */}
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    display: 'none',
+                    position: 'absolute',
+                  }}
+                />
+                
+                {/* Pause overlay indicator */}
+                {isPaused && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      bottom: 16,
+                      left: 16,
+                      background: "rgba(0,0,0,0.6)",
+                      color: "white",
+                      padding: "4px 8px",
+                      borderRadius: 1,
+                      fontSize: "0.75rem",
+                      zIndex: 20,
+                    }}
+                  >
+                    Đã tạm dừng
+                  </Box>
+                )}
+                
+                {/* Only show loading indicator when initially loading, not during streaming */}
+                {isLoading && !isPaused && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      zIndex: 20,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 2,
+                    }}
+                  >
+                    <CircularProgress sx={{ color: "#fff" }} />
+                    <Typography variant="body2" sx={{ color: "#fff" }}>
+                      Đang khởi tạo...
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
 
+            {/* Live/Paused status indicator */}
             {!error && (
               <Box
                 sx={{
@@ -440,7 +472,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   padding: "6px 12px",
                   borderRadius: 6,
                   color: "#fff",
-                  zIndex: 10,
+                  zIndex: 30,
                   backdropFilter: "blur(4px)",
                 }}
               >
@@ -461,6 +493,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
               </Box>
             )}
 
+            {/* Control buttons */}
             {!error && (
               <Box
                 sx={{
@@ -474,13 +507,13 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                   padding: "8px 16px",
                   borderRadius: 8,
                   backdropFilter: "blur(4px)",
-                  zIndex: 10,
+                  zIndex: 30,
                 }}
               >
                 <Tooltip title={isPaused ? "Tiếp tục phát" : "Tạm dừng"}>
                   <span>
                     <IconButton
-                      onClick={togglePause}
+                      onClick={handlePause}
                       sx={{
                         color: "#fff",
                         backgroundColor: isPaused ? "rgba(76, 175, 80, 0.2)" : "rgba(244, 67, 54, 0.2)",
@@ -491,44 +524,6 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
                       }}
                     >
                       {isPaused ? <PlayArrowIcon /> : <PauseIcon />}
-                    </IconButton>
-                  </span>
-                </Tooltip>
-
-                <Tooltip title="Chụp hình ảnh vi phạm">
-                  <span>
-                    <IconButton
-                      onClick={handleCaptureImage}
-                      sx={{
-                        color: "#fff",
-                        backgroundColor: "rgba(33, 150, 243, 0.2)",
-                        "&:hover": {
-                          backgroundColor: "rgba(33, 150, 243, 0.4)",
-                        },
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <PhotoCameraIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-
-                <Tooltip title="Tải hình ảnh về máy">
-                  <span>
-                    <IconButton
-                      onClick={downloadCapturedImage}
-                      disabled={!capturedImage && !lastFrameUrlRef.current}
-                      sx={{
-                        color: "#fff",
-                        backgroundColor: "rgba(255, 193, 7, 0.2)",
-                        "&:hover": {
-                          backgroundColor: !capturedImage && !lastFrameUrlRef.current ? "rgba(255, 193, 7, 0.2)" : "rgba(255, 193, 7, 0.4)",
-                        },
-                        opacity: !capturedImage && !lastFrameUrlRef.current ? 0.5 : 1,
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <FileDownloadIcon />
                     </IconButton>
                   </span>
                 </Tooltip>
@@ -592,67 +587,7 @@ const MJPEGStreamViewer: React.FC<MJPEGStreamViewerProps> = ({
             </Grid>
           </Grid>
         </Box>
-
-        {capturedImage && (
-          <Box 
-            sx={{ 
-              position: 'absolute', 
-              bottom: 80, 
-              right: 16, 
-              width: 180, 
-              height: 120, 
-              borderRadius: 1, 
-              overflow: 'hidden',
-              border: '2px solid #fff',
-              boxShadow: 3,
-              zIndex: 20,
-              backgroundColor: '#000',
-              '&:hover': {
-                transform: 'scale(1.05)',
-                transition: 'transform 0.2s ease',
-              }
-            }}
-          >
-            <img 
-              src={capturedImage} 
-              alt="Captured Violation" 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              crossOrigin="anonymous"
-            />
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '4px',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <Typography variant="caption" sx={{ color: '#fff', fontSize: '0.7rem' }}>
-                Hình ảnh đã chụp
-              </Typography>
-            </Box>
-          </Box>
-        )}
       </Paper>
-
-      <Snackbar
-        open={showSnackbar}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      > 
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbarSeverity}
-          sx={{ width: "100%" }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

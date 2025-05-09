@@ -227,7 +227,7 @@ const DeviceManagement: React.FC = () => {
           payload
         );
 
-        showSnackbar("Device updated successfully!");
+        showSnackbar("Camera updated successfully!");
       } else {
         // Adding new device
         const existingDevice = devices.find(
@@ -235,7 +235,7 @@ const DeviceManagement: React.FC = () => {
         );
 
         if (existingDevice) {
-          showSnackbar("Device with this ID or name already exists.", "error");
+          showSnackbar("Camera with this ID or name already exists.", "error");
           return;
         }
 
@@ -244,7 +244,7 @@ const DeviceManagement: React.FC = () => {
           location_id: Number(data.location),
         });
 
-        showSnackbar("Device added successfully!");
+        showSnackbar("Camera added successfully!");
       }
       
       handleCloseDialog();
@@ -310,10 +310,10 @@ const DeviceManagement: React.FC = () => {
       >
         <Box sx={{ mb: { xs: 2, sm: 0 } }}>
           <Typography variant="h5" fontWeight="700" gutterBottom color="primary.main" sx={{ display: 'flex', alignItems: 'center' }}>
-            <CameraAlt sx={{ mr: 1 }} /> Device Management
+            <CameraAlt sx={{ mr: 1 }} /> Camera Management
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Monitor and manage your connected devices
+            Monitor and manage your connected camera
           </Typography>
         </Box>
         
@@ -331,7 +331,7 @@ const DeviceManagement: React.FC = () => {
             px: 2
           }}
         >
-          Add New Device
+          Add New Camera
         </Button>
       </Box>
       
@@ -422,7 +422,7 @@ const DeviceManagement: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             {searchTerm || statusFilter !== 'all' 
               ? 'Try changing your search or filter criteria'
-              : 'Start by adding a new device'}
+              : 'Start by adding a new camera'}
           </Typography>
         </Box>
       ) : (
@@ -443,8 +443,8 @@ const DeviceManagement: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, 0.05) }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Device ID</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Device Name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Camera ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Camera Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', display: { xs: 'none', md: 'table-cell' } }}>Location</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
@@ -513,7 +513,7 @@ const DeviceManagement: React.FC = () => {
                             <ToggleOn />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Edit Device">
+                        <Tooltip title="Edit Camera">
                           <IconButton 
                             size="small" 
                             color="primary"
@@ -596,7 +596,7 @@ const DeviceManagement: React.FC = () => {
           color: 'primary.main'
         }}>
           {editingDevice ? <Edit fontSize="small" /> : <Add fontSize="small" />}
-          {editingDevice ? "Edit Device" : "Add New Device"}
+          {editingDevice ? "Edit Camera" : "Add New Camera"}
         </DialogTitle>
         
         <Divider />
@@ -633,11 +633,11 @@ const DeviceManagement: React.FC = () => {
                 <Controller
                   name="device_name"
                   control={control}
-                  rules={{ required: "Device name is required" }}
+                  rules={{ required: "Camera name is required" }}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Device Name"
+                      label="Camera Name"
                       fullWidth
                       variant="outlined"
                       error={!!errors.device_name}
