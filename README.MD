@@ -1,89 +1,99 @@
-# 📊 Dataset Analysis Report
+# Video Streaming API
 
-This document provides a comprehensive analysis of the datasets used in Object Detection (OD) and Optical Character Recognition (OCR) tasks. The visualizations presented below offer insights into the structure of the dataset, class distributions, bounding box sizes, spatial arrangements, and other key metrics that are crucial for model development and evaluation.
+This project provides a FastAPI-based application for streaming video content from a video file or webcam. It supports real-time video streaming using MJPEG format and allows retrieval of the latest video frame as a single image via API endpoints.
 
----
+## Features
+- **Real-time video streaming**: Streams video content as MJPEG over HTTP.
+- **Single frame access**: Retrieve the latest video frame as a JPEG image.
+- **Configurable video source**: Supports both video files and webcam input.
+- **Background frame capture**: Uses threading to continuously capture and update frames.
+- **Graceful shutdown**: Properly releases video resources on application shutdown.
 
-## 🧠 Object Detection (OD)
+## Prerequisites
+Before running the application, ensure you have the following installed:
+- Python 3.8 or higher
+- `pip` (Python package manager)
+- A compatible video file (e.g., `0424.mp4`) or a webcam
 
-### 1. **Sample Images – Class: `no_helmet`**
+## Installation
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd <repository-directory>
+   ```
 
-Representative samples of the `no_helmet` class, including bounding box annotations. These examples provide a qualitative view of data annotation and typical real-world scenarios.
+2. **Create a virtual environment** (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-<p align="center">
-  <img width="649" alt="No Helmet Sample 1" src="Images/crop_nohelmet.png" />
-</p>
+3. **Install dependencies**:
+   ```bash
+   pip install fastapi uvicorn opencv-python starlette
+   ```
 
----
+4. **Prepare the video source**:
+   - Place your video file (e.g., `0424.mp4`) in the project directory or update the `video_source` variable in `main.py` to point to your file or use `0` for webcam input.
 
-### 2. **Bounding Box Size Distribution**
+## Usage
+1. **Run the application**:
+   ```bash
+   python main.py
+   ```
+   The server will start on `http://localhost:8000`.
 
-This plot shows the distribution of bounding box sizes (width × height). It helps inform anchor box selection and model robustness to object scale variance.
+2. **Access the API**:
+   - **Video Stream**: Open `http://localhost:8000/video` in a browser to view the MJPEG video stream.
+   - **Latest Frame**: Access `http://localhost:8000/frame` to retrieve the latest frame as a JPEG image.
 
-<p align="center">
-  <img width="649" alt="Bounding Box Size Distribution" src="Images/eda_bbox.png" />
-</p>
+3. **Stop the server**:
+   Press `Ctrl+C` in the terminal to stop the server. The application will release the video capture resource automatically.
 
----
+## API Endpoints
+| Endpoint        | Method | Description                              | Response Type                     |
+|-----------------|--------|------------------------------------------|-----------------------------------|
+| `/video`        | GET    | Streams video as MJPEG                   | `multipart/x-mixed-replace`       |
+| `/frame`        | GET    | Returns the latest frame as a JPEG image | `image/jpeg` or JSON (on error)   |
 
-### 3. **Spatial Distribution of Object Center Points**
+### Example Responses
+- **`/video`**:
+  Streams video frames in MJPEG format, suitable for display in browsers or compatible clients.
+- **`/frame`**:
+  - Success: Returns a JPEG image.
+  - Error: `{"error": "No frame available"}` if no frame is captured.
 
-A heatmap visualizing where object centers most frequently appear in the image frame. This analysis is useful for detecting potential spatial bias or scene framing tendencies.
+## Project Structure
+```
+├── main.py           # Main FastAPI application
+├── 0424.mp4         # Example video file (replace with your own)
+├── README.md        # This file
+└── requirements.txt  # List of dependencies (optional)
+```
 
-<p align="center">
-  <img width="649" alt="Spatial Distribution of Centers" src="Images/hm2.png" />
-</p>
+## Configuration
+- **Video Source**: Modify the `video_source` variable in `main.py`:
+  - Use a file path (e.g., `'0424.mp4'`) for video files.
+  - Use `0` for the default webcam.
+- **Frame Rate**: Uncomment and adjust `time.sleep(0.03)` in the `capture_frames` function to control the frame capture rate.
+- **Port**: Change the port in `uvicorn.run(app, port=8000)` if needed.
 
----
+## Notes
+- The application loops the video automatically when it reaches the end.
+- Ensure sufficient memory and CPU resources for smooth streaming, especially with high-resolution videos.
+- For production, consider deploying with a WSGI server like Gunicorn instead of Uvicorn's development server.
 
-### 4. **Class Distribution**
+## Troubleshooting
+- **"No frame available" error**: Ensure the video source is valid and accessible.
+- **Stream not loading**: Check if the browser supports MJPEG or try accessing the `/frame` endpoint to verify frame capture.
+- **Dependency issues**: Verify all required packages are installed using `pip list`.
 
-This chart highlights the frequency of each class in the object detection dataset. Class imbalance is an important factor to consider when developing classification or detection models.
+## Contributing
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-x`).
+3. Commit your changes (`git commit -m "Add feature X"`).
+4. Push to the branch (`git push origin feature-x`).
+5. Create a Pull Request.
 
-<p align="center">
-  <img width="649" alt="Class Distribution" src="Images/class_statistics.png" />
-</p>
-
----
-
-## 🔤 Optical Character Recognition (OCR)
-
-### 1. **Example Plate Image**
-
-A sample license plate used in OCR tasks to illustrate typical input image characteristics.
-
-<p align="center">
-  <img width="649" alt="Example Plate" src="Images/example_plate.png" />
-</p>
-
----
-
-### 2. **Character Frequency in License Plate Labels**
-
-This bar chart shows the occurrence of individual characters (A–Z, 0–9) in the license plate dataset. A well-distributed frequency supports better model generalization across the character space.
-
-<p align="center">
-  <img width="649" alt="Character Frequency" src="Images/eda_data.png" />
-</p>
-
----
-
-### 3. **Resolution and Aspect Ratio Distribution**
-
-This visualization summarizes the distribution of image resolutions and aspect ratios across the OCR dataset. It provides insights for optimizing preprocessing pipelines and input configurations.
-
-<p align="center">
-  <img width="649" alt="Resolution and Aspect Ratio" src="Images/aspect.png" />
-</p>
-
----
-
-## 🧾 Conclusion
-
-The exploratory data analysis presented above highlights several key characteristics of the datasets:
-
-- The object detection dataset includes a diverse range of samples, with visible class imbalance and variation in object sizes and spatial distributions. These factors should be considered when selecting model architectures and training strategies.
-- The OCR dataset demonstrates a generally well-balanced character frequency, though resolution and aspect ratio diversity suggests the need for flexible preprocessing.
-- Overall, the datasets appear to be of good quality for training robust deep learning models, provided that augmentation, normalization, and class balancing techniques are appropriately applied.
-
-This analysis serves as a foundational step for designing effective pipelines in both object detection and OCR tasks.
+## License
+This project is licensed under the MIT License. See the `LICENSE` file for details.
