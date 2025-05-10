@@ -12,7 +12,7 @@ import {
   CameraAlt, LocationOn, ToggleOn, Info,
 } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
-import config from "../../config";
+import config from "../../config.tsx";
 import axiosInstance from "../../services/axiosInstance.tsx";
 import { alpha } from "@mui/material/styles";
 
@@ -20,11 +20,11 @@ const API_BASE_URL = `${config.API_URL}`;
 
 interface Device {
   url_input: string;
-  camera_id: string;
+  camera_id: number;
   device_name: string;
   location_id: number;
   location?: string;
-  status: "active" | "deactive";
+  status: "Active" | "Deactive";
   note: string;
   last_active: Date | null;
 }
@@ -33,7 +33,7 @@ interface DeviceFormData {
   url_input: string;
   device_name: string;
   location: string | number;
-  status: "active" | "deactive";
+  status: "Active" | "Deactive";
   note: string;
   camera_id?: string;
 }
@@ -51,7 +51,7 @@ const DeviceManagement: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "info" | "warning">("success");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactive">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactive" | "inactive">("all");
   const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
@@ -63,7 +63,7 @@ const DeviceManagement: React.FC = () => {
       url_input: "",
       device_name: "",
       location: "",
-      status: "active",
+      status: "Active",
       note: "",
     }
   });
@@ -88,12 +88,41 @@ const DeviceManagement: React.FC = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get(`${API_BASE_URL}cameras/get-all/`);
-      setDevices(res.data.data);
-      applyFilters(res.data.data, searchTerm, statusFilter);
-      setTotalCount(res.data.data.length);
+      
+      // Check if the response has the expected format
+      if (res.data && Array.isArray(res.data.data)) {
+        // Sort by camera_id (highest first)
+        const sortedDevices = [...res.data.data].sort((a, b) => {
+          // Sort devices by newest/highest camera_id first
+          return b.camera_id - a.camera_id;
+        });
+
+        // Group devices by status after sorting by camera_id
+        const activeDevices = sortedDevices.filter(device => 
+          device.status === "Active"
+        );
+        const inactiveDevices = sortedDevices.filter(device => 
+          device.status === "Deactive"
+        );
+        
+        // Combine the filtered arrays with active devices first
+        const groupedDevices = [...activeDevices, ...inactiveDevices];
+        
+        setDevices(groupedDevices);
+        applyFilters(groupedDevices, searchTerm, statusFilter);
+        setTotalCount(res.data.data.length);
+      } else {
+        setDevices([]);
+        setFilteredDevices([]);
+        setTotalCount(0);
+        console.error("Invalid response format:", res.data);
+      }
     } catch (err) {
       console.error("Failed to fetch devices", err);
       showSnackbar("Failed to fetch devices.", "error");
+      setDevices([]);
+      setFilteredDevices([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,10 +146,23 @@ const DeviceManagement: React.FC = () => {
     }
     
     if (status !== "all") {
-      filtered = filtered.filter(device => device.status === status);
+      filtered = filtered.filter(device => 
+        (status === "active" && device.status === "Active") || 
+        (status === "inactive" && device.status === "Deactive")
+      );
     }
     
-    setFilteredDevices(filtered);
+    // Group filtered devices by status (active first, then inactive)
+    // while maintaining the camera_id sort within each group
+    const activeFiltered = filtered.filter(device => 
+      device.status === "Active"
+    );
+    const inactiveFiltered = filtered.filter(device => 
+      device.status === "Deactive"
+    );
+    
+    // Set the filtered devices with active first, then inactive
+    setFilteredDevices([...activeFiltered, ...inactiveFiltered]);
   };
 
   useEffect(() => {
@@ -141,16 +183,16 @@ const DeviceManagement: React.FC = () => {
         url_input: device.url_input || "",
         device_name: device.device_name || "",
         location: device.location_id || "",
-        status: device.status || "active",
+        status: device.status || "Active",
         note: device.note || "",
-        camera_id: device.camera_id,
+        camera_id: device.camera_id.toString(),
       });
     } else {
       reset({
         url_input: "",
         device_name: "",
         location: "",
-        status: "active",
+        status: "Active",
         note: "",
       });
     }
@@ -166,17 +208,41 @@ const DeviceManagement: React.FC = () => {
   };
 
   const handleStatusChange = async (device: Device) => {
-    const updatedStatus = device.status === "active" ? "deactive" : "active";
+    // Convert between active/inactive statuses
+    // Keep the casing consistent with what's returned by the API
+    const isActive = device.status === "Active";
+    const updatedStatus = isActive ? "Deactive" : "Active";
+      
     try {
       await axiosInstance.put(`${API_BASE_URL}cameras/change-status/${device.camera_id}/`, {
         status: updatedStatus,
       });
       
-      setDevices(prev =>
-        prev.map(d => (d.camera_id === device.camera_id ? { ...d, status: updatedStatus } : d))
+      // Update the device in the devices array
+      const updatedDevices = devices.map(d => {
+        if (d.camera_id === device.camera_id) {
+          return { ...d, status: updatedStatus as "Active" | "Deactive" };
+        }
+        return d;
+      });
+      
+      // Group devices by status
+      const activeDevices = updatedDevices.filter(d => 
+        d.status === "Active"
+      );
+      const inactiveDevices = updatedDevices.filter(d => 
+        d.status === "Deactive"
       );
       
-      showSnackbar(`Device ${device.device_name} is now ${updatedStatus === "active" ? "active" : "inactive"}.`);
+      // Combine with active first, maintaining camera_id sort within each group
+      const sortedDevices = [...activeDevices, ...inactiveDevices];
+      
+      setDevices(sortedDevices);
+      
+      // Update filtered devices
+      applyFilters(sortedDevices, searchTerm, statusFilter);
+      
+      showSnackbar(`Device ${device.device_name} is now ${updatedStatus === "Active" ? "active" : "inactive"}.`);
     } catch (err) {
       console.error("Failed to update device status", err);
       showSnackbar("Failed to update device status.", "error");
@@ -227,28 +293,75 @@ const DeviceManagement: React.FC = () => {
           payload
         );
 
-        showSnackbar("Device updated successfully!");
+        showSnackbar("Camera updated successfully!");
       } else {
         // Adding new device
         const existingDevice = devices.find(
-          device => device.camera_id === data.camera_id || device.device_name === data.device_name
+          device => device.camera_id.toString() === data.camera_id || device.device_name === data.device_name
         );
 
         if (existingDevice) {
-          showSnackbar("Device with this ID or name already exists.", "error");
+          showSnackbar("Camera with this ID or name already exists.", "error");
           return;
         }
 
-        await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
+        const response = await axiosInstance.post(`${API_BASE_URL}cameras/create/`, {
           ...data,
           location_id: Number(data.location),
         });
 
-        showSnackbar("Device added successfully!");
+        // If we got a response with the new device, update the list directly
+        if (response.data && response.data.data) {
+          // Find the location name for the newly added device
+          const locationObj = locations.find(loc => loc.id === Number(data.location));
+          const locationName = locationObj ? locationObj.name : "";
+          
+          // Create a new device object
+          const newDevice: Device = {
+            ...response.data.data,
+            location: locationName,
+            status: response.data.data.status
+          };
+          
+          // Add the new device and re-sort the array
+          const updatedDevices = [newDevice, ...devices];
+          
+          // Group devices by status
+          const activeDevices = updatedDevices.filter(d => 
+            d.status === "Active"
+          );
+          const inactiveDevices = updatedDevices.filter(d => 
+            d.status === "Deactive"
+          );
+          
+          // Sort each group by camera_id (newest/highest first)
+          activeDevices.sort((a, b) => b.camera_id - a.camera_id);
+          inactiveDevices.sort((a, b) => b.camera_id - a.camera_id);
+          
+          // Combine the groups with active first
+          const sortedDevices = [...activeDevices, ...inactiveDevices];
+          
+          setDevices(sortedDevices);
+          
+          // Update filtered devices
+          applyFilters(sortedDevices, searchTerm, statusFilter);
+          
+          // Reset to first page to show the new device
+          setPage(1);
+        } else {
+          // If we don't get the device back, refresh the full list
+          await fetchDevices();
+        }
+
+        showSnackbar("Camera added successfully!");
       }
       
       handleCloseDialog();
-      refreshDevices();
+      
+      // Only do a full refresh if we're editing (the add case is handled above)
+      if (editingDevice) {
+        refreshDevices();
+      }
     } catch (err) {
       console.error("Error processing device:", err);
       showSnackbar("Error processing request. Please try again.", "error");
@@ -266,7 +379,7 @@ const DeviceManagement: React.FC = () => {
   );
 
   const renderDeviceStatus = (status: string) => {
-    return status === "active" ? (
+    return status === "Active" ? (
       <Chip
         label="Active"
         color="success"
@@ -310,10 +423,10 @@ const DeviceManagement: React.FC = () => {
       >
         <Box sx={{ mb: { xs: 2, sm: 0 } }}>
           <Typography variant="h5" fontWeight="700" gutterBottom color="primary.main" sx={{ display: 'flex', alignItems: 'center' }}>
-            <CameraAlt sx={{ mr: 1 }} /> Device Management
+            <CameraAlt sx={{ mr: 1 }} /> Camera Management
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Monitor and manage your connected devices
+            Monitor and manage your connected camera
           </Typography>
         </Box>
         
@@ -331,7 +444,7 @@ const DeviceManagement: React.FC = () => {
             px: 2
           }}
         >
-          Add New Device
+          Add New Camera
         </Button>
       </Box>
       
@@ -379,7 +492,7 @@ const DeviceManagement: React.FC = () => {
                 >
                   <MenuItem value="all">All Statuses</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="deactive">Inactive</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -422,7 +535,7 @@ const DeviceManagement: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             {searchTerm || statusFilter !== 'all' 
               ? 'Try changing your search or filter criteria'
-              : 'Start by adding a new device'}
+              : 'Start by adding a new camera'}
           </Typography>
         </Box>
       ) : (
@@ -443,8 +556,8 @@ const DeviceManagement: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, 0.05) }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Device ID</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Device Name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Camera ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Camera Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', display: { xs: 'none', md: 'table-cell' } }}>Location</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
@@ -495,16 +608,16 @@ const DeviceManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title={device.status === "active" ? "Deactivate" : "Activate"}>
+                        <Tooltip title={device.status === "Active" ? "Set as Inactive" : "Set as Active"}>
                           <IconButton 
                             size="small" 
-                            color={device.status === "active" ? "success" : "error"}
+                            color={device.status === "Active" ? "success" : "error"}
                             onClick={() => handleStatusChange(device)}
                             sx={{ 
                               border: 1, 
                               borderColor: 'divider',
                               '&:hover': {
-                                backgroundColor: device.status === "active" 
+                                backgroundColor: device.status === "Active" 
                                   ? alpha(theme.palette.error.main, 0.1)
                                   : alpha(theme.palette.success.main, 0.1)
                               }
@@ -513,7 +626,7 @@ const DeviceManagement: React.FC = () => {
                             <ToggleOn />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Edit Device">
+                        <Tooltip title="Edit Camera">
                           <IconButton 
                             size="small" 
                             color="primary"
@@ -596,7 +709,7 @@ const DeviceManagement: React.FC = () => {
           color: 'primary.main'
         }}>
           {editingDevice ? <Edit fontSize="small" /> : <Add fontSize="small" />}
-          {editingDevice ? "Edit Device" : "Add New Device"}
+          {editingDevice ? "Edit Camera" : "Add New Camera"}
         </DialogTitle>
         
         <Divider />
@@ -633,11 +746,11 @@ const DeviceManagement: React.FC = () => {
                 <Controller
                   name="device_name"
                   control={control}
-                  rules={{ required: "Device name is required" }}
+                  rules={{ required: "Camera name is required" }}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Device Name"
+                      label="Camera Name"
                       fullWidth
                       variant="outlined"
                       error={!!errors.device_name}
@@ -697,8 +810,8 @@ const DeviceManagement: React.FC = () => {
                         labelId="status-label"
                         label="Status"
                       >
-                        <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="deactive">Inactive</MenuItem>
+                        <MenuItem value="Active">Active</MenuItem>
+                        <MenuItem value="Deactive">Inactive</MenuItem>
                       </Select>
                     </FormControl>
                   )}

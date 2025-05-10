@@ -2,11 +2,11 @@
 const ENV = {
   development: {
     BASE_URL: "http://localhost:3000",
-    API_URL: "https://hanaxuan-backend.hf.space/api/", // local testing
+    API_URL: "http://171.226.158.102:27406/api/", // local testing
   },
   production: {
     BASE_URL: "https://yourfrontend.com",
-    API_URL: "https://hanaxuan-backend.hf.space/api/", // server
+    API_URL: "http://171.226.158.102:27406/api/", // server
   },
 };
 

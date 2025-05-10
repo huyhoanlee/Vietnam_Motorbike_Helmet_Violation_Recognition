@@ -68,7 +68,7 @@ const OCRLicenseForm = () => {
   const [citizenData, setCitizenData] = useState<any>(null);
   const [fetchingIdentity, setFetchingIdentity] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
-  const [registeredVehicles, setRegisteredVehicles] = useState<any[]>([]);
+  const [_registeredVehicles, setRegisteredVehicles] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCitizenData = async () => {
@@ -197,7 +197,7 @@ const OCRLicenseForm = () => {
       const response = await axios.post(`${API_BASE_URL}citizens/register-car-parrot/${citizenId}/`, payload);
 
       const getResponse = await axios.get(`${API_BASE_URL}citizens/get-applications/${citizenId}/`);
-      const applications = getResponse.data?.applications || [];
+      const _applications = getResponse.data?.applications || [];
       const carParrotId = response.data?.id || null;
 
       setUploadedVehicles((prev) => [

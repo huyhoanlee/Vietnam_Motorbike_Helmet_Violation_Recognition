@@ -4,14 +4,14 @@ import {
   DialogContent, DialogActions, Snackbar, Alert, Paper
 } from "@mui/material";
 import axiosInstance from "../../../services/axiosInstance.tsx";
-import config from "../../../config";
+import config from "../../../config.tsx";
 
 const API_BASE_URL = config.API_URL;
 
 
 const SupervisorProfile = () => {
   const [user, setUser] = useState({ username: "", role: "", email: "" });
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [openEmailDialog, setOpenEmailDialog] = useState(false);
   const [openPassDialog, setOpenPassDialog] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -136,8 +136,8 @@ const SupervisorProfile = () => {
         <TextField fullWidth label="Confirm new password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} margin="normal" />
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setOpenPassDialog(false)}>Huỷ</Button>
-        <Button variant="contained" onClick={handlePasswordUpdate}>Xác nhận</Button>
+        <Button onClick={() => setOpenPassDialog(false)}>Cancel</Button>
+        <Button variant="contained" onClick={handlePasswordUpdate}>Confirm</Button>
       </DialogActions>
     </Dialog>
 

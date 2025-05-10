@@ -180,7 +180,7 @@ const onSubmit = async (data: User) => {
                 <TableCell>Username</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
-                <TableCell>Actions</TableCell>   
+                <TableCell>Status</TableCell>   
               </TableRow>
             </TableHead>
             <TableBody>

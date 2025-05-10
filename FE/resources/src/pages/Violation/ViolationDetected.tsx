@@ -43,25 +43,12 @@ interface Status {
 interface StatusSelectProps {
   filterStatus: string;
   setFilterStatus: (value: string) => void;
+  statusList: Status[];
+  loading: boolean;
 }
 
-const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStatus }) => {
-  const [statuses, setStatuses] = useState<Status[]>([]);
-  const [loading, setLoading] = useState(true);
+const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStatus, statusList, loading }) => {
   const theme = useTheme();
-
-  useEffect(() => {
-    setLoading(true);
-    axiosInstance
-      .get(STATUS_API_URL)
-      .then((response) => {
-        setStatuses(response.data.data || []);
-      })
-      .catch((error) => {
-        console.error("Failed to fetch statuses:", error);
-      })
-      .finally(() => setLoading(false));
-  }, []);
 
   return (
     <FormControl fullWidth size="medium">
@@ -91,7 +78,7 @@ const StatusSelect: React.FC<StatusSelectProps> = ({ filterStatus, setFilterStat
         )}
       >
         <MenuItem value="All">All Status</MenuItem>
-        {statuses.map((status) => (
+        {statusList.map((status) => (
           <MenuItem key={status.id} value={status.status_name}>
             <Chip 
               size="small" 
@@ -232,6 +219,8 @@ const ViolationDetected: React.FC = () => {
     message: "",
     severity: "success" as "success" | "error",
   });
+  const [statusList, setStatusList] = useState<Status[]>([]);
+  const [statusLoading, setStatusLoading] = useState(true);
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -243,15 +232,58 @@ const ViolationDetected: React.FC = () => {
     return `data:image/${format};base64,${data}`;
   };
 
+  // Fetch all available violation statuses
+  useEffect(() => {
+    setStatusLoading(true);
+    console.log("Fetching all available violation statuses...");
+    axiosInstance
+      .get(STATUS_API_URL)
+      .then((response) => {
+        console.log("Available statuses:", response.data.data);
+        setStatusList(response.data.data || []);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch statuses:", error);
+      })
+      .finally(() => setStatusLoading(false));
+  }, []);
+
   const fetchViolationCount = useCallback(async () => {
     try {
-      const response = await axiosInstance.get(`${API_BASE_URL}violations/count-all/`);
+      // Build query parameters to make the count match the filters
+      let params = new URLSearchParams();
+      
+      if (searchPlateQuery) {
+        params.append('plate_number', searchPlateQuery);
+      }
+      
+      // Use same filtering logic as fetchData
+      if (filterStatus !== "All") {
+        // Find the matching status in our list
+        const matchingStatus = statusList.find(s => s.status_name === filterStatus);
+        
+        if (matchingStatus) {
+          // If we found a matching status, use its ID - this is the most reliable way
+          params.append('status_id', matchingStatus.id.toString());
+          console.log(`Count API: Using status_id=${matchingStatus.id} for "${matchingStatus.status_name}"`);
+        } else {
+          // Fallback: try using the status name directly
+          console.warn(`Count API: No matching status found for "${filterStatus}" in the status list!`);
+          params.append('status_name', filterStatus);
+        }
+      }
+
+      const countUrl = `${API_BASE_URL}violations/count-all/?${params.toString()}`;
+      console.log("Fetching count from:", countUrl);
+      
+      const response = await axiosInstance.get(countUrl);
+      console.log("Count API response:", response.data);
       setTotalViolations(response.data.total_count || 0);
     } catch (err) {
       console.error("Failed to fetch violation count:", err);
       setError("Failed to fetch violation count.");
     }
-  }, []);
+  }, [searchPlateQuery, filterStatus, statusList]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -265,13 +297,32 @@ const ViolationDetected: React.FC = () => {
         params.append('plate_number', searchPlateQuery);
       }
       
+      // Improved status filtering using server-provided status information
       if (filterStatus !== "All") {
-        params.append('status', filterStatus);
+        console.log("Filtering by status:", filterStatus);
+        console.log("Available status list:", statusList);
+        
+        // Find the matching status in our list
+        const matchingStatus = statusList.find(s => s.status_name === filterStatus);
+        
+        if (matchingStatus) {
+          // If we found a matching status, use its ID - this is the most reliable way
+          params.append('status_id', matchingStatus.id.toString());
+          console.log(`Found matching status: ID=${matchingStatus.id}, name="${matchingStatus.status_name}"`);
+        } else {
+          // Fallback: try using the status name directly
+          console.warn(`No matching status found for "${filterStatus}" in the status list!`);
+          params.append('status_name', filterStatus);
+        }
       }
       
       params.append('sort', sortOrder);
 
-      const response = await axiosInstance.get(`${API_BASE_URL}violations/get-all/?${params.toString()}`);
+      const apiUrl = `${API_BASE_URL}violations/get-all/?${params.toString()}`;
+      console.log("Making API request to:", apiUrl);
+      
+      const response = await axiosInstance.get(apiUrl);
+      console.log("API response:", response.data);
       
       if (response.data && response.data.data) {
         const mappedViolations = response.data.data.map((v: any) => ({
@@ -285,12 +336,63 @@ const ViolationDetected: React.FC = () => {
           violation_image: v.violation_image?.map((img: string) => normalizeBase64Image(img)) || [],
         }));
         
-        setViolations(mappedViolations);
+        console.log(`Received ${mappedViolations.length} violations`);
+        
+        // Check if we're getting the correct filtered results
+        if (filterStatus !== "All") {
+          console.log("Checking filtered results:");
+          
+          // Find the expected status ID 
+          const expectedStatusId = statusList.find(s => s.status_name === filterStatus)?.id;
+          
+          if (expectedStatusId) {
+            console.log(`Expected status: name="${filterStatus}", id=${expectedStatusId}`);
+            
+            // Get unique status names from response
+            const statusNames = [...new Set(mappedViolations.map((v: Violation) => v.status_name))];
+            console.log("Status names in response:", statusNames);
+            
+            // Check if any results match our filter exactly
+            const matchingResults = mappedViolations.filter((v: Violation) => v.status_name === filterStatus);
+            console.log(`Results matching "${filterStatus}" exactly: ${matchingResults.length}/${mappedViolations.length}`);
+            
+            // If we have mismatched results but have a match for our filter, use client-side filtering
+            if (matchingResults.length > 0 && matchingResults.length !== mappedViolations.length) {
+              console.log("Applying client-side filtering to show only matching results");
+              setViolations(matchingResults);
+            } else if (matchingResults.length === 0 && mappedViolations.length > 0) {
+              console.warn("No results match our filter! The backend might be ignoring our filter parameter.");
+              
+              // Check if there are any results with a name like our filter (case insensitive)
+              const fuzzyMatches = mappedViolations.filter((v: Violation) => 
+                v.status_name.toLowerCase().includes(filterStatus.toLowerCase())
+              );
+              
+              if (fuzzyMatches.length > 0) {
+                console.log(`Found ${fuzzyMatches.length} results with names similar to "${filterStatus}"`);
+                setViolations(fuzzyMatches);
+              } else {
+                // Keep original results as fallback
+                setViolations(mappedViolations);
+              }
+            } else {
+              // Normal case - all results match our filter or no results at all
+              setViolations(mappedViolations);
+            }
+          } else {
+            console.warn(`Status "${filterStatus}" not found in status list!`);
+            setViolations(mappedViolations);
+          }
+        } else {
+          // No filter, use all results
+          setViolations(mappedViolations);
+        }
       } else {
+        console.log("No data in response or empty data array");
         setViolations([]);
       }
       
-      // Fetch the total count
+      // Fetch the total count with the same filters
       fetchViolationCount();
     } catch (err) {
       console.error("Failed to fetch data:", err);
@@ -304,7 +406,7 @@ const ViolationDetected: React.FC = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [itemsPerPage, searchPlateQuery, filterStatus, sortOrder, fetchViolationCount]);
+  }, [itemsPerPage, searchPlateQuery, filterStatus, sortOrder, fetchViolationCount, statusList]);
 
   useEffect(() => {
     fetchViolationCount();
@@ -346,6 +448,9 @@ const ViolationDetected: React.FC = () => {
       message: `Violation #${id} status updated to ${newStatus}`,
       severity: "success",
     });
+    
+    // Refresh the data to ensure consistent filtering
+    fetchData(currentPage);
   };
 
   const handleChangePage = (_e: React.ChangeEvent<unknown>, newPage: number) => {
@@ -454,11 +559,16 @@ const ViolationDetected: React.FC = () => {
               </Grid>
               
               <Grid item xs={12} sm={6} md={4}>
-                <StatusSelect filterStatus={filterStatus} setFilterStatus={(status) => {
-                  setFilterStatus(status);
-                  setCurrentPage(1);
-                  setTimeout(() => fetchData(1), 0);
-                }} />
+                <StatusSelect 
+                  filterStatus={filterStatus} 
+                  setFilterStatus={(status) => {
+                    setFilterStatus(status);
+                    setCurrentPage(1);
+                    setTimeout(() => fetchData(1), 0);
+                  }}
+                  statusList={statusList}
+                  loading={statusLoading}
+                />
               </Grid>
               
               <Grid item xs={12} sm={6} md={3}>
@@ -520,6 +630,19 @@ const ViolationDetected: React.FC = () => {
                 Total Violations
               </Typography>
             </Badge>
+            {filterStatus !== "All" && (
+              <Chip 
+                label={`Filtered by: ${filterStatus}`}
+                onDelete={() => {
+                  setFilterStatus("All");
+                  setCurrentPage(1);
+                  setTimeout(() => fetchData(1), 0);
+                }}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            )}
           </Box>
           
           <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -599,7 +722,11 @@ const ViolationDetected: React.FC = () => {
               <Box sx={{ mb: 4 }}>
                 {violations.length === 0 ? (
                   <Card elevation={3} sx={{ borderRadius: 2, p: 3, textAlign: "center" }}>
-                    <Typography variant="subtitle1">No violations match your filter.</Typography>
+                    <Typography variant="subtitle1">
+                      {filterStatus !== "All" 
+                        ? `No violations with status "${filterStatus}" found.` 
+                        : "No violations match your filter."}
+                    </Typography>
                   </Card>
                 ) : (
                   violations.map((violation) => (
@@ -703,7 +830,11 @@ const ViolationDetected: React.FC = () => {
                     {violations.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                          <Typography variant="subtitle1">No violations match your filter.</Typography>
+                          <Typography variant="subtitle1">
+                            {filterStatus !== "All" 
+                              ? `No violations with status "${filterStatus}" found.` 
+                              : "No violations match your filter."}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -822,36 +953,38 @@ const ViolationDetected: React.FC = () => {
 
 // Helper functions for status colors
 const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "critical":
-    case "rejected":
-      return "#d32f2f";
-    case "ai_detected":
-    case "reported":
-    case "pending":
-      return "#ed6c02";
-    case "approved":
-    case "verified":
-      return "#2e7d32";
+  // Don't convert to lowercase to maintain exact case matching
+  switch (status) {
+    case "Rejected":
+      return "#d32f2f"; // red
+    case "AI detected":
+      return "#ed6c02"; // orange
+    case "AI reliable":
+      return "#f59e0b"; // amber
+    case "Reported":
+      return "#0288d1"; // blue
+    case "Verified":
+      return "#2e7d32"; // green
     default:
-      return "#757575";
+      return "#757575"; // gray
   }
 };
 
 const getStatusBackgroundColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "critical":
-    case "rejected":
-      return "rgba(211, 47, 47, 0.1)";
-    case "ai_detected":
-    case "reported":
-    case "pending":
-      return "rgba(237, 108, 2, 0.1)";
-    case "approved":
-    case "verified":
-      return "rgba(46, 125, 50, 0.1)";
+  // Don't convert to lowercase to maintain exact case matching
+  switch (status) {
+    case "Rejected":
+      return "rgba(211, 47, 47, 0.1)"; // red background
+    case "AI detected":
+      return "rgba(237, 108, 2, 0.1)"; // orange background
+    case "AI reliable":
+      return "rgba(245, 158, 11, 0.1)"; // amber background
+    case "Reported":
+      return "rgba(2, 136, 209, 0.1)"; // blue background
+    case "Verified":
+      return "rgba(46, 125, 50, 0.1)"; // green background
     default:
-      return "rgba(117, 117, 117, 0.1)";
+      return "rgba(117, 117, 117, 0.1)"; // gray background
   }
 };
 

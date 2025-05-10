@@ -94,7 +94,8 @@ interface LocationCount {
 }
 
 interface TimeCount {
-  date: string;
+  time: string;
+  date?: string;
   count: number;
 }
 
@@ -109,7 +110,8 @@ interface Location {
 interface Violation {
   violation_id: number;
   plate_number: string;
-  location_id: number;
+  location: string;
+  location_id?: number;
   location_name?: string;
   detected_at: string;
   status_name: string;
@@ -134,7 +136,7 @@ const Dashboard: React.FC = () => {
   const [citizenStatus, setCitizenStatus] = useState<CitizenStatus[]>([]);
   const [locationCounts, setLocationCounts] = useState<LocationCount[]>([]);
   const [timeCounts, setTimeCounts] = useState<TimeCount[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [_locations, setLocations] = useState<Location[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
   // UI states
@@ -237,7 +239,15 @@ const Dashboard: React.FC = () => {
       const response = await axiosInstance.get(
         `${API_BASE_URL}violations/count-by-time/?timeframe=${timeframe}`
       );
-      setTimeCounts(response.data || []);
+      
+      // Transform the API response to match the expected TimeCount format
+      const timeData = (response.data || []).map((item: any) => ({
+        date: new Date(item.time).toLocaleDateString(), // Convert time to date string
+        time: item.time,
+        count: item.count
+      }));
+      
+      setTimeCounts(timeData);
     } catch (err) {
       console.error("Failed to fetch time data:", err);
     }
@@ -272,14 +282,12 @@ const Dashboard: React.FC = () => {
       );
       const data: Violation[] = res.data?.data?.violations || [];
       
-      // Map location IDs to names
+      // Map location directly from the API response
       const mappedData = data.map((violation) => {
-        const location = locations.find(
-          (loc) => loc.id === violation.location_id
-        );
         return {
           ...violation,
-          location_name: location?.name || `Location ${violation.location_id}`,
+          // Use location directly from the response
+          location_name: violation.location || `Unknown Location`,
         };
       });
       
@@ -523,7 +531,7 @@ const Dashboard: React.FC = () => {
   };
 
   const timeChartData = useMemo(() => ({
-    labels: timeCounts.map(item => item.date),
+    labels: timeCounts.map(item => item.date || new Date(item.time).toLocaleDateString()),
     datasets: [
       {
         label: "Violations",
@@ -694,7 +702,7 @@ const Dashboard: React.FC = () => {
                             <CardContent>
                               <Typography variant="body2" color="text.secondary">
                                 <LocationOnIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                                {item.location_name || `Location ID: ${item.location_id}`}
+                                {item.location_name || item.location || `Unknown Location`}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
                                 <TimelineIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />

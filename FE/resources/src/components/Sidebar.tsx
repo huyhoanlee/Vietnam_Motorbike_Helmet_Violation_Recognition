@@ -5,7 +5,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
   Avatar,
   Box,
   Typography,
@@ -28,7 +27,7 @@ import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import CameraEnhanceIcon from '@mui/icons-material/CameraEnhance';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-
+import ViewStreamIcon from '@mui/icons-material/ViewStream';
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,11 +63,11 @@ const Sidebar: React.FC = () => {
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Supervisor Maintenance", icon: <ManageAccountsIcon />, path: "/modify" },
     { text: "Citizen Management", icon: <EmojiPeopleIcon />, path: "/citizen-management" },
-    { text: "Devices", icon: <VideoCameraFrontIcon />, path: "/devices" },
+    { text: "Camera", icon: <VideoCameraFrontIcon />, path: "/devices" },
   ];
 
   const dataMenuItems = [
-    { text: "Streaming View", icon: <AssessmentIcon />, path: "/data-detection" },
+    { text: "Streaming View", icon: <ViewStreamIcon />, path: "/data-detection" },
     { text: "Violation Detection", icon: <WarningIcon />, path: "/violation-detection" },
     { text: "Reports", icon: <DescriptionIcon />, path: "/reports" },
   ];
