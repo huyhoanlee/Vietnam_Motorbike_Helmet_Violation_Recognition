@@ -65,7 +65,7 @@ const ViolationDetail: React.FC<ViolationDetailProps> = ({ violation, onStatusUp
     severity: "success" as "success" | "error"
   });
   
-  const theme = useTheme();
+  const _theme = useTheme();
   const userRole = localStorage.getItem("user_role") || "user";
   const isSupervisor = userRole.toLowerCase() === "supervisor";
 

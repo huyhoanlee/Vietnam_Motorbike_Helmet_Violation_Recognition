@@ -11,7 +11,7 @@ const API_BASE_URL = config.API_URL;
 
 const SupervisorProfile = () => {
   const [user, setUser] = useState({ username: "", role: "", email: "" });
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [openEmailDialog, setOpenEmailDialog] = useState(false);
   const [openPassDialog, setOpenPassDialog] = useState(false);
   const [newEmail, setNewEmail] = useState("");
