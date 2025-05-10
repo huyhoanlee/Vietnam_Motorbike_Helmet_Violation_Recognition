@@ -14,14 +14,17 @@ class ModelConfig:
     source_video_path = "MVI_0334.MOV"
     
 class AppConfig:
+    HOST = "http://localhost:8888"
+    HOST_STREAM = "http://localhost:8888/stream/"
     # HOST = "hanaxuan-ai-service.hf.space"
     # HOST_STREAM = "https://hanaxuan-ai-service.hf.space/stream/"
-    HOST = "http://localhost:8000"
-    HOST_STREAM = "http://localhost:8000/stream/"
+    # HOST = "http://171.226.158.102:27291"
+    # HOST_STREAM = "http://171.226.158.102:27291/stream/"
     PORT = 7860
 
 class API:
     BACKEND = "https://hanaxuan-backend.hf.space"
+    # BACKEND = "http://localhost:8386"
     CREATE_VIOLATION = f"{BACKEND}/api/violations/create/"
     
 # src/config/__init__.py
