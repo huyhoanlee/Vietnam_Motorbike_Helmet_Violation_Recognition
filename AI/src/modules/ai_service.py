@@ -24,10 +24,10 @@ class AI_Service:
         self.config = config
         
         model = Model()
-        self.vehicle_detector = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
+        self.vehicle_detector = YOLO(config.DETECT_WEIGHT_PATH)
         self.object_tracker = ObjectTracker(model.object_tracker)
         self.plate_recognizer = PlateRecognizer(ocr_model=model.ocr_model)
-
+        self.imgz = (1248,1248)
         self.y_min = 750.0
 
         self.CLASS_DICT = {}

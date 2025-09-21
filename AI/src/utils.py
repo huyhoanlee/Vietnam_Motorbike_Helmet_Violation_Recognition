@@ -98,7 +98,7 @@ def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="") -
                 if obj["class"] == 2:
                     nohelmet_conf = obj.get("nohelmet_conf", -1)
                 
-            if plate_conf is None or plate_conf < THRESHOLD_PLATE:
+            if plate_conf is None or plate_conf < THRESHOLD_PLATE or max_nohelmet_conf < 0.5 or len(plate_number) < 7:
                 continue
             
             line1, line2, status = parse_and_validate_plate(plate_number)
@@ -110,13 +110,14 @@ def process_to_output_json(grouped_json, frame, post_frame, camera_id: str="") -
                 status = "AI detected"
                 plate_number = plate_number.replace("\n"," ")
                 logger.debug(f"Status: {status}, plate number: {plate_number}")
+            # Conf helmet, 
             output_json["detected_result"].append(DetectedResult(
             vehicle_id=f"{datetime.now().strftime('%Y-%m-%d')}_id_{vehicle_id}",
             image=encode_image_to_string(vehicle_img),
             violation=violation,
             plate_numbers=plate_number,
             time=datetime.now().isoformat(),
-            plate_conf=float(plate_conf) if plate_conf is not None else 0.0,
+            plate_conf=float(max_nohelmet_conf) if max_nohelmet_conf is not None else 0.0,
             camera_id=camera_id,
             status = status
         ))

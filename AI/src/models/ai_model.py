@@ -18,11 +18,12 @@ class Model:
             
         print(f"Using device: {self.device}")
         self.config = config
-        self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
+        # self.detect_model = YOLO(config.DETECT_WEIGHT_PATH, verbose=False)
         if config.PADDLE_DET_PATH == "pretrained" and config.PADDLE_REC_PATH == "pretrained":
             self.ocr_model = PaddleOCR(lang='en', show_log=False, use_angle_cls=True, use_gpu=use_gpu)
         else:
-            self.ocr_model = PaddleOCR(det_model_dir=config.PADDLE_DET_PATH, rec_model_dir=config.PADDLE_REC_PATH, rec_char_dict_path=config.REC_CHAR_DICT_PATH, show_log=False, use_angle_cls=True, use_gpu=True)
+            # self.ocr_model = PaddleOCR(det_model_dir=config.PADDLE_DET_PATH, rec_model_dir=config.PADDLE_REC_PATH, rec_char_dict_path=config.REC_CHAR_DICT_PATH, show_log=False, use_angle_cls=True, use_gpu=True)
+            self.ocr_model = PaddleOCR(det_model_dir=config.PADDLE_DET_PATH, rec_model_dir=config.PADDLE_REC_PATH, rec_char_dict_path=config.REC_CHAR_DICT_PATH, show_log=False, use_angle_cls=True,  use_gpu=use_gpu)
         self.object_tracker = DeepSort(
                             max_age=1,  
                             n_init=2,  
@@ -39,6 +40,6 @@ class Model:
     def warmup(self):
         logger.info("model initiation....")
         img = np.zeros((640, 480, 3), dtype=np.uint8)
-        self.detect_model(img, verbose=False, half=True)
+        # self.detect_model(img, verbose=False, half=True)
         self.ocr_model.ocr(img, cls=True)
         logger.info("model warmup successful")
