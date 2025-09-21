@@ -18,25 +18,15 @@ from concurrent.futures import ThreadPoolExecutor
 import queue
 from src.extractors.service import InfoExtractor
 from src.extractors.model import VehicleInfo, CitizenInfo, ImageBase64Request
-from fastapi.middleware.cors import CORSMiddleware
+
 
 extractor = InfoExtractor()
 app = FastAPI()
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Hoặc danh sách cụ thể như ["http://your_domain", "https://your_domain"]
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Global variables
 sleep = 1
 max_workers = 4
 input_frames_queue = {}
-stop_events = {}  # Add this line to keep track of stop events for each stream
 
 # Initialize AI service (uncomment if needed)
 # onnx, float16. triton 
@@ -59,16 +49,17 @@ def ai_pipeline(AI_service, frame_data: List[FrameData]) -> List[DeviceDetection
     threading.Thread(target=post_process, args=(processed_results,), daemon=True).start() # Run post_process in a separate thread
     return result_json.post_frame
 
-def process_one_url(url_input: str, stream_name, stop_event):
+def process_one_url(url_input: str, stream_name):
     """Continuously capture frames, process them, and broadcast results."""
     global urls_camera, sleep
     AI_service = AI_Service() 
-    while not stop_event.is_set():  # Check stop event
+    while True:
         if urls_camera:
             input_data = get_frame_from_url(url_input)
             # input_frames_queue[stream_name] = input_data["frame"] #raw frame in numpy
             try:
                 input_frames_queue[stream_name] = ai_pipeline(AI_service, input_data) #show post_frame
+                # pass
             except Exception as e:
                 logger.info("Error processing URL in AI Service: ", e)
         else:
@@ -78,15 +69,12 @@ def process_one_url(url_input: str, stream_name, stop_event):
 async def push_url(url: str):
     """Add a new video stream URL to the list."""
     global urls_camera
-    from threading import Event  # Import here to avoid issues if not used elsewhere
     if url not in urls_camera:
         stream_name = uuid.uuid5(uuid.NAMESPACE_URL, url).hex[:8]
         urls_camera[url] = stream_name #{hanaxuan: a343sd}
         rtsp_stream = f"{AppConfig.HOST_STREAM}{stream_name}"
         input_frames_queue[stream_name] = 1 #queue.Queue(maxsize=50)
-        stop_event = Event()
-        stop_events[stream_name] = stop_event
-        threading.Thread(target=process_one_url, args=(url, stream_name, stop_event), daemon=True).start()
+        threading.Thread(target=process_one_url, args=(url, stream_name), daemon=True).start()
         return {"message": "URL added", "urls": urls_camera, "url": rtsp_stream}
     rtsp_stream = f"{AppConfig.HOST_STREAM}{urls_camera[url]}"
     return {"message": "URL already exists", "urls": urls_camera, "url": rtsp_stream} #f'https://hanaxuan-ai-service.hf.space/stream/{urls_camera[url]}' 
@@ -103,9 +91,6 @@ async def delete_url(url: str):
         stream_name = urls_camera.pop(url)
         if stream_name in frames:
             del frames[stream_name]
-        if stream_name in stop_events:
-            stop_events[stream_name].set()  # Signal the thread to stop
-            del stop_events[stream_name]
         return {"message": "URL removed", "urls": urls_camera}
     return {"message": "URL not found", "urls": urls_camera}
 
