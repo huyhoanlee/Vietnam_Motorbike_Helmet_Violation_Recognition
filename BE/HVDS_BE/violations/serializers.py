@@ -1,6 +1,8 @@
 # violations/serializers.py
 from rest_framework import serializers
 from .models import Violation, ViolationStatus, Vehicle, ViolationImages, Citizen
+from locations.models import Location
+from car_parrots.models import CarParrots
 from cameras.models import Camera, CameraUrl
 from django.utils import timezone
 from django.db import transaction
@@ -40,6 +42,28 @@ class ViolationSearchSerializer(serializers.ModelSerializer):
     def get_violation_image(self, obj):
         images = [img.image for img in obj.images.all()]
         return images
+    
+class ViolationSearchReportSerializer(serializers.ModelSerializer):
+    violation_id = serializers.IntegerField(source='id')
+    plate_number = serializers.CharField(source='vehicle_id.plate_number')
+    status_name = serializers.CharField(source='violation_status_id.status_name')
+    location = serializers.SerializerMethodField()
+    detected_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Violation
+        fields = ['violation_id', 'plate_number', 'location', 'detected_at', 'status_name']
+
+    def get_location(self, obj):
+        if obj.camera_id and obj.camera_id.location_id:
+            location = obj.camera_id.location_id
+            return f"{location.road}, {location.dist}, {location.city}"
+        return obj.reported_location
+
+    def get_detected_at(self, obj):
+        if obj.detected_at:
+            return obj.detected_at.strftime('%Y-%m-%d %H:%M:%S')
+        return None
 
 class ViolationStatusChangeSerializer(serializers.ModelSerializer):
     status_id = serializers.IntegerField(write_only=True)  # Nhận status_id từ input
@@ -157,7 +181,11 @@ class ViolationItemSerializer(serializers.Serializer):
 
         with transaction.atomic():
             normalized_plate_number = ''.join(syn for syn in plate_number if syn.isalnum()).upper()
-            vehicle, _ = Vehicle.objects.get_or_create(normalized_plate_number=normalized_plate_number)
+            vehicle, _ = Vehicle.objects.get_or_create(normalized_plate_number=normalized_plate_number, plate_number=plate_number)
+            car_parrots = CarParrots.objects.filter(plate_number=normalized_plate_number)
+            if car_parrots:
+                vehicle.car_parrot_id = car_parrots[0]
+                vehicle.save()
 
             camera_url_obj = CameraUrl.objects.get(input_url=camera_url)
             camera = Camera.objects.filter(camera_url_id=camera_url_obj).first()
@@ -214,11 +242,18 @@ class ViolationStatusCountSerializer(serializers.Serializer):
     count = serializers.IntegerField()
     
 class ViolationLocationCountSerializer(serializers.Serializer):
-    location = serializers.CharField(source='camera_id__location_id')
+    location_id = serializers.CharField(source='camera_id__location_id')
+    location_name = serializers.SerializerMethodField()
     count = serializers.IntegerField()
     
+    def get_location_name(self, obj):
+        road = obj.get('camera_id__location_id__road', '')
+        dist = obj.get('camera_id__location_id__dist', '')
+        city = obj.get('camera_id__location_id__city', '')
+        return f"{road}, {dist}, {city}"
+    
 class ViolationTimeCountSerializer(serializers.Serializer):
-    time = serializers.CharField(source='detected_at')
+    time = serializers.CharField(source='date')
     count = serializers.IntegerField()
     
 class ViolationCountSerializer(serializers.Serializer):

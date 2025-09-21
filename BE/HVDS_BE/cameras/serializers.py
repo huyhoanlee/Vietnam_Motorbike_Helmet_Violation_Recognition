@@ -98,13 +98,17 @@ class CameraCreateSerializer(serializers.ModelSerializer):
         status = validated_data.pop('status')
         device_name = validated_data.pop('device_name')
         
-        if status == "Active":
-            push_url_response = requests.post(f"{URL}/push_url?url={input_url}")
-            if push_url_response.status_code == 200:
-                output = push_url_response.json()
-                output_url = output.get("url", "")
-            else:
-                raise serializers.ValidationError({"message": "Failed to get output_url from external API"})
+        push_url_response = requests.post(f"{URL}/push_url?url={input_url}")
+        if push_url_response.status_code != 200:
+            raise serializers.ValidationError({"message": "Failed to get output_url from external API"})
+
+        output = push_url_response.json()
+        output_url = output.get("url", "")
+            
+        if status != "Active":
+            push_url_response = requests.post(f"{URL}/delete_url?url={input_url}")
+            if push_url_response.status_code != 200:
+                raise serializers.ValidationError("Failed to deactive camera")
 
         camera_url = CameraUrl.objects.create(
             input_url=input_url,

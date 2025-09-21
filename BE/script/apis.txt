@@ -13,3 +13,10 @@ python manage.py generate_location_data
 python manage.py generate_violation_status_data
 python manage.py generate_camera_data
 python manage.py generate_account_data
+python manage.py filter_violation_data
+python manage.py generate_report_data
+python manage.py generate_citizen_data
+
+lsof -i :8386
+ps -ef | grep 
+kill -9 

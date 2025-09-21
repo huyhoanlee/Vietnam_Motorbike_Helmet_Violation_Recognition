@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
                 ('violation_status_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='violation_status.violationstatus')),
                 ('camera_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='cameras.camera')),
                 ('vehicle_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='vehicles.vehicle')),
-                ('reported_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='citizens.citizen')),
+                ('reported_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='citizens.citizen', null=True, blank=True)),
             ],
         ),
     ]

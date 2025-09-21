@@ -24,6 +24,7 @@ class Command(BaseCommand):
                 if Account.objects.filter(username=username).exists():
                     self.stdout.write(self.style.WARNING(f"Account {username} already exists. Skipping."))
                     continue
+                print(role_name, role)
 
                 if role_name == "Admin":
                     Account.objects.create_superuser(

@@ -14,5 +14,5 @@ class Violation(models.Model):
     violation_status_id = models.ForeignKey(ViolationStatus, on_delete=models.CASCADE)
     camera_id = models.ForeignKey(Camera, on_delete=models.CASCADE, null=True, blank=True)
     vehicle_id = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
-    reported_by = models.ForeignKey(Citizen, on_delete=models.CASCADE)
+    reported_by = models.ForeignKey(Citizen, on_delete=models.CASCADE, null=True, blank=True)
 

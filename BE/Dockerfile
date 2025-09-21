@@ -22,5 +22,6 @@ RUN python manage.py generate_violation_status_data
 RUN python manage.py generate_camera_data
 RUN python manage.py generate_account_data
 
+# RUN echo "from accounts.models import Account; Account.objects.create_superuser('admin', 'admin@gmail.com', '123')" | python manage.py shell
 CMD ["uvicorn", "HVDS_BE.asgi:application", "--host", "0.0.0.0", "--port", "7860"]
-# uvicorn HVDS_BE.asgi:application --host 0.0.0.0 --port 7860
+# uvicorn HVDS_BE.asgi:application --host 0.0.0.0 --port 8386

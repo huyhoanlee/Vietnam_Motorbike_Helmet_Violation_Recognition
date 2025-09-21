@@ -72,10 +72,14 @@ MIDDLEWARE = [
 #     "https://localhost:5173",
 #     "http://localhost:3000",
 # ]
+CORS_ALLOWED_ORIGINS = [
+    "https://171.226.158.102:27519",
+]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "https://localhost:5173",
     "http://localhost:3000",
+    "https://171.226.158.102:27519",
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 ROOT_URLCONF = "HVDS_BE.urls"
@@ -211,6 +215,7 @@ STRINGEE_KEY_SECRET = "RGc0WjFHZ3FCYW02VDZGSW5BMWV2SGN4WWF2SEdEUA=="
 STRINGEE_FROM_NUMBER = "842871029693"  # Stringee-provided number (e.g., "+842412345678")
 STRINGEE_URL = "https://api.stringee.com/v1/call2/callout"
 FILE_DATA_PATH = f'{BASE_DIR}/data.xlsx'
-LOGIN_URL = "http://localhost:7860/api/accounts/login/"
-CREATE_CAMERA_url = "http://localhost:7860/api/cameras/create/"
-AI_SERVICE_URL = 'https://huyhoanlee-ai-service.hf.space'
+LOGIN_URL = "http://localhost:8386/api/accounts/login/"
+CREATE_CAMERA_url = "http://localhost:8386/api/cameras/create/"
+# AI_SERVICE_URL = 'https://huyhoanlee-ai-service.hf.space'
+AI_SERVICE_URL = "http://localhost:8000"
