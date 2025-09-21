@@ -35,7 +35,7 @@ def call_api(to_number: str, exp, code_authen):
         "actions": [
             {
                 "action": "talk",
-                "text": f'Mã xác thực của bạn là {str(".".join(code_authen))}. Vui lòng nhập mã xác thực.',
+                "text": f'Mã xác thực của bạn là {str(".".join(code_authen))}. Xin nhắc lại, mã xác thực của bạn là {str(".".join(code_authen))}. Vui lòng nhập mã xác thực.',
                 "speed": -1
             }
         ]

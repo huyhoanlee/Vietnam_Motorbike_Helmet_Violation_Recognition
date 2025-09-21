@@ -27,6 +27,8 @@ class CitizenVerifyView(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.status = "Verified"
+        normalized_plate_number = ''.join(syn for syn in instance.plate_number if syn.isalnum()).upper()
+        instance.plate_number = normalized_plate_number
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -64,7 +66,8 @@ class CarParrotRegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         citizen = self.get_object()
-        if CarParrots.objects.filter(plate_number=request.data["plate_number"], status="Verified").exists():
+        normalized_plate_number = ''.join(syn for syn in request.data["plate_number"] if syn.isalnum()).upper()
+        if CarParrots.objects.filter(plate_number=normalized_plate_number, status="Verified").exists():
             all_car_parrots = CarParrots.objects.filter(citizen_id=citizen)
             response_serializer = CarParrotResponseSerializer(all_car_parrots, many=True)
             return Response({
@@ -78,10 +81,9 @@ class CarParrotRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
-        
-        vehicle, _ = Vehicle.objects.get_or_create(plate_number=instance.plate_number)
-        vehicle.car_parrot_id = instance
-        vehicle.save()
+        normalized_plate_number = ''.join(syn for syn in instance.plate_number if syn.isalnum()).upper()
+        instance.plate_number = normalized_plate_number
+        instance.save()
         
         all_car_parrots = CarParrots.objects.filter(citizen_id=citizen)
         response_serializer = CarParrotResponseSerializer(all_car_parrots, many=True)

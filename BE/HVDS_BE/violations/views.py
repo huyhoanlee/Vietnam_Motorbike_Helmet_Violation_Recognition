@@ -12,6 +12,7 @@ from .utils import post_process_change_status
 from .serializers import ViolationStatusCountSerializer
 from django.db.models import Count
 from .serializers import *
+from django.db.models.functions import TruncDate
 
 class ViolationCreateView(APIView):
     permission_classes = [AllowAny]
@@ -39,17 +40,29 @@ class ViolationListView(generics.ListAPIView):
     def get_queryset(self):
         per_page = max(1, int(self.request.query_params.get('per_page', 50)))
         page_number = max(1, int(self.request.query_params.get('page_number', 1)))
+        violation_status_id = self.request.query_params.get('status_id', None)
         offset = (page_number - 1) * per_page
 
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                SELECT * FROM {Violation._meta.db_table}
-                ORDER BY detected_at DESC
-                LIMIT %s OFFSET %s
-                """,
-                [per_page, offset]
-            )
+            if violation_status_id:
+                cursor.execute(
+                    f"""
+                    SELECT * FROM {Violation._meta.db_table}
+                    WHERE violation_status_id_id = {violation_status_id}
+                    ORDER BY detected_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    [per_page, offset]
+                )
+            else:
+                cursor.execute(
+                    f"""
+                    SELECT * FROM {Violation._meta.db_table}
+                    ORDER BY detected_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    [per_page, offset]
+                )
             if cursor.description:
                 columns = [col[0] for col in cursor.description]
                 results = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -79,8 +92,13 @@ class ViolationChangeStatusView(generics.UpdateAPIView):
         instance.violation_status_id = new_status
         instance.save()
         
-        # if new_status.status_name == "Verified":
-        #     post_process_change_status(instance)
+        if new_status.status_name == "Verified":
+            normalized_plate_number = instance.vehicle_id.normalized_plate_number
+            car_parrots = CarParrots.objects.filter(plate_number=normalized_plate_number, status='Verified')
+            if car_parrots:
+                instance.vehicle_id.car_parrot_id = car_parrots[0]
+                instance.save()
+            post_process_change_status(instance)
 
         response_serializer = ViolationResponseSerializer(instance)
         return Response({
@@ -106,7 +124,7 @@ class ViolationSearchByLocationView(generics.ListAPIView):
         }, status=status.HTTP_200_OK)
 
 class ViolationSearchByTimeView(generics.ListAPIView):
-    serializer_class = ViolationSearchSerializer
+    serializer_class = ViolationSearchReportSerializer
 
     def get_queryset(self):
         start_time = self.request.query_params.get('start_time')
@@ -178,14 +196,11 @@ class ViolationSearchByCitizenView(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        citizen_id = self.request.query_params.get('citizen_id')
-        print(citizen_id)
-        if citizen_id:
-            return Violation.objects.filter(
+        citizen_id = self.kwargs['id']
+        return Violation.objects.filter(
                 vehicle_id__car_parrot_id__citizen_id__id=citizen_id,
                 vehicle_id__car_parrot_id__status='Verified'
             )
-        return Violation.objects.none()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -203,18 +218,32 @@ class ViolationCountByStatusView(APIView):
     
 class ViolationCountByLocationView(APIView):
     def get(self, request):
-        counts = Violation.objects.values('camera_id__location_id').annotate(count=Count('id'))
+        counts = Violation.objects.values(
+            'camera_id__location_id',
+            'camera_id__location_id__road',
+            'camera_id__location_id__dist',
+            'camera_id__location_id__city').annotate(count=Count('id'))
         serializer = ViolationLocationCountSerializer(counts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class ViolationCountByTimeView(APIView):
     def get(self, request):
-        counts = Violation.objects.values('detected_at').annotate(count=Count('id'))
+        counts = (
+            Violation.objects
+            .annotate(date=TruncDate('detected_at'))
+            .values('date')
+            .annotate(count=Count('id'))
+            .order_by('date')
+        )
         serializer = ViolationTimeCountSerializer(counts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class ViolationCountAllView(APIView):
     def get(self, request):
-        total_count = Violation.objects.count()
+        violation_status_id = self.request.query_params.get('status_id', None)
+        if violation_status_id:
+            total_count = Violation.objects.filter(violation_status_id__id=violation_status_id).count()
+        else:
+            total_count = Violation.objects.count()
         serializer = ViolationCountSerializer({'total_count': total_count})
         return Response(serializer.data, status=status.HTTP_200_OK)

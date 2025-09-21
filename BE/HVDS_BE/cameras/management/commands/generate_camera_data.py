@@ -47,13 +47,15 @@ class Command(BaseCommand):
                 "status": str(row['status'])
             }
             try:
-                response = requests.post(settings.CREATE_CAMERA_url, json=camera_data, headers=headers)
-                if response.status_code == 201:
-                    self.stdout.write(self.style.SUCCESS(f"Created camera: {camera_data['device_name']}"))
-                else:
-                    self.stdout.write(self.style.ERROR(
-                        f"Failed to create camera {camera_data['device_name']}: {response.status_code} - {response.text}"
-                    ))
+                if camera_data['status'] == 'Active':
+                    CREATE_CAMERA_url = "http://localhost:8386/api/cameras/create/"
+                    response = requests.post(CREATE_CAMERA_url, json=camera_data, headers=headers)
+                    if response.status_code == 201:
+                        self.stdout.write(self.style.SUCCESS(f"Created camera: {camera_data['device_name']}"))
+                    else:
+                        self.stdout.write(self.style.ERROR(
+                            f"Failed to create camera {camera_data['device_name']}: {response.status_code} - {response.text}"
+                        ))
             except requests.RequestException as e:
                 self.stdout.write(self.style.ERROR(f"Error sending request for {camera_data['device_name']}: {str(e)}"))
         
